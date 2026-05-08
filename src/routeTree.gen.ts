@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppIntegrationRouteImport } from './routes/_app/integration'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppClientsRouteImport } from './routes/_app/clients'
 import { Route as AppBrokersRouteImport } from './routes/_app/brokers'
@@ -31,6 +32,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppIntegrationRoute = AppIntegrationRouteImport.update({
+  id: '/integration',
+  path: '/integration',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
+  '/integration': typeof AppIntegrationRoute
   '/properties/$id': typeof AppPropertiesIdRoute
   '/properties/': typeof AppPropertiesIndexRoute
 }
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
+  '/integration': typeof AppIntegrationRoute
   '/properties/$id': typeof AppPropertiesIdRoute
   '/properties': typeof AppPropertiesIndexRoute
 }
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/_app/brokers': typeof AppBrokersRoute
   '/_app/clients': typeof AppClientsRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/integration': typeof AppIntegrationRoute
   '/_app/properties/$id': typeof AppPropertiesIdRoute
   '/_app/properties/': typeof AppPropertiesIndexRoute
 }
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
     | '/brokers'
     | '/clients'
     | '/dashboard'
+    | '/integration'
     | '/properties/$id'
     | '/properties/'
   fileRoutesByTo: FileRoutesByTo
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
     | '/brokers'
     | '/clients'
     | '/dashboard'
+    | '/integration'
     | '/properties/$id'
     | '/properties'
   id:
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
     | '/_app/brokers'
     | '/_app/clients'
     | '/_app/dashboard'
+    | '/_app/integration'
     | '/_app/properties/$id'
     | '/_app/properties/'
   fileRoutesById: FileRoutesById
@@ -146,6 +158,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/integration': {
+      id: '/_app/integration'
+      path: '/integration'
+      fullPath: '/integration'
+      preLoaderRoute: typeof AppIntegrationRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/dashboard': {
       id: '/_app/dashboard'
@@ -189,6 +208,7 @@ interface AppRouteChildren {
   AppBrokersRoute: typeof AppBrokersRoute
   AppClientsRoute: typeof AppClientsRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppIntegrationRoute: typeof AppIntegrationRoute
   AppPropertiesIdRoute: typeof AppPropertiesIdRoute
   AppPropertiesIndexRoute: typeof AppPropertiesIndexRoute
 }
@@ -197,6 +217,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppBrokersRoute: AppBrokersRoute,
   AppClientsRoute: AppClientsRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppIntegrationRoute: AppIntegrationRoute,
   AppPropertiesIdRoute: AppPropertiesIdRoute,
   AppPropertiesIndexRoute: AppPropertiesIndexRoute,
 }
