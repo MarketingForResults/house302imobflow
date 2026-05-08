@@ -13,6 +13,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppPropertiesIndexRouteImport } from './routes/_app/properties/index'
+import { Route as AppPropertiesIdRouteImport } from './routes/_app/properties/$id'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -33,16 +35,30 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPropertiesIndexRoute = AppPropertiesIndexRouteImport.update({
+  id: '/properties/',
+  path: '/properties/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPropertiesIdRoute = AppPropertiesIdRouteImport.update({
+  id: '/properties/$id',
+  path: '/properties/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AppDashboardRoute
+  '/properties/$id': typeof AppPropertiesIdRoute
+  '/properties/': typeof AppPropertiesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AppDashboardRoute
+  '/properties/$id': typeof AppPropertiesIdRoute
+  '/properties': typeof AppPropertiesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -50,13 +66,22 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/properties/$id': typeof AppPropertiesIdRoute
+  '/_app/properties/': typeof AppPropertiesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/dashboard'
+  fullPaths: '/' | '/login' | '/dashboard' | '/properties/$id' | '/properties/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/dashboard'
-  id: '__root__' | '/' | '/_app' | '/login' | '/_app/dashboard'
+  to: '/' | '/login' | '/dashboard' | '/properties/$id' | '/properties'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/login'
+    | '/_app/dashboard'
+    | '/_app/properties/$id'
+    | '/_app/properties/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -95,15 +120,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDashboardRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/properties/': {
+      id: '/_app/properties/'
+      path: '/properties'
+      fullPath: '/properties/'
+      preLoaderRoute: typeof AppPropertiesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/properties/$id': {
+      id: '/_app/properties/$id'
+      path: '/properties/$id'
+      fullPath: '/properties/$id'
+      preLoaderRoute: typeof AppPropertiesIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
+  AppPropertiesIdRoute: typeof AppPropertiesIdRoute
+  AppPropertiesIndexRoute: typeof AppPropertiesIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
+  AppPropertiesIdRoute: AppPropertiesIdRoute,
+  AppPropertiesIndexRoute: AppPropertiesIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
