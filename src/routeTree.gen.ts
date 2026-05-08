@@ -13,6 +13,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppClientsRouteImport } from './routes/_app/clients'
+import { Route as AppBrokersRouteImport } from './routes/_app/brokers'
 import { Route as AppPropertiesIndexRouteImport } from './routes/_app/properties/index'
 import { Route as AppPropertiesIdRouteImport } from './routes/_app/properties/$id'
 
@@ -35,6 +37,16 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AppRoute,
 } as any)
+const AppClientsRoute = AppClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBrokersRoute = AppBrokersRouteImport.update({
+  id: '/brokers',
+  path: '/brokers',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPropertiesIndexRoute = AppPropertiesIndexRouteImport.update({
   id: '/properties/',
   path: '/properties/',
@@ -49,6 +61,8 @@ const AppPropertiesIdRoute = AppPropertiesIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/brokers': typeof AppBrokersRoute
+  '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
   '/properties/$id': typeof AppPropertiesIdRoute
   '/properties/': typeof AppPropertiesIndexRoute
@@ -56,6 +70,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/brokers': typeof AppBrokersRoute
+  '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
   '/properties/$id': typeof AppPropertiesIdRoute
   '/properties': typeof AppPropertiesIndexRoute
@@ -65,20 +81,38 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/_app/brokers': typeof AppBrokersRoute
+  '/_app/clients': typeof AppClientsRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/properties/$id': typeof AppPropertiesIdRoute
   '/_app/properties/': typeof AppPropertiesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/dashboard' | '/properties/$id' | '/properties/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/brokers'
+    | '/clients'
+    | '/dashboard'
+    | '/properties/$id'
+    | '/properties/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/dashboard' | '/properties/$id' | '/properties'
+  to:
+    | '/'
+    | '/login'
+    | '/brokers'
+    | '/clients'
+    | '/dashboard'
+    | '/properties/$id'
+    | '/properties'
   id:
     | '__root__'
     | '/'
     | '/_app'
     | '/login'
+    | '/_app/brokers'
+    | '/_app/clients'
     | '/_app/dashboard'
     | '/_app/properties/$id'
     | '/_app/properties/'
@@ -120,6 +154,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDashboardRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/clients': {
+      id: '/_app/clients'
+      path: '/clients'
+      fullPath: '/clients'
+      preLoaderRoute: typeof AppClientsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/brokers': {
+      id: '/_app/brokers'
+      path: '/brokers'
+      fullPath: '/brokers'
+      preLoaderRoute: typeof AppBrokersRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/properties/': {
       id: '/_app/properties/'
       path: '/properties'
@@ -138,12 +186,16 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppBrokersRoute: typeof AppBrokersRoute
+  AppClientsRoute: typeof AppClientsRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppPropertiesIdRoute: typeof AppPropertiesIdRoute
   AppPropertiesIndexRoute: typeof AppPropertiesIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppBrokersRoute: AppBrokersRoute,
+  AppClientsRoute: AppClientsRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppPropertiesIdRoute: AppPropertiesIdRoute,
   AppPropertiesIndexRoute: AppPropertiesIndexRoute,
