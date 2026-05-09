@@ -16,8 +16,12 @@ import { Route as AppIntegrationRouteImport } from './routes/_app/integration'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppClientsRouteImport } from './routes/_app/clients'
 import { Route as AppBrokersRouteImport } from './routes/_app/brokers'
+import { Route as AppRentalsIndexRouteImport } from './routes/_app/rentals/index'
 import { Route as AppPropertiesIndexRouteImport } from './routes/_app/properties/index'
+import { Route as AppDocumentsIndexRouteImport } from './routes/_app/documents/index'
 import { Route as AppPropertiesIdRouteImport } from './routes/_app/properties/$id'
+import { Route as AppDocumentsTemplatesRouteImport } from './routes/_app/documents/templates'
+import { Route as AppDocumentsNewRouteImport } from './routes/_app/documents/new'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -53,14 +57,34 @@ const AppBrokersRoute = AppBrokersRouteImport.update({
   path: '/brokers',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRentalsIndexRoute = AppRentalsIndexRouteImport.update({
+  id: '/rentals/',
+  path: '/rentals/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPropertiesIndexRoute = AppPropertiesIndexRouteImport.update({
   id: '/properties/',
   path: '/properties/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDocumentsIndexRoute = AppDocumentsIndexRouteImport.update({
+  id: '/documents/',
+  path: '/documents/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPropertiesIdRoute = AppPropertiesIdRouteImport.update({
   id: '/properties/$id',
   path: '/properties/$id',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDocumentsTemplatesRoute = AppDocumentsTemplatesRouteImport.update({
+  id: '/documents/templates',
+  path: '/documents/templates',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDocumentsNewRoute = AppDocumentsNewRouteImport.update({
+  id: '/documents/new',
+  path: '/documents/new',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -71,8 +95,12 @@ export interface FileRoutesByFullPath {
   '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
   '/integration': typeof AppIntegrationRoute
+  '/documents/new': typeof AppDocumentsNewRoute
+  '/documents/templates': typeof AppDocumentsTemplatesRoute
   '/properties/$id': typeof AppPropertiesIdRoute
+  '/documents/': typeof AppDocumentsIndexRoute
   '/properties/': typeof AppPropertiesIndexRoute
+  '/rentals/': typeof AppRentalsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -81,8 +109,12 @@ export interface FileRoutesByTo {
   '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
   '/integration': typeof AppIntegrationRoute
+  '/documents/new': typeof AppDocumentsNewRoute
+  '/documents/templates': typeof AppDocumentsTemplatesRoute
   '/properties/$id': typeof AppPropertiesIdRoute
+  '/documents': typeof AppDocumentsIndexRoute
   '/properties': typeof AppPropertiesIndexRoute
+  '/rentals': typeof AppRentalsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -93,8 +125,12 @@ export interface FileRoutesById {
   '/_app/clients': typeof AppClientsRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/integration': typeof AppIntegrationRoute
+  '/_app/documents/new': typeof AppDocumentsNewRoute
+  '/_app/documents/templates': typeof AppDocumentsTemplatesRoute
   '/_app/properties/$id': typeof AppPropertiesIdRoute
+  '/_app/documents/': typeof AppDocumentsIndexRoute
   '/_app/properties/': typeof AppPropertiesIndexRoute
+  '/_app/rentals/': typeof AppRentalsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -105,8 +141,12 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/integration'
+    | '/documents/new'
+    | '/documents/templates'
     | '/properties/$id'
+    | '/documents/'
     | '/properties/'
+    | '/rentals/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -115,8 +155,12 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/integration'
+    | '/documents/new'
+    | '/documents/templates'
     | '/properties/$id'
+    | '/documents'
     | '/properties'
+    | '/rentals'
   id:
     | '__root__'
     | '/'
@@ -126,8 +170,12 @@ export interface FileRouteTypes {
     | '/_app/clients'
     | '/_app/dashboard'
     | '/_app/integration'
+    | '/_app/documents/new'
+    | '/_app/documents/templates'
     | '/_app/properties/$id'
+    | '/_app/documents/'
     | '/_app/properties/'
+    | '/_app/rentals/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -187,6 +235,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBrokersRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/rentals/': {
+      id: '/_app/rentals/'
+      path: '/rentals'
+      fullPath: '/rentals/'
+      preLoaderRoute: typeof AppRentalsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/properties/': {
       id: '/_app/properties/'
       path: '/properties'
@@ -194,11 +249,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPropertiesIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/documents/': {
+      id: '/_app/documents/'
+      path: '/documents'
+      fullPath: '/documents/'
+      preLoaderRoute: typeof AppDocumentsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/properties/$id': {
       id: '/_app/properties/$id'
       path: '/properties/$id'
       fullPath: '/properties/$id'
       preLoaderRoute: typeof AppPropertiesIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/documents/templates': {
+      id: '/_app/documents/templates'
+      path: '/documents/templates'
+      fullPath: '/documents/templates'
+      preLoaderRoute: typeof AppDocumentsTemplatesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/documents/new': {
+      id: '/_app/documents/new'
+      path: '/documents/new'
+      fullPath: '/documents/new'
+      preLoaderRoute: typeof AppDocumentsNewRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -209,8 +285,12 @@ interface AppRouteChildren {
   AppClientsRoute: typeof AppClientsRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppIntegrationRoute: typeof AppIntegrationRoute
+  AppDocumentsNewRoute: typeof AppDocumentsNewRoute
+  AppDocumentsTemplatesRoute: typeof AppDocumentsTemplatesRoute
   AppPropertiesIdRoute: typeof AppPropertiesIdRoute
+  AppDocumentsIndexRoute: typeof AppDocumentsIndexRoute
   AppPropertiesIndexRoute: typeof AppPropertiesIndexRoute
+  AppRentalsIndexRoute: typeof AppRentalsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -218,8 +298,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppClientsRoute: AppClientsRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppIntegrationRoute: AppIntegrationRoute,
+  AppDocumentsNewRoute: AppDocumentsNewRoute,
+  AppDocumentsTemplatesRoute: AppDocumentsTemplatesRoute,
   AppPropertiesIdRoute: AppPropertiesIdRoute,
+  AppDocumentsIndexRoute: AppDocumentsIndexRoute,
   AppPropertiesIndexRoute: AppPropertiesIndexRoute,
+  AppRentalsIndexRoute: AppRentalsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

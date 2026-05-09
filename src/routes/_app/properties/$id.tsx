@@ -73,14 +73,65 @@ function PropertyEdit() {
     }
   }
 
-  async function uploadImage(file: File) {
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+
+  async function compressImage(file: File): Promise<Blob> {
+    if (!file.type.startsWith("image/") || file.type === "image/svg+xml") return file;
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX = 1920;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          const ratio = Math.min(MAX / width, MAX / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((b) => resolve(b ?? file), "image/jpeg", 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+
+  async function uploadImages(files: FileList | File[]) {
     if (isNew) return toast.error("Salve o imóvel antes de enviar fotos");
-    const path = `${id}/${Date.now()}-${file.name}`;
-    const { error: upErr } = await supabase.storage.from("property-images").upload(path, file);
-    if (upErr) return toast.error(upErr.message);
-    const { data: { publicUrl } } = supabase.storage.from("property-images").getPublicUrl(path);
-    const isFirst = (existing?.property_images?.length ?? 0) === 0;
-    await supabase.from("property_images").insert({ property_id: id, image_url: publicUrl, is_cover: isFirst });
+    const list = Array.from(files);
+    const currentCount = existing?.property_images?.length ?? 0;
+    const remaining = 30 - currentCount;
+    if (remaining <= 0) return toast.error("Limite de 30 imagens atingido");
+    const toUpload = list.slice(0, remaining);
+    if (list.length > remaining) toast.warning(`Apenas ${remaining} imagem(ns) serão enviadas (limite 30)`);
+
+    setUploadProgress({ current: 0, total: toUpload.length });
+    let success = 0;
+    for (let i = 0; i < toUpload.length; i++) {
+      const file = toUpload[i];
+      try {
+        const blob = await compressImage(file);
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const path = `${id}/${Date.now()}-${i}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("property-images").upload(path, blob, { contentType: blob.type || file.type });
+        if (upErr) { toast.error(`${file.name}: ${upErr.message}`); continue; }
+        const { data: { publicUrl } } = supabase.storage.from("property-images").getPublicUrl(path);
+        const isFirst = currentCount === 0 && success === 0;
+        await supabase.from("property_images").insert({
+          property_id: id, image_url: publicUrl, is_cover: isFirst, sort_order: currentCount + success,
+        });
+        success++;
+      } catch (e: any) {
+        toast.error(`${file.name}: ${e.message}`);
+      }
+      setUploadProgress({ current: i + 1, total: toUpload.length });
+    }
+    setUploadProgress(null);
+    if (success > 0) toast.success(`${success} imagem(ns) enviada(s)`);
     refetch();
   }
 
@@ -181,7 +232,12 @@ function PropertyEdit() {
         </Section>
 
         {!isNew && (
-          <Section title="Galeria de imagens" className="lg:col-span-3">
+          <Section title={`Galeria de imagens (${existing?.property_images?.length ?? 0}/30)`} className="lg:col-span-3">
+            {uploadProgress && (
+              <div className="mb-3 rounded-md border bg-muted/40 px-3 py-2 text-xs">
+                Enviando {uploadProgress.current} de {uploadProgress.total}…
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
               {existing?.property_images?.map((img: any) => (
                 <div key={img.id} className="group relative aspect-square overflow-hidden rounded-md border">
@@ -189,17 +245,30 @@ function PropertyEdit() {
                   {img.is_cover && <div className="absolute left-1 top-1 rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground">CAPA</div>}
                   <div className="absolute inset-0 hidden items-center justify-center gap-1 bg-black/60 group-hover:flex">
                     {!img.is_cover && (
-                      <button onClick={() => setCover(img.id)} className="rounded bg-white/10 p-1.5 text-white hover:bg-white/20"><Star className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => setCover(img.id)} className="rounded bg-white/10 p-1.5 text-white hover:bg-white/20" title="Tornar capa"><Star className="h-3.5 w-3.5" /></button>
                     )}
-                    <button onClick={() => deleteImage(img.id)} className="rounded bg-white/10 p-1.5 text-white hover:bg-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => deleteImage(img.id)} className="rounded bg-white/10 p-1.5 text-white hover:bg-destructive" title="Excluir"><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
                 </div>
               ))}
-              <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed text-xs text-muted-foreground hover:bg-muted">
-                <Upload className="h-5 w-5" />
-                Enviar foto
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0])} />
-              </label>
+              {(existing?.property_images?.length ?? 0) < 30 && (
+                <label
+                  className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed text-xs text-muted-foreground hover:bg-muted"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files?.length) uploadImages(e.dataTransfer.files); }}
+                >
+                  <Upload className="h-5 w-5" />
+                  Enviar fotos
+                  <span className="text-[10px]">arraste ou clique</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => { if (e.target.files?.length) uploadImages(e.target.files); e.target.value = ""; }}
+                  />
+                </label>
+              )}
             </div>
           </Section>
         )}
