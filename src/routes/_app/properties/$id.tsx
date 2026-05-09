@@ -232,7 +232,12 @@ function PropertyEdit() {
         </Section>
 
         {!isNew && (
-          <Section title="Galeria de imagens" className="lg:col-span-3">
+          <Section title={`Galeria de imagens (${existing?.property_images?.length ?? 0}/30)`} className="lg:col-span-3">
+            {uploadProgress && (
+              <div className="mb-3 rounded-md border bg-muted/40 px-3 py-2 text-xs">
+                Enviando {uploadProgress.current} de {uploadProgress.total}…
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
               {existing?.property_images?.map((img: any) => (
                 <div key={img.id} className="group relative aspect-square overflow-hidden rounded-md border">
@@ -240,17 +245,30 @@ function PropertyEdit() {
                   {img.is_cover && <div className="absolute left-1 top-1 rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground">CAPA</div>}
                   <div className="absolute inset-0 hidden items-center justify-center gap-1 bg-black/60 group-hover:flex">
                     {!img.is_cover && (
-                      <button onClick={() => setCover(img.id)} className="rounded bg-white/10 p-1.5 text-white hover:bg-white/20"><Star className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => setCover(img.id)} className="rounded bg-white/10 p-1.5 text-white hover:bg-white/20" title="Tornar capa"><Star className="h-3.5 w-3.5" /></button>
                     )}
-                    <button onClick={() => deleteImage(img.id)} className="rounded bg-white/10 p-1.5 text-white hover:bg-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => deleteImage(img.id)} className="rounded bg-white/10 p-1.5 text-white hover:bg-destructive" title="Excluir"><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
                 </div>
               ))}
-              <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed text-xs text-muted-foreground hover:bg-muted">
-                <Upload className="h-5 w-5" />
-                Enviar foto
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0])} />
-              </label>
+              {(existing?.property_images?.length ?? 0) < 30 && (
+                <label
+                  className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed text-xs text-muted-foreground hover:bg-muted"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files?.length) uploadImages(e.dataTransfer.files); }}
+                >
+                  <Upload className="h-5 w-5" />
+                  Enviar fotos
+                  <span className="text-[10px]">arraste ou clique</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => { if (e.target.files?.length) uploadImages(e.target.files); e.target.value = ""; }}
+                  />
+                </label>
+              )}
             </div>
           </Section>
         )}
