@@ -1,8 +1,9 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
-import { Building2, LayoutDashboard, Home, Users, UserCog, Plug, LogOut } from "lucide-react";
+import { LayoutDashboard, Home, Users, UserCog, Plug, LogOut, FileText, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
+import logo from "@/assets/logo-house302.png";
 
 export const Route = createFileRoute("/_app")({ component: AppLayout });
 
@@ -11,6 +12,8 @@ const nav = [
   { to: "/properties", label: "Imóveis", icon: Home },
   { to: "/clients", label: "Clientes", icon: Users },
   { to: "/brokers", label: "Corretores", icon: UserCog },
+  { to: "/documents", label: "Documentos", icon: FileText },
+  { to: "/rentals", label: "Aluguéis", icon: KeyRound },
   { to: "/integration", label: "Integração WP", icon: Plug },
 ] as const;
 
@@ -30,11 +33,8 @@ function AppLayout() {
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="flex w-60 flex-col border-r bg-sidebar">
-        <div className="flex h-14 items-center gap-2 border-b px-4">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Building2 className="h-3.5 w-3.5" />
-          </div>
-          <span className="text-sm font-semibold">ImobiFlow</span>
+        <div className="flex h-16 items-center border-b px-4">
+          <img src={logo} alt="House302" className="h-7 w-auto" />
         </div>
         <nav className="flex-1 space-y-0.5 p-3">
           {nav.map((item) => {
