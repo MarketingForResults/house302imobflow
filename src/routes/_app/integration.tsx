@@ -193,7 +193,7 @@ function IntegrationPage() {
                   <td className="px-4 py-2 font-mono text-xs">{p.code}</td>
                   <td className="px-4 py-2">{p.title || "—"}</td>
                   <td className="px-4 py-2">{p.wp_post_id ? <Badge variant="outline">#{p.wp_post_id}</Badge> : <Badge variant="outline">não publicado</Badge>}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{p.wp_synced_at ? new Date(p.wp_synced_at).toLocaleString("pt-BR") : "—"}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{p.wp_synced_at ? formatDateTimeBR(p.wp_synced_at) : "—"}</td>
                   <td className="px-4 py-2 text-right"><Button size="sm" variant="outline" onClick={() => syncOne(p.id)}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Sincronizar</Button></td>
                 </tr>
               ))}
