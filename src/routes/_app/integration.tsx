@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plug, RefreshCw, Download, Check, X } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateTimeBR } from "@/lib/format-date";
 
 export const Route = createFileRoute("/_app/integration")({ component: IntegrationPage });
 
