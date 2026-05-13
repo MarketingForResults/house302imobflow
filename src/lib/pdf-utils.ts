@@ -44,7 +44,8 @@ export async function generateDocumentPdf(opts: DocPdfOptions): Promise<jsPDF> {
 
   // ===== HEADER =====
   const logo = await loadLogo();
-  doc.addImage(logo, "PNG", margin, 12, 32, 11);
+  // Logo 1920x220 → preserve aspect ratio (~8.73:1)
+  doc.addImage(logo, "PNG", margin, 12, 40, 4.58);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
@@ -117,7 +118,7 @@ export async function newReportPdf(title: string): Promise<{ doc: jsPDF; cursorY
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const logo = await loadLogo();
-  doc.addImage(logo, "PNG", 18, 12, 32, 11);
+  doc.addImage(logo, "PNG", 18, 12, 40, 4.58);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
   doc.text(title, pageW / 2, 20, { align: "center" });

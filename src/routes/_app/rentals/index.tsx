@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -12,15 +12,23 @@ import { newReportPdf } from "@/lib/pdf-utils";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { Plus, FileDown, MessageCircle, KeyRound } from "lucide-react";
+import { Plus, FileDown, MessageCircle, KeyRound, Pencil, Trash2, Undo2, ChevronDown, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/_app/rentals/")({ component: RentalsPage });
 
 function RentalsPage() {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [openContract, setOpenContract] = useState(false);
   const [form, setForm] = useState<any>({ kind: "residential", due_day: 5, monthly_rent: "" });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [editingPayment, setEditingPayment] = useState<any | null>(null);
+  const [addingFor, setAddingFor] = useState<any | null>(null); // contract object
+  const [newPayment, setNewPayment] = useState<any>({});
 
+  const { data: settings } = useQuery({
+    queryKey: ["app_settings"],
+    queryFn: async () => (await supabase.from("app_settings").select("*").eq("id", true).maybeSingle()).data,
+  });
   const { data: contracts = [], refetch } = useQuery({
     queryKey: ["rental_contracts"],
     queryFn: async () =>
@@ -28,7 +36,7 @@ function RentalsPage() {
   });
   const { data: payments = [] } = useQuery({
     queryKey: ["rental_payments"],
-    queryFn: async () => (await supabase.from("rental_payments").select("*").order("due_date", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("rental_payments").select("*").order("due_date", { ascending: true })).data ?? [],
   });
   const { data: properties = [] } = useQuery({
     queryKey: ["properties-min"],
@@ -43,12 +51,40 @@ function RentalsPage() {
   const monthStart = new Date(); monthStart.setDate(1);
   const monthStartIso = monthStart.toISOString().slice(0, 10);
 
-  const stats = {
-    active: contracts.filter((c: any) => c.status === "active").length,
-    monthDue: payments.filter((p: any) => p.due_date >= monthStartIso && p.status !== "paid").reduce((s: number, p: any) => s + Number(p.amount_due ?? 0), 0),
-    monthPaid: payments.filter((p: any) => p.status === "paid" && p.paid_at && p.paid_at.slice(0, 10) >= monthStartIso).reduce((s: number, p: any) => s + Number(p.amount_paid ?? p.amount_due ?? 0), 0),
-    late: payments.filter((p: any) => p.status === "pending" && p.due_date < today).length + payments.filter((p: any) => p.status === "late").length,
-  };
+  // Late fee + daily interest recalculation based on app_settings
+  const lateFeePct = Number(settings?.rental_late_fee_pct ?? 0);
+  const dailyPct = Number(settings?.rental_daily_interest_pct ?? 0);
+  const grace = Number(settings?.rental_grace_days ?? 0);
+
+  function recalc(p: any) {
+    const due = new Date(p.due_date);
+    const now = new Date();
+    const daysLate = Math.max(0, Math.floor((+now - +due) / 86400000) - grace);
+    const base = Number(p.amount_due ?? 0);
+    if (p.status === "paid" || daysLate <= 0) {
+      return { base, fee: 0, interest: 0, total: base, daysLate: 0 };
+    }
+    const fee = base * (lateFeePct / 100);
+    const interest = base * (dailyPct / 100) * daysLate;
+    return { base, fee, interest, total: base + fee + interest, daysLate };
+  }
+
+  const paymentsByContract = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    for (const p of payments) (map[p.contract_id] ??= []).push(p);
+    return map;
+  }, [payments]);
+
+  const stats = useMemo(() => {
+    let monthDue = 0, monthPaid = 0, late = 0;
+    for (const p of payments) {
+      if (p.status === "paid" && p.paid_at && p.paid_at.slice(0, 10) >= monthStartIso)
+        monthPaid += Number(p.amount_paid ?? p.amount_due ?? 0);
+      if (p.status !== "paid" && p.due_date >= monthStartIso) monthDue += recalc(p).total;
+      if (p.status !== "paid" && p.due_date < today) late++;
+    }
+    return { active: contracts.filter((c: any) => c.status === "active").length, monthDue, monthPaid, late };
+  }, [payments, contracts, lateFeePct, dailyPct, grace]);
 
   async function createContract() {
     if (!form.property_id || !form.tenant_client_id || !form.monthly_rent || !form.start_date) {
@@ -61,17 +97,71 @@ function RentalsPage() {
     if (error) return toast.error(error.message);
     await supabase.rpc("generate_rental_payments", { _contract_id: created.id, _months: 12 });
     toast.success("Contrato criado e parcelas geradas");
-    setOpen(false); setForm({ kind: "residential", due_day: 5, monthly_rent: "" });
+    setOpenContract(false); setForm({ kind: "residential", due_day: 5, monthly_rent: "" });
     refetch(); qc.invalidateQueries({ queryKey: ["rental_payments"] });
   }
 
-  async function markPaid(paymentId: string, amount: number) {
+  async function markPaid(p: any) {
+    const total = recalc(p).total;
     const { error } = await supabase.from("rental_payments").update({
-      status: "paid", paid_at: new Date().toISOString(), amount_paid: amount,
-    }).eq("id", paymentId);
+      status: "paid", paid_at: new Date().toISOString(), amount_paid: total,
+    }).eq("id", p.id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
-    toast.success("Pagamento registrado");
+    toast.success(`Pagamento registrado (R$ ${total.toFixed(2)})`);
+  }
+
+  async function revertPaid(id: string) {
+    const { error } = await supabase.from("rental_payments").update({
+      status: "pending", paid_at: null, amount_paid: null,
+    }).eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["rental_payments"] });
+    toast.success("Parcela revertida para pendente");
+  }
+
+  async function deletePayment(id: string) {
+    if (!confirm("Excluir esta parcela?")) return;
+    const { error } = await supabase.from("rental_payments").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["rental_payments"] });
+    toast.success("Parcela excluída");
+  }
+
+  async function saveEdit() {
+    if (!editingPayment) return;
+    const { id, due_date, amount_due, reference_month, notes } = editingPayment;
+    const { error } = await supabase.from("rental_payments").update({
+      due_date, amount_due: Number(amount_due), reference_month, notes,
+    }).eq("id", id);
+    if (error) return toast.error(error.message);
+    setEditingPayment(null);
+    qc.invalidateQueries({ queryKey: ["rental_payments"] });
+    toast.success("Parcela atualizada");
+  }
+
+  async function addPayment() {
+    if (!addingFor || !newPayment.due_date || !newPayment.reference_month || !newPayment.amount_due) {
+      return toast.error("Preencha referência, vencimento e valor");
+    }
+    const { error } = await supabase.from("rental_payments").insert({
+      contract_id: addingFor.id,
+      reference_month: newPayment.reference_month,
+      due_date: newPayment.due_date,
+      amount_due: Number(newPayment.amount_due),
+      notes: newPayment.notes ?? null,
+    });
+    if (error) return toast.error(error.message);
+    setAddingFor(null); setNewPayment({});
+    qc.invalidateQueries({ queryKey: ["rental_payments"] });
+    toast.success("Parcela adicionada");
+  }
+
+  async function generateMore(contractId: string) {
+    const { data, error } = await supabase.rpc("generate_rental_payments", { _contract_id: contractId, _months: 12 });
+    if (error) return toast.error(error.message);
+    toast.success(`${data} parcela(s) geradas`);
+    qc.invalidateQueries({ queryKey: ["rental_payments"] });
   }
 
   async function markLate() {
@@ -84,24 +174,28 @@ function RentalsPage() {
   function whatsappReminder(c: any, p: any) {
     const phone = (c.tenant?.phone ?? "").replace(/\D/g, "");
     if (!phone) return toast.error("Inquilino sem telefone cadastrado");
-    const msg = `Olá ${c.tenant?.full_name ?? ""}, lembrete da House302: o aluguel do imóvel ${c.properties?.code} (ref. ${p.reference_month}) no valor de R$ ${Number(p.amount_due).toFixed(2)} vence em ${p.due_date}. Contrato ${c.code}.`;
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+    const r = recalc(p);
+    const extra = r.daysLate > 0
+      ? ` Com multa e juros (${r.daysLate} dia(s) de atraso): R$ ${r.total.toFixed(2)}.`
+      : "";
+    const msg = `Olá ${c.tenant?.full_name ?? ""}, lembrete da House302: o aluguel do imóvel ${c.properties?.code} (ref. ${p.reference_month}) no valor de R$ ${r.base.toFixed(2)} vence em ${p.due_date}.${extra} Contrato ${c.code}.`;
+    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   }
 
   async function exportPdf() {
     const { doc } = await newReportPdf("Relatório de aluguéis — mês atual");
-    const rows = payments
-      .filter((p: any) => p.due_date >= monthStartIso || (p.status !== "paid"))
-      .map((p: any) => {
-        const c = contracts.find((x: any) => x.id === p.contract_id);
-        return [c?.code ?? "—", c?.properties?.code ?? "—", c?.tenant?.full_name ?? "—", p.reference_month, p.due_date, `R$ ${Number(p.amount_due).toFixed(2)}`, p.status];
-      });
+    const rows: any[] = [];
+    for (const c of contracts) {
+      for (const p of (paymentsByContract[c.id] ?? [])) {
+        if (!(p.due_date >= monthStartIso || p.status !== "paid")) continue;
+        const r = recalc(p);
+        rows.push([c.code, c.properties?.code ?? "—", c.tenant?.full_name ?? "—", p.reference_month, p.due_date, `R$ ${r.base.toFixed(2)}`, `R$ ${r.total.toFixed(2)}`, p.status]);
+      }
+    }
     autoTable(doc, {
       startY: 36,
-      head: [["Contrato", "Imóvel", "Inquilino", "Ref.", "Vencimento", "Valor", "Status"]],
-      body: rows,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [0, 0, 200] },
+      head: [["Contrato", "Imóvel", "Inquilino", "Ref.", "Vencimento", "Valor", "Total c/ encargos", "Status"]],
+      body: rows, styles: { fontSize: 8 }, headStyles: { fillColor: [0, 0, 200] },
     });
     doc.save("aluguéis.pdf");
   }
@@ -109,10 +203,11 @@ function RentalsPage() {
   function exportXlsx() {
     const rows = payments.map((p: any) => {
       const c = contracts.find((x: any) => x.id === p.contract_id);
+      const r = recalc(p);
       return {
         Contrato: c?.code, Imóvel: c?.properties?.code, Inquilino: c?.tenant?.full_name,
-        Referência: p.reference_month, Vencimento: p.due_date, Valor: Number(p.amount_due),
-        Pago: p.amount_paid ?? "", Status: p.status,
+        Referência: p.reference_month, Vencimento: p.due_date, Valor: r.base,
+        Multa: r.fee, Juros: r.interest, Total: r.total, Pago: p.amount_paid ?? "", Status: p.status,
       };
     });
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -125,13 +220,13 @@ function RentalsPage() {
     <div>
       <PageHeader
         title="Aluguéis"
-        description="Contratos, parcelas e cobranças"
+        description="Contratos e parcelas — encargos calculados automaticamente conforme as Configurações"
         actions={
           <>
             <Button variant="outline" onClick={markLate}>Marcar atrasados</Button>
             <Button variant="outline" onClick={exportXlsx}><FileDown className="mr-1.5 h-4 w-4" />XLSX</Button>
             <Button variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-4 w-4" />PDF</Button>
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={openContract} onOpenChange={setOpenContract}>
               <DialogTrigger asChild><Button><Plus className="mr-1.5 h-4 w-4" />Novo contrato</Button></DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Novo contrato de aluguel</DialogTitle></DialogHeader>
@@ -172,7 +267,7 @@ function RentalsPage() {
       <div className="grid gap-4 p-8 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: "Contratos ativos", value: stats.active },
-          { label: "A receber no mês", value: `R$ ${stats.monthDue.toFixed(2)}` },
+          { label: "A receber no mês (c/ encargos)", value: `R$ ${stats.monthDue.toFixed(2)}` },
           { label: "Recebido no mês", value: `R$ ${stats.monthPaid.toFixed(2)}` },
           { label: "Inadimplentes", value: stats.late },
         ].map((k) => (
@@ -183,67 +278,168 @@ function RentalsPage() {
         ))}
       </div>
 
-      <div className="px-8 pb-8 space-y-6">
-        <div className="overflow-hidden rounded-lg border bg-card">
-          <div className="border-b bg-muted/30 px-4 py-2 text-sm font-semibold flex items-center gap-2"><KeyRound className="h-4 w-4" />Contratos</div>
-          {contracts.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">Nenhum contrato cadastrado.</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                <tr><th className="px-4 py-2 text-left">Código</th><th className="px-4 py-2 text-left">Imóvel</th><th className="px-4 py-2 text-left">Inquilino</th><th className="px-4 py-2 text-left">Início</th><th className="px-4 py-2 text-left">Aluguel</th><th className="px-4 py-2 text-left">Status</th></tr>
-              </thead>
-              <tbody>
-                {contracts.map((c: any) => (
-                  <tr key={c.id} className="border-t">
-                    <td className="px-4 py-2 font-mono text-xs">{c.code}</td>
-                    <td className="px-4 py-2">{c.properties?.code} — {c.properties?.title}</td>
-                    <td className="px-4 py-2">{c.tenant?.full_name ?? "—"}</td>
-                    <td className="px-4 py-2 text-xs">{c.start_date}</td>
-                    <td className="px-4 py-2">R$ {Number(c.monthly_rent).toFixed(2)}</td>
-                    <td className="px-4 py-2 text-xs">{c.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+      <div className="px-8 pb-8 space-y-4">
+        {contracts.length === 0 && (
+          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">Nenhum contrato cadastrado.</div>
+        )}
 
-        <div className="overflow-hidden rounded-lg border bg-card">
-          <div className="border-b bg-muted/30 px-4 py-2 text-sm font-semibold">Parcelas</div>
-          {payments.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">Nenhuma parcela gerada.</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                <tr><th className="px-4 py-2 text-left">Contrato</th><th className="px-4 py-2 text-left">Ref.</th><th className="px-4 py-2 text-left">Vencimento</th><th className="px-4 py-2 text-left">Valor</th><th className="px-4 py-2 text-left">Status</th><th className="px-4 py-2"></th></tr>
-              </thead>
-              <tbody>
-                {payments.slice(0, 100).map((p: any) => {
-                  const c = contracts.find((x: any) => x.id === p.contract_id);
-                  return (
-                    <tr key={p.id} className="border-t">
-                      <td className="px-4 py-2 font-mono text-xs">{c?.code ?? "—"}</td>
-                      <td className="px-4 py-2 text-xs">{p.reference_month}</td>
-                      <td className="px-4 py-2 text-xs">{p.due_date}</td>
-                      <td className="px-4 py-2">R$ {Number(p.amount_due).toFixed(2)}</td>
-                      <td className="px-4 py-2 text-xs">{p.status}</td>
-                      <td className="px-4 py-2 text-right space-x-1">
-                        {p.status !== "paid" && (
-                          <>
-                            <Button size="sm" variant="ghost" onClick={() => c && whatsappReminder(c, p)} title="Cobrar via WhatsApp"><MessageCircle className="h-3.5 w-3.5" /></Button>
-                            <Button size="sm" variant="outline" onClick={() => markPaid(p.id, Number(p.amount_due))}>Marcar pago</Button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {contracts.map((c: any) => {
+          const list = paymentsByContract[c.id] ?? [];
+          const isOpen = expanded[c.id] ?? true;
+          const totals = list.reduce(
+            (acc, p) => {
+              const r = recalc(p);
+              if (p.status === "paid") acc.paid += Number(p.amount_paid ?? p.amount_due ?? 0);
+              else acc.openTotal += r.total;
+              return acc;
+            },
+            { paid: 0, openTotal: 0 }
+          );
+
+          return (
+            <div key={c.id} className="overflow-hidden rounded-lg border bg-card">
+              <button
+                onClick={() => setExpanded({ ...expanded, [c.id]: !isOpen })}
+                className="flex w-full items-center justify-between border-b bg-muted/30 px-4 py-3 text-left text-sm hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-2">
+                  {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <KeyRound className="h-4 w-4 text-primary" />
+                  <span className="font-mono text-xs">{c.code}</span>
+                  <span className="font-semibold">{c.properties?.code} — {c.properties?.title}</span>
+                  <span className="text-muted-foreground">• Inquilino: {c.tenant?.full_name ?? "—"}</span>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <span>Aluguel <strong className="tabular-nums">R$ {Number(c.monthly_rent).toFixed(2)}</strong></span>
+                  <span>Aberto <strong className="tabular-nums text-amber-600">R$ {totals.openTotal.toFixed(2)}</strong></span>
+                  <span>Pago <strong className="tabular-nums text-emerald-600">R$ {totals.paid.toFixed(2)}</strong></span>
+                  <span className="rounded-full bg-secondary px-2 py-0.5">{c.status}</span>
+                </div>
+              </button>
+
+              {isOpen && (
+                <>
+                  <div className="flex items-center justify-between border-b bg-muted/10 px-4 py-2 text-xs">
+                    <span className="text-muted-foreground">{list.length} parcela(s)</span>
+                    <div className="space-x-2">
+                      <Button size="sm" variant="ghost" onClick={() => generateMore(c.id)}>+12 meses</Button>
+                      <Button size="sm" variant="outline" onClick={() => { setAddingFor(c); setNewPayment({ amount_due: c.monthly_rent }); }}>
+                        <Plus className="mr-1 h-3.5 w-3.5" />Adicionar parcela
+                      </Button>
+                    </div>
+                  </div>
+
+                  {list.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-muted-foreground">Nenhuma parcela.</div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                        <tr>
+                          <th className="px-4 py-2 text-left">Ref.</th>
+                          <th className="px-4 py-2 text-left">Vencimento</th>
+                          <th className="px-4 py-2 text-right">Valor</th>
+                          <th className="px-4 py-2 text-right">Multa</th>
+                          <th className="px-4 py-2 text-right">Juros</th>
+                          <th className="px-4 py-2 text-right">Total</th>
+                          <th className="px-4 py-2 text-left">Status</th>
+                          <th className="px-4 py-2"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {list.map((p: any) => {
+                          const r = recalc(p);
+                          const overdue = r.daysLate > 0;
+                          return (
+                            <tr key={p.id} className="border-t">
+                              <td className="px-4 py-2 text-xs">{p.reference_month}</td>
+                              <td className={`px-4 py-2 text-xs ${overdue ? "text-destructive font-medium" : ""}`}>
+                                {p.due_date}{overdue && ` • ${r.daysLate}d atraso`}
+                              </td>
+                              <td className="px-4 py-2 text-right tabular-nums">R$ {r.base.toFixed(2)}</td>
+                              <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{r.fee ? `R$ ${r.fee.toFixed(2)}` : "—"}</td>
+                              <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{r.interest ? `R$ ${r.interest.toFixed(2)}` : "—"}</td>
+                              <td className="px-4 py-2 text-right tabular-nums font-semibold">R$ {r.total.toFixed(2)}</td>
+                              <td className="px-4 py-2 text-xs">
+                                {p.status === "paid"
+                                  ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">pago</span>
+                                  : overdue
+                                    ? <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-700">atrasado</span>
+                                    : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">pendente</span>}
+                              </td>
+                              <td className="px-4 py-2 text-right whitespace-nowrap">
+                                {p.status !== "paid" ? (
+                                  <>
+                                    <Button size="sm" variant="ghost" onClick={() => whatsappReminder(c, p)} title="Cobrar via WhatsApp"><MessageCircle className="h-3.5 w-3.5" /></Button>
+                                    <Button size="sm" variant="ghost" onClick={() => setEditingPayment({ ...p })} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
+                                    <Button size="sm" variant="outline" onClick={() => markPaid(p)}>Marcar pago</Button>
+                                    <Button size="sm" variant="ghost" onClick={() => deletePayment(p.id)} title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Button size="sm" variant="ghost" onClick={() => revertPaid(p.id)} title="Voltar para pendente"><Undo2 className="h-3.5 w-3.5" /></Button>
+                                    <Button size="sm" variant="ghost" onClick={() => setEditingPayment({ ...p })} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
+                                    <Button size="sm" variant="ghost" onClick={() => deletePayment(p.id)} title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                                  </>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
+
+      {/* Edit payment dialog */}
+      <Dialog open={!!editingPayment} onOpenChange={(o) => !o && setEditingPayment(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar parcela</DialogTitle></DialogHeader>
+          {editingPayment && (
+            <div className="grid gap-3">
+              <div><Label className="text-xs">Mês de referência</Label>
+                <Input type="date" value={editingPayment.reference_month} onChange={(e) => setEditingPayment({ ...editingPayment, reference_month: e.target.value })} />
+              </div>
+              <div><Label className="text-xs">Vencimento</Label>
+                <Input type="date" value={editingPayment.due_date} onChange={(e) => setEditingPayment({ ...editingPayment, due_date: e.target.value })} />
+              </div>
+              <div><Label className="text-xs">Valor</Label>
+                <Input type="number" step="0.01" value={editingPayment.amount_due} onChange={(e) => setEditingPayment({ ...editingPayment, amount_due: e.target.value })} />
+              </div>
+              <div><Label className="text-xs">Observações</Label>
+                <Input value={editingPayment.notes ?? ""} onChange={(e) => setEditingPayment({ ...editingPayment, notes: e.target.value })} />
+              </div>
+            </div>
+          )}
+          <DialogFooter><Button onClick={saveEdit}>Salvar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add payment dialog */}
+      <Dialog open={!!addingFor} onOpenChange={(o) => !o && setAddingFor(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Adicionar parcela {addingFor?.code}</DialogTitle></DialogHeader>
+          <div className="grid gap-3">
+            <div><Label className="text-xs">Mês de referência</Label>
+              <Input type="date" value={newPayment.reference_month ?? ""} onChange={(e) => setNewPayment({ ...newPayment, reference_month: e.target.value })} />
+            </div>
+            <div><Label className="text-xs">Vencimento</Label>
+              <Input type="date" value={newPayment.due_date ?? ""} onChange={(e) => setNewPayment({ ...newPayment, due_date: e.target.value })} />
+            </div>
+            <div><Label className="text-xs">Valor</Label>
+              <Input type="number" step="0.01" value={newPayment.amount_due ?? ""} onChange={(e) => setNewPayment({ ...newPayment, amount_due: e.target.value })} />
+            </div>
+            <div><Label className="text-xs">Observações</Label>
+              <Input value={newPayment.notes ?? ""} onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter><Button onClick={addPayment}>Adicionar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
