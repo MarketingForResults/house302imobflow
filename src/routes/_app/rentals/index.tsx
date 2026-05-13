@@ -13,6 +13,7 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { Plus, FileDown, MessageCircle, KeyRound, Pencil, Trash2, Undo2, ChevronDown, ChevronRight } from "lucide-react";
+import { formatDateBR } from "@/lib/format-date";
 
 export const Route = createFileRoute("/_app/rentals/")({ component: RentalsPage });
 
