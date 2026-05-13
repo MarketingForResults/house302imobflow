@@ -179,7 +179,7 @@ function RentalsPage() {
     const extra = r.daysLate > 0
       ? ` Com multa e juros (${r.daysLate} dia(s) de atraso): R$ ${r.total.toFixed(2)}.`
       : "";
-    const msg = `Olá ${c.tenant?.full_name ?? ""}, lembrete da House302: o aluguel do imóvel ${c.properties?.code} (ref. ${p.reference_month}) no valor de R$ ${r.base.toFixed(2)} vence em ${p.due_date}.${extra} Contrato ${c.code}.`;
+    const msg = `Olá ${c.tenant?.full_name ?? ""}, lembrete da House302: o aluguel do imóvel ${c.properties?.code} (ref. ${formatDateBR(p.reference_month)}) no valor de R$ ${r.base.toFixed(2)} vence em ${formatDateBR(p.due_date)}.${extra} Contrato ${c.code}.`;
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   }
 
