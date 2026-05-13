@@ -207,7 +207,7 @@ function RentalsPage() {
       const r = recalc(p);
       return {
         Contrato: c?.code, Imóvel: c?.properties?.code, Inquilino: c?.tenant?.full_name,
-        Referência: p.reference_month, Vencimento: p.due_date, Valor: r.base,
+        Referência: formatDateBR(p.reference_month), Vencimento: formatDateBR(p.due_date), Valor: r.base,
         Multa: r.fee, Juros: r.interest, Total: r.total, Pago: p.amount_paid ?? "", Status: p.status,
       };
     });
