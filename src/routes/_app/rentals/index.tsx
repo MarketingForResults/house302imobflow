@@ -190,7 +190,7 @@ function RentalsPage() {
       for (const p of (paymentsByContract[c.id] ?? [])) {
         if (!(p.due_date >= monthStartIso || p.status !== "paid")) continue;
         const r = recalc(p);
-        rows.push([c.code, c.properties?.code ?? "—", c.tenant?.full_name ?? "—", p.reference_month, p.due_date, `R$ ${r.base.toFixed(2)}`, `R$ ${r.total.toFixed(2)}`, p.status]);
+        rows.push([c.code, c.properties?.code ?? "—", c.tenant?.full_name ?? "—", formatDateBR(p.reference_month), formatDateBR(p.due_date), `R$ ${r.base.toFixed(2)}`, `R$ ${r.total.toFixed(2)}`, p.status]);
       }
     }
     autoTable(doc, {
