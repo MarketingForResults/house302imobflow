@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          contract_default_commission_pct: number | null
+          id: boolean
+          rental_daily_interest_pct: number
+          rental_default_due_day: number
+          rental_default_readjustment_index: string | null
+          rental_default_readjustment_month: number | null
+          rental_grace_days: number
+          rental_late_fee_pct: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          contract_default_commission_pct?: number | null
+          id?: boolean
+          rental_daily_interest_pct?: number
+          rental_default_due_day?: number
+          rental_default_readjustment_index?: string | null
+          rental_default_readjustment_month?: number | null
+          rental_grace_days?: number
+          rental_late_fee_pct?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          contract_default_commission_pct?: number | null
+          id?: boolean
+          rental_daily_interest_pct?: number
+          rental_default_due_day?: number
+          rental_default_readjustment_index?: string | null
+          rental_default_readjustment_month?: number | null
+          rental_grace_days?: number
+          rental_late_fee_pct?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       brokers: {
         Row: {
           active: boolean
