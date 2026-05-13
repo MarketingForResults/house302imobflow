@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { DOCUMENT_KIND_LABEL } from "@/lib/doc-placeholders";
 import { FileText, Plus, Settings2 } from "lucide-react";
+import { formatDateBR } from "@/lib/format-date";
 
 export const Route = createFileRoute("/_app/documents/")({ component: DocumentsList });
 
