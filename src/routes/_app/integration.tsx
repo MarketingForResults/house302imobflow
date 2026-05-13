@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plug, RefreshCw, Download, Check, X } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateTimeBR } from "@/lib/format-date";
 
 export const Route = createFileRoute("/_app/integration")({ component: IntegrationPage });
 
@@ -192,7 +193,7 @@ function IntegrationPage() {
                   <td className="px-4 py-2 font-mono text-xs">{p.code}</td>
                   <td className="px-4 py-2">{p.title || "—"}</td>
                   <td className="px-4 py-2">{p.wp_post_id ? <Badge variant="outline">#{p.wp_post_id}</Badge> : <Badge variant="outline">não publicado</Badge>}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{p.wp_synced_at ? new Date(p.wp_synced_at).toLocaleString("pt-BR") : "—"}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{p.wp_synced_at ? formatDateTimeBR(p.wp_synced_at) : "—"}</td>
                   <td className="px-4 py-2 text-right"><Button size="sm" variant="outline" onClick={() => syncOne(p.id)}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Sincronizar</Button></td>
                 </tr>
               ))}
@@ -212,7 +213,7 @@ function IntegrationPage() {
                   <div className="font-medium">{l.action} <span className="text-muted-foreground">· status {l.status_code ?? "?"}</span></div>
                   <div className="text-xs text-muted-foreground">{l.message}</div>
                 </div>
-                <div className="text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString("pt-BR")}</div>
+                <div className="text-xs text-muted-foreground">{formatDateTimeBR(l.created_at)}</div>
               </div>
             ))}
           </div>

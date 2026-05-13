@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { DOCUMENT_KIND_LABEL } from "@/lib/doc-placeholders";
 import { FileText, Plus, Settings2 } from "lucide-react";
+import { formatDateBR } from "@/lib/format-date";
 
 export const Route = createFileRoute("/_app/documents/")({ component: DocumentsList });
 
@@ -62,7 +63,7 @@ function DocumentsList() {
                     <td className="px-4 py-2">{DOCUMENT_KIND_LABEL[d.kind] ?? d.kind}</td>
                     <td className="px-4 py-2">{d.title ?? "—"}</td>
                     <td className="px-4 py-2 text-xs">{d.status}</td>
-                    <td className="px-4 py-2 text-xs text-muted-foreground">{new Date(d.created_at).toLocaleDateString("pt-BR")}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">{formatDateBR(d.created_at)}</td>
                   </tr>
                 ))}
               </tbody>

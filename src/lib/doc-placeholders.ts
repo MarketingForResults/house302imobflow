@@ -63,7 +63,7 @@ export function buildPlaceholderContext(input: {
       phone: input.broker?.phone ?? "",
     },
     date: {
-      today: today.toLocaleDateString("pt-BR"),
+      today: `${today.getDate()}/${today.getMonth() + 1}/${String(today.getFullYear()).slice(-2)}`,
       today_long: todayLong,
     },
     values: {

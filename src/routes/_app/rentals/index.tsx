@@ -13,6 +13,7 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { Plus, FileDown, MessageCircle, KeyRound, Pencil, Trash2, Undo2, ChevronDown, ChevronRight } from "lucide-react";
+import { formatDateBR } from "@/lib/format-date";
 
 export const Route = createFileRoute("/_app/rentals/")({ component: RentalsPage });
 
@@ -178,7 +179,7 @@ function RentalsPage() {
     const extra = r.daysLate > 0
       ? ` Com multa e juros (${r.daysLate} dia(s) de atraso): R$ ${r.total.toFixed(2)}.`
       : "";
-    const msg = `Olá ${c.tenant?.full_name ?? ""}, lembrete da House302: o aluguel do imóvel ${c.properties?.code} (ref. ${p.reference_month}) no valor de R$ ${r.base.toFixed(2)} vence em ${p.due_date}.${extra} Contrato ${c.code}.`;
+    const msg = `Olá ${c.tenant?.full_name ?? ""}, lembrete da House302: o aluguel do imóvel ${c.properties?.code} (ref. ${formatDateBR(p.reference_month)}) no valor de R$ ${r.base.toFixed(2)} vence em ${formatDateBR(p.due_date)}.${extra} Contrato ${c.code}.`;
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   }
 
@@ -189,7 +190,7 @@ function RentalsPage() {
       for (const p of (paymentsByContract[c.id] ?? [])) {
         if (!(p.due_date >= monthStartIso || p.status !== "paid")) continue;
         const r = recalc(p);
-        rows.push([c.code, c.properties?.code ?? "—", c.tenant?.full_name ?? "—", p.reference_month, p.due_date, `R$ ${r.base.toFixed(2)}`, `R$ ${r.total.toFixed(2)}`, p.status]);
+        rows.push([c.code, c.properties?.code ?? "—", c.tenant?.full_name ?? "—", formatDateBR(p.reference_month), formatDateBR(p.due_date), `R$ ${r.base.toFixed(2)}`, `R$ ${r.total.toFixed(2)}`, p.status]);
       }
     }
     autoTable(doc, {
@@ -206,7 +207,7 @@ function RentalsPage() {
       const r = recalc(p);
       return {
         Contrato: c?.code, Imóvel: c?.properties?.code, Inquilino: c?.tenant?.full_name,
-        Referência: p.reference_month, Vencimento: p.due_date, Valor: r.base,
+        Referência: formatDateBR(p.reference_month), Vencimento: formatDateBR(p.due_date), Valor: r.base,
         Multa: r.fee, Juros: r.interest, Total: r.total, Pago: p.amount_paid ?? "", Status: p.status,
       };
     });
@@ -351,9 +352,9 @@ function RentalsPage() {
                           const overdue = r.daysLate > 0;
                           return (
                             <tr key={p.id} className="border-t">
-                              <td className="px-4 py-2 text-xs">{p.reference_month}</td>
+                              <td className="px-4 py-2 text-xs">{formatDateBR(p.reference_month)}</td>
                               <td className={`px-4 py-2 text-xs ${overdue ? "text-destructive font-medium" : ""}`}>
-                                {p.due_date}{overdue && ` • ${r.daysLate}d atraso`}
+                                {formatDateBR(p.due_date)}{overdue && ` • ${r.daysLate}d atraso`}
                               </td>
                               <td className="px-4 py-2 text-right tabular-nums">R$ {r.base.toFixed(2)}</td>
                               <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{r.fee ? `R$ ${r.fee.toFixed(2)}` : "—"}</td>
