@@ -352,9 +352,9 @@ function RentalsPage() {
                           const overdue = r.daysLate > 0;
                           return (
                             <tr key={p.id} className="border-t">
-                              <td className="px-4 py-2 text-xs">{p.reference_month}</td>
+                              <td className="px-4 py-2 text-xs">{formatDateBR(p.reference_month)}</td>
                               <td className={`px-4 py-2 text-xs ${overdue ? "text-destructive font-medium" : ""}`}>
-                                {p.due_date}{overdue && ` • ${r.daysLate}d atraso`}
+                                {formatDateBR(p.due_date)}{overdue && ` • ${r.daysLate}d atraso`}
                               </td>
                               <td className="px-4 py-2 text-right tabular-nums">R$ {r.base.toFixed(2)}</td>
                               <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{r.fee ? `R$ ${r.fee.toFixed(2)}` : "—"}</td>
