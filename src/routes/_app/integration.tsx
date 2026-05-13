@@ -213,7 +213,7 @@ function IntegrationPage() {
                   <div className="font-medium">{l.action} <span className="text-muted-foreground">· status {l.status_code ?? "?"}</span></div>
                   <div className="text-xs text-muted-foreground">{l.message}</div>
                 </div>
-                <div className="text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString("pt-BR")}</div>
+                <div className="text-xs text-muted-foreground">{formatDateTimeBR(l.created_at)}</div>
               </div>
             ))}
           </div>
