@@ -314,11 +314,58 @@ function RentalsPage() {
       </div>
 
       <div className="px-8 pb-8 space-y-4">
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
+          <div className="flex-1 min-w-[220px]">
+            <Label className="text-xs">Pesquisar</Label>
+            <Input
+              placeholder="Código, imóvel, inquilino, telefone…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="w-44">
+            <Label className="text-xs">Status do contrato</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="active">Ativo</SelectItem>
+                <SelectItem value="ended">Encerrado</SelectItem>
+                <SelectItem value="cancelled">Cancelado</SelectItem>
+                <SelectItem value="suspended">Suspenso</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-52">
+            <Label className="text-xs">Parcelas</Label>
+            <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="with_late">Com atrasadas</SelectItem>
+                <SelectItem value="with_open">Com pendentes</SelectItem>
+                <SelectItem value="all_paid">Totalmente pagas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {(search || statusFilter !== "all" || paymentFilter !== "all") && (
+            <Button variant="ghost" onClick={() => { setSearch(""); setStatusFilter("all"); setPaymentFilter("all"); }}>
+              Limpar
+            </Button>
+          )}
+          <div className="ml-auto text-xs text-muted-foreground">
+            {filteredContracts.length} de {contracts.length} contrato(s)
+          </div>
+        </div>
+
         {contracts.length === 0 && (
           <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">Nenhum contrato cadastrado.</div>
         )}
+        {contracts.length > 0 && filteredContracts.length === 0 && (
+          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">Nenhum contrato corresponde ao filtro.</div>
+        )}
 
-        {contracts.map((c: any) => {
+        {filteredContracts.map((c: any) => {
           const list = paymentsByContract[c.id] ?? [];
           const isOpen = expanded[c.id] ?? true;
           const totals = list.reduce(
