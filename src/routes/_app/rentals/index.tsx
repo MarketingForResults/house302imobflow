@@ -188,7 +188,18 @@ function RentalsPage() {
     toast.success("Parcela adicionada");
   }
 
-  async function generateMore(contractId: string) {
+  async function deleteContracts(ids: string[]) {
+    if (ids.length === 0) return;
+    if (!confirm(`Excluir ${ids.length} contrato(s) e TODAS as parcelas vinculadas? Esta ação é irreversível.`)) return;
+    const { error: e1 } = await supabase.from("rental_payments").delete().in("contract_id", ids);
+    if (e1) return toast.error(e1.message);
+    const { error: e2 } = await supabase.from("rental_contracts").delete().in("id", ids);
+    if (e2) return toast.error(e2.message);
+    setSelected({});
+    qc.invalidateQueries({ queryKey: ["rental_contracts"] });
+    qc.invalidateQueries({ queryKey: ["rental_payments"] });
+    toast.success(`${ids.length} contrato(s) excluído(s)`);
+  }
     const { data, error } = await supabase.rpc("generate_rental_payments", { _contract_id: contractId, _months: 12 });
     if (error) return toast.error(error.message);
     toast.success(`${data} parcela(s) geradas`);
