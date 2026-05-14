@@ -79,16 +79,42 @@ function RentalsPage() {
     return map;
   }, [payments]);
 
+  const filteredContracts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return contracts.filter((c: any) => {
+      if (statusFilter !== "all" && c.status !== statusFilter) return false;
+      if (q) {
+        const hay = [
+          c.code, c.properties?.code, c.properties?.title,
+          c.tenant?.full_name, c.tenant?.phone,
+        ].filter(Boolean).join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (paymentFilter !== "all") {
+        const list = paymentsByContract[c.id] ?? [];
+        const hasLate = list.some((p: any) => p.status !== "paid" && p.due_date < today);
+        const hasOpen = list.some((p: any) => p.status !== "paid");
+        if (paymentFilter === "with_late" && !hasLate) return false;
+        if (paymentFilter === "with_open" && !hasOpen) return false;
+        if (paymentFilter === "all_paid" && hasOpen) return false;
+      }
+      return true;
+    });
+  }, [contracts, search, statusFilter, paymentFilter, paymentsByContract, today]);
+
+  const filteredContractIds = useMemo(() => new Set(filteredContracts.map((c: any) => c.id)), [filteredContracts]);
+
   const stats = useMemo(() => {
     let monthDue = 0, monthPaid = 0, late = 0;
     for (const p of payments) {
+      if (!filteredContractIds.has(p.contract_id)) continue;
       if (p.status === "paid" && p.paid_at && p.paid_at.slice(0, 10) >= monthStartIso)
         monthPaid += Number(p.amount_paid ?? p.amount_due ?? 0);
       if (p.status !== "paid" && p.due_date >= monthStartIso) monthDue += recalc(p).total;
       if (p.status !== "paid" && p.due_date < today) late++;
     }
-    return { active: contracts.filter((c: any) => c.status === "active").length, monthDue, monthPaid, late };
-  }, [payments, contracts, lateFeePct, dailyPct, grace]);
+    return { active: filteredContracts.filter((c: any) => c.status === "active").length, monthDue, monthPaid, late };
+  }, [payments, filteredContracts, filteredContractIds, lateFeePct, dailyPct, grace]);
 
   async function createContract() {
     if (!form.property_id || !form.tenant_client_id || !form.monthly_rent || !form.start_date) {
