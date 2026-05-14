@@ -28,6 +28,7 @@ function RentalsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all"); // all | with_late | with_open | all_paid
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
 
   const { data: settings } = useQuery({
     queryKey: ["app_settings"],
