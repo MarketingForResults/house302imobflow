@@ -25,6 +25,9 @@ function RentalsPage() {
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
   const [addingFor, setAddingFor] = useState<any | null>(null); // contract object
   const [newPayment, setNewPayment] = useState<any>({});
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [paymentFilter, setPaymentFilter] = useState<string>("all"); // all | with_late | with_open | all_paid
 
   const { data: settings } = useQuery({
     queryKey: ["app_settings"],
@@ -76,16 +79,42 @@ function RentalsPage() {
     return map;
   }, [payments]);
 
+  const filteredContracts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return contracts.filter((c: any) => {
+      if (statusFilter !== "all" && c.status !== statusFilter) return false;
+      if (q) {
+        const hay = [
+          c.code, c.properties?.code, c.properties?.title,
+          c.tenant?.full_name, c.tenant?.phone,
+        ].filter(Boolean).join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (paymentFilter !== "all") {
+        const list = paymentsByContract[c.id] ?? [];
+        const hasLate = list.some((p: any) => p.status !== "paid" && p.due_date < today);
+        const hasOpen = list.some((p: any) => p.status !== "paid");
+        if (paymentFilter === "with_late" && !hasLate) return false;
+        if (paymentFilter === "with_open" && !hasOpen) return false;
+        if (paymentFilter === "all_paid" && hasOpen) return false;
+      }
+      return true;
+    });
+  }, [contracts, search, statusFilter, paymentFilter, paymentsByContract, today]);
+
+  const filteredContractIds = useMemo(() => new Set(filteredContracts.map((c: any) => c.id)), [filteredContracts]);
+
   const stats = useMemo(() => {
     let monthDue = 0, monthPaid = 0, late = 0;
     for (const p of payments) {
+      if (!filteredContractIds.has(p.contract_id)) continue;
       if (p.status === "paid" && p.paid_at && p.paid_at.slice(0, 10) >= monthStartIso)
         monthPaid += Number(p.amount_paid ?? p.amount_due ?? 0);
       if (p.status !== "paid" && p.due_date >= monthStartIso) monthDue += recalc(p).total;
       if (p.status !== "paid" && p.due_date < today) late++;
     }
-    return { active: contracts.filter((c: any) => c.status === "active").length, monthDue, monthPaid, late };
-  }, [payments, contracts, lateFeePct, dailyPct, grace]);
+    return { active: filteredContracts.filter((c: any) => c.status === "active").length, monthDue, monthPaid, late };
+  }, [payments, filteredContracts, filteredContractIds, lateFeePct, dailyPct, grace]);
 
   async function createContract() {
     if (!form.property_id || !form.tenant_client_id || !form.monthly_rent || !form.start_date) {
@@ -184,9 +213,12 @@ function RentalsPage() {
   }
 
   async function exportPdf() {
-    const { doc } = await newReportPdf("Relatório de aluguéis — mês atual");
+    const title = search || statusFilter !== "all" || paymentFilter !== "all"
+      ? "Relatório de aluguéis — filtro aplicado"
+      : "Relatório de aluguéis — mês atual";
+    const { doc } = await newReportPdf(title);
     const rows: any[] = [];
-    for (const c of contracts) {
+    for (const c of filteredContracts) {
       for (const p of (paymentsByContract[c.id] ?? [])) {
         if (!(p.due_date >= monthStartIso || p.status !== "paid")) continue;
         const r = recalc(p);
@@ -202,15 +234,17 @@ function RentalsPage() {
   }
 
   function exportXlsx() {
-    const rows = payments.map((p: any) => {
-      const c = contracts.find((x: any) => x.id === p.contract_id);
-      const r = recalc(p);
-      return {
-        Contrato: c?.code, Imóvel: c?.properties?.code, Inquilino: c?.tenant?.full_name,
-        Referência: formatDateBR(p.reference_month), Vencimento: formatDateBR(p.due_date), Valor: r.base,
-        Multa: r.fee, Juros: r.interest, Total: r.total, Pago: p.amount_paid ?? "", Status: p.status,
-      };
-    });
+    const rows = payments
+      .filter((p: any) => filteredContractIds.has(p.contract_id))
+      .map((p: any) => {
+        const c = contracts.find((x: any) => x.id === p.contract_id);
+        const r = recalc(p);
+        return {
+          Contrato: c?.code, Imóvel: c?.properties?.code, Inquilino: c?.tenant?.full_name,
+          Referência: formatDateBR(p.reference_month), Vencimento: formatDateBR(p.due_date), Valor: r.base,
+          Multa: r.fee, Juros: r.interest, Total: r.total, Pago: p.amount_paid ?? "", Status: p.status,
+        };
+      });
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Parcelas");
@@ -280,11 +314,58 @@ function RentalsPage() {
       </div>
 
       <div className="px-8 pb-8 space-y-4">
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
+          <div className="flex-1 min-w-[220px]">
+            <Label className="text-xs">Pesquisar</Label>
+            <Input
+              placeholder="Código, imóvel, inquilino, telefone…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="w-44">
+            <Label className="text-xs">Status do contrato</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="active">Ativo</SelectItem>
+                <SelectItem value="ended">Encerrado</SelectItem>
+                <SelectItem value="cancelled">Cancelado</SelectItem>
+                <SelectItem value="suspended">Suspenso</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-52">
+            <Label className="text-xs">Parcelas</Label>
+            <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="with_late">Com atrasadas</SelectItem>
+                <SelectItem value="with_open">Com pendentes</SelectItem>
+                <SelectItem value="all_paid">Totalmente pagas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {(search || statusFilter !== "all" || paymentFilter !== "all") && (
+            <Button variant="ghost" onClick={() => { setSearch(""); setStatusFilter("all"); setPaymentFilter("all"); }}>
+              Limpar
+            </Button>
+          )}
+          <div className="ml-auto text-xs text-muted-foreground">
+            {filteredContracts.length} de {contracts.length} contrato(s)
+          </div>
+        </div>
+
         {contracts.length === 0 && (
           <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">Nenhum contrato cadastrado.</div>
         )}
+        {contracts.length > 0 && filteredContracts.length === 0 && (
+          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">Nenhum contrato corresponde ao filtro.</div>
+        )}
 
-        {contracts.map((c: any) => {
+        {filteredContracts.map((c: any) => {
           const list = paymentsByContract[c.id] ?? [];
           const isOpen = expanded[c.id] ?? true;
           const totals = list.reduce(
