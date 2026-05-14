@@ -372,6 +372,43 @@ function RentalsPage() {
           </div>
         </div>
 
+        {filteredContracts.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={filteredContracts.every((c: any) => selected[c.id])}
+                onChange={(e) => {
+                  const next = { ...selected };
+                  for (const c of filteredContracts) next[c.id] = e.target.checked;
+                  setSelected(next);
+                }}
+              />
+              Selecionar todos visíveis
+            </label>
+            <span className="text-muted-foreground">
+              {Object.values(selected).filter(Boolean).length} selecionado(s)
+            </span>
+            <div className="ml-auto flex gap-2">
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={Object.values(selected).filter(Boolean).length === 0}
+                onClick={() => deleteContracts(Object.keys(selected).filter((k) => selected[k]))}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />Excluir selecionados
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => deleteContracts(filteredContracts.map((c: any) => c.id))}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />Excluir todos do filtro
+              </Button>
+            </div>
+          </div>
+        )}
+
         {contracts.length === 0 && (
           <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">Nenhum contrato cadastrado.</div>
         )}
