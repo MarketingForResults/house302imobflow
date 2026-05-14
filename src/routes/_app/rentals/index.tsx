@@ -25,6 +25,9 @@ function RentalsPage() {
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
   const [addingFor, setAddingFor] = useState<any | null>(null); // contract object
   const [newPayment, setNewPayment] = useState<any>({});
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [paymentFilter, setPaymentFilter] = useState<string>("all"); // all | with_late | with_open | all_paid
 
   const { data: settings } = useQuery({
     queryKey: ["app_settings"],
