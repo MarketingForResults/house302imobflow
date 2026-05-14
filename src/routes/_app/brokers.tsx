@@ -7,28 +7,43 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/_app/brokers")({ component: BrokersPage });
 
+const EMPTY = { active: true } as any;
+
 function BrokersPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<any>({ active: true });
+  const [form, setForm] = useState<any>(EMPTY);
+  const isEdit = !!form.id;
 
   const { data: brokers = [] } = useQuery({
     queryKey: ["brokers"],
     queryFn: async () => (await supabase.from("brokers").select("*").order("full_name")).data ?? [],
   });
 
+  function openNew() { setForm(EMPTY); setOpen(true); }
+  function openEdit(b: any) { setForm({ ...b }); setOpen(true); }
+
   async function save() {
-    const { error } = await supabase.from("brokers").insert(form);
-    if (error) return toast.error(error.message);
-    toast.success("Corretor cadastrado");
-    setOpen(false); setForm({ active: true });
+    if (!form.full_name) return toast.error("Informe o nome");
+    if (isEdit) {
+      const { id, created_at, updated_at, ...patch } = form;
+      if (patch.commission_pct === "") patch.commission_pct = null;
+      const { error } = await supabase.from("brokers").update(patch).eq("id", id);
+      if (error) return toast.error(error.message);
+      toast.success("Corretor atualizado");
+    } else {
+      const { error } = await supabase.from("brokers").insert(form);
+      if (error) return toast.error(error.message);
+      toast.success("Corretor cadastrado");
+    }
+    setOpen(false); setForm(EMPTY);
     qc.invalidateQueries({ queryKey: ["brokers"] });
   }
   async function toggleActive(id: string, active: boolean) {
@@ -45,10 +60,10 @@ function BrokersPage() {
   return (
     <div>
       <PageHeader title="Corretores" description="Parceiros e captadores" actions={
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button><Plus className="mr-1.5 h-4 w-4" /> Novo corretor</Button></DialogTrigger>
+        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setForm(EMPTY); }}>
+          <DialogTrigger asChild><Button onClick={openNew}><Plus className="mr-1.5 h-4 w-4" /> Novo corretor</Button></DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Novo corretor</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{isEdit ? "Editar corretor" : "Novo corretor"}</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <div><Label>Nome completo</Label><Input value={form.full_name ?? ""} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3">
@@ -60,7 +75,10 @@ function BrokersPage() {
                 <div><Label>Email</Label><Input type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               </div>
             </div>
-            <DialogFooter><Button onClick={save}>Salvar</Button></DialogFooter>
+            <DialogFooter>
+              {isEdit && <Button variant="ghost" onClick={() => { setOpen(false); setForm(EMPTY); }}>Cancelar</Button>}
+              <Button onClick={save}>{isEdit ? "Atualizar" : "Salvar"}</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       } />
@@ -68,7 +86,7 @@ function BrokersPage() {
         <div className="overflow-hidden rounded-lg border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr><th className="px-4 py-3">Nome</th><th className="px-4 py-3">CRECI</th><th className="px-4 py-3">Telefone</th><th className="px-4 py-3">Comissão</th><th className="px-4 py-3">Status</th><th /></tr>
+              <tr><th className="px-4 py-3">Nome</th><th className="px-4 py-3">CRECI</th><th className="px-4 py-3">Telefone</th><th className="px-4 py-3">Comissão</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Ações</th></tr>
             </thead>
             <tbody>
               {brokers.length === 0 && <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">Nenhum corretor.</td></tr>}
@@ -84,7 +102,10 @@ function BrokersPage() {
                       <Badge variant={b.active ? "default" : "outline"}>{b.active ? "Ativo" : "Inativo"}</Badge>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-right"><button onClick={() => remove(b.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button></td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(b)} title="Editar"><Pencil className="h-4 w-4" /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => remove(b.id)} title="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
