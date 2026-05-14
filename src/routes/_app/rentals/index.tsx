@@ -28,6 +28,7 @@ function RentalsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all"); // all | with_late | with_open | all_paid
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
 
   const { data: settings } = useQuery({
     queryKey: ["app_settings"],
@@ -185,6 +186,19 @@ function RentalsPage() {
     setAddingFor(null); setNewPayment({});
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success("Parcela adicionada");
+  }
+
+  async function deleteContracts(ids: string[]) {
+    if (ids.length === 0) return;
+    if (!confirm(`Excluir ${ids.length} contrato(s) e TODAS as parcelas vinculadas? Esta ação é irreversível.`)) return;
+    const { error: e1 } = await supabase.from("rental_payments").delete().in("contract_id", ids);
+    if (e1) return toast.error(e1.message);
+    const { error: e2 } = await supabase.from("rental_contracts").delete().in("id", ids);
+    if (e2) return toast.error(e2.message);
+    setSelected({});
+    qc.invalidateQueries({ queryKey: ["rental_contracts"] });
+    qc.invalidateQueries({ queryKey: ["rental_payments"] });
+    toast.success(`${ids.length} contrato(s) excluído(s)`);
   }
 
   async function generateMore(contractId: string) {
@@ -358,6 +372,43 @@ function RentalsPage() {
           </div>
         </div>
 
+        {filteredContracts.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={filteredContracts.every((c: any) => selected[c.id])}
+                onChange={(e) => {
+                  const next = { ...selected };
+                  for (const c of filteredContracts) next[c.id] = e.target.checked;
+                  setSelected(next);
+                }}
+              />
+              Selecionar todos visíveis
+            </label>
+            <span className="text-muted-foreground">
+              {Object.values(selected).filter(Boolean).length} selecionado(s)
+            </span>
+            <div className="ml-auto flex gap-2">
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={Object.values(selected).filter(Boolean).length === 0}
+                onClick={() => deleteContracts(Object.keys(selected).filter((k) => selected[k]))}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />Excluir selecionados
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => deleteContracts(filteredContracts.map((c: any) => c.id))}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />Excluir todos do filtro
+              </Button>
+            </div>
+          </div>
+        )}
+
         {contracts.length === 0 && (
           <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">Nenhum contrato cadastrado.</div>
         )}
@@ -380,24 +431,35 @@ function RentalsPage() {
 
           return (
             <div key={c.id} className="overflow-hidden rounded-lg border bg-card">
-              <button
-                onClick={() => setExpanded({ ...expanded, [c.id]: !isOpen })}
-                className="flex w-full items-center justify-between border-b bg-muted/30 px-4 py-3 text-left text-sm hover:bg-muted/50"
-              >
+              <div className="flex w-full items-center justify-between border-b bg-muted/30 px-4 py-3 text-sm">
                 <div className="flex items-center gap-2">
-                  {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  <KeyRound className="h-4 w-4 text-primary" />
-                  <span className="font-mono text-xs">{c.code}</span>
-                  <span className="font-semibold">{c.properties?.code} — {c.properties?.title}</span>
-                  <span className="text-muted-foreground">• Inquilino: {c.tenant?.full_name ?? "—"}</span>
+                  <input
+                    type="checkbox"
+                    checked={!!selected[c.id]}
+                    onChange={(e) => setSelected({ ...selected, [c.id]: e.target.checked })}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <button
+                    onClick={() => setExpanded({ ...expanded, [c.id]: !isOpen })}
+                    className="flex items-center gap-2 text-left hover:opacity-80"
+                  >
+                    {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    <KeyRound className="h-4 w-4 text-primary" />
+                    <span className="font-mono text-xs">{c.code}</span>
+                    <span className="font-semibold">{c.properties?.code} — {c.properties?.title}</span>
+                    <span className="text-muted-foreground">• Inquilino: {c.tenant?.full_name ?? "—"}</span>
+                  </button>
                 </div>
                 <div className="flex items-center gap-4 text-xs">
                   <span>Aluguel <strong className="tabular-nums">R$ {Number(c.monthly_rent).toFixed(2)}</strong></span>
                   <span>Aberto <strong className="tabular-nums text-amber-600">R$ {totals.openTotal.toFixed(2)}</strong></span>
                   <span>Pago <strong className="tabular-nums text-emerald-600">R$ {totals.paid.toFixed(2)}</strong></span>
                   <span className="rounded-full bg-secondary px-2 py-0.5">{c.status}</span>
+                  <Button size="sm" variant="ghost" onClick={() => deleteContracts([c.id])} title="Excluir contrato">
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
                 </div>
-              </button>
+              </div>
 
               {isOpen && (
                 <>
