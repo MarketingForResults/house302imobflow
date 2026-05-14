@@ -431,24 +431,35 @@ function RentalsPage() {
 
           return (
             <div key={c.id} className="overflow-hidden rounded-lg border bg-card">
-              <button
-                onClick={() => setExpanded({ ...expanded, [c.id]: !isOpen })}
-                className="flex w-full items-center justify-between border-b bg-muted/30 px-4 py-3 text-left text-sm hover:bg-muted/50"
-              >
+              <div className="flex w-full items-center justify-between border-b bg-muted/30 px-4 py-3 text-sm">
                 <div className="flex items-center gap-2">
-                  {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  <KeyRound className="h-4 w-4 text-primary" />
-                  <span className="font-mono text-xs">{c.code}</span>
-                  <span className="font-semibold">{c.properties?.code} — {c.properties?.title}</span>
-                  <span className="text-muted-foreground">• Inquilino: {c.tenant?.full_name ?? "—"}</span>
+                  <input
+                    type="checkbox"
+                    checked={!!selected[c.id]}
+                    onChange={(e) => setSelected({ ...selected, [c.id]: e.target.checked })}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <button
+                    onClick={() => setExpanded({ ...expanded, [c.id]: !isOpen })}
+                    className="flex items-center gap-2 text-left hover:opacity-80"
+                  >
+                    {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    <KeyRound className="h-4 w-4 text-primary" />
+                    <span className="font-mono text-xs">{c.code}</span>
+                    <span className="font-semibold">{c.properties?.code} — {c.properties?.title}</span>
+                    <span className="text-muted-foreground">• Inquilino: {c.tenant?.full_name ?? "—"}</span>
+                  </button>
                 </div>
                 <div className="flex items-center gap-4 text-xs">
                   <span>Aluguel <strong className="tabular-nums">R$ {Number(c.monthly_rent).toFixed(2)}</strong></span>
                   <span>Aberto <strong className="tabular-nums text-amber-600">R$ {totals.openTotal.toFixed(2)}</strong></span>
                   <span>Pago <strong className="tabular-nums text-emerald-600">R$ {totals.paid.toFixed(2)}</strong></span>
                   <span className="rounded-full bg-secondary px-2 py-0.5">{c.status}</span>
+                  <Button size="sm" variant="ghost" onClick={() => deleteContracts([c.id])} title="Excluir contrato">
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
                 </div>
-              </button>
+              </div>
 
               {isOpen && (
                 <>
