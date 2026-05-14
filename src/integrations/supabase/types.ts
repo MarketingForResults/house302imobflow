@@ -19,9 +19,11 @@ export type Database = {
           contract_default_commission_pct: number | null
           id: boolean
           rental_daily_interest_pct: number
+          rental_default_contract_type: string
           rental_default_due_day: number
           rental_default_readjustment_index: string | null
           rental_default_readjustment_month: number | null
+          rental_default_term_months: number
           rental_grace_days: number
           rental_late_fee_pct: number
           updated_at: string
@@ -31,9 +33,11 @@ export type Database = {
           contract_default_commission_pct?: number | null
           id?: boolean
           rental_daily_interest_pct?: number
+          rental_default_contract_type?: string
           rental_default_due_day?: number
           rental_default_readjustment_index?: string | null
           rental_default_readjustment_month?: number | null
+          rental_default_term_months?: number
           rental_grace_days?: number
           rental_late_fee_pct?: number
           updated_at?: string
@@ -43,9 +47,11 @@ export type Database = {
           contract_default_commission_pct?: number | null
           id?: boolean
           rental_daily_interest_pct?: number
+          rental_default_contract_type?: string
           rental_default_due_day?: number
           rental_default_readjustment_index?: string | null
           rental_default_readjustment_month?: number | null
+          rental_default_term_months?: number
           rental_grace_days?: number
           rental_late_fee_pct?: number
           updated_at?: string
@@ -270,6 +276,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      economic_indexes: {
+        Row: {
+          accumulated_12m: number | null
+          code: string
+          fetched_at: string
+          monthly_value: number
+          name: string
+          reference_month: string
+          source_url: string | null
+        }
+        Insert: {
+          accumulated_12m?: number | null
+          code: string
+          fetched_at?: string
+          monthly_value: number
+          name: string
+          reference_month: string
+          source_url?: string | null
+        }
+        Update: {
+          accumulated_12m?: number | null
+          code?: string
+          fetched_at?: string
+          monthly_value?: number
+          name?: string
+          reference_month?: string
+          source_url?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
