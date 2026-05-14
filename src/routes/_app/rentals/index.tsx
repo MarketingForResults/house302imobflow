@@ -213,9 +213,12 @@ function RentalsPage() {
   }
 
   async function exportPdf() {
-    const { doc } = await newReportPdf("Relatório de aluguéis — mês atual");
+    const title = search || statusFilter !== "all" || paymentFilter !== "all"
+      ? "Relatório de aluguéis — filtro aplicado"
+      : "Relatório de aluguéis — mês atual";
+    const { doc } = await newReportPdf(title);
     const rows: any[] = [];
-    for (const c of contracts) {
+    for (const c of filteredContracts) {
       for (const p of (paymentsByContract[c.id] ?? [])) {
         if (!(p.due_date >= monthStartIso || p.status !== "paid")) continue;
         const r = recalc(p);
@@ -231,15 +234,17 @@ function RentalsPage() {
   }
 
   function exportXlsx() {
-    const rows = payments.map((p: any) => {
-      const c = contracts.find((x: any) => x.id === p.contract_id);
-      const r = recalc(p);
-      return {
-        Contrato: c?.code, Imóvel: c?.properties?.code, Inquilino: c?.tenant?.full_name,
-        Referência: formatDateBR(p.reference_month), Vencimento: formatDateBR(p.due_date), Valor: r.base,
-        Multa: r.fee, Juros: r.interest, Total: r.total, Pago: p.amount_paid ?? "", Status: p.status,
-      };
-    });
+    const rows = payments
+      .filter((p: any) => filteredContractIds.has(p.contract_id))
+      .map((p: any) => {
+        const c = contracts.find((x: any) => x.id === p.contract_id);
+        const r = recalc(p);
+        return {
+          Contrato: c?.code, Imóvel: c?.properties?.code, Inquilino: c?.tenant?.full_name,
+          Referência: formatDateBR(p.reference_month), Vencimento: formatDateBR(p.due_date), Valor: r.base,
+          Multa: r.fee, Juros: r.interest, Total: r.total, Pago: p.amount_paid ?? "", Status: p.status,
+        };
+      });
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Parcelas");
