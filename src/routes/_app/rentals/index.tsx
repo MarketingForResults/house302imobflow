@@ -200,6 +200,8 @@ function RentalsPage() {
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success(`${ids.length} contrato(s) excluído(s)`);
   }
+
+  async function generateMore(contractId: string) {
     const { data, error } = await supabase.rpc("generate_rental_payments", { _contract_id: contractId, _months: 12 });
     if (error) return toast.error(error.message);
     toast.success(`${data} parcela(s) geradas`);
