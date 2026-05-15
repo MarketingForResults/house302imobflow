@@ -454,7 +454,7 @@ function RentalsPage() {
           );
 
           return (
-            <div key={c.id} className="overflow-hidden rounded-lg border bg-card">
+            <div key={c.id} className="overflow-x-auto rounded-lg border bg-card">
               <div className="flex w-full items-center justify-between border-b bg-muted/30 px-4 py-3 text-sm">
                 <div className="flex items-center gap-2">
                   <input

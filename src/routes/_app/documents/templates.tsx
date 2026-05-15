@@ -98,7 +98,7 @@ function TemplatesPage() {
               </div>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-lg border bg-card">
+            <div className="overflow-x-auto rounded-lg border bg-card">
               {templates.length === 0 ? (
                 <div className="p-4 md:p-8 text-center text-sm text-muted-foreground">Nenhum modelo criado.</div>
               ) : (

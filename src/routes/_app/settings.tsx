@@ -182,7 +182,7 @@ function SettingsPage() {
                 Nenhum índice consultado ainda. Clique em "Atualizar índices oficiais" para buscar do BCB/SGS.
               </div>
             ) : (
-              <div className="overflow-hidden rounded-md border">
+              <div className="overflow-x-auto rounded-md border">
                 <table className="w-full text-xs">
                   <thead className="bg-muted/40 text-muted-foreground">
                     <tr>

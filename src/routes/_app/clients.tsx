@@ -84,7 +84,7 @@ function ClientsPage() {
         </Dialog>
       } />
       <div className="p-4 md:p-8">
-        <div className="overflow-hidden rounded-lg border bg-card">
+        <div className="overflow-x-auto rounded-lg border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr><th className="px-4 py-3">Nome</th><th className="px-4 py-3">Telefone</th><th className="px-4 py-3">Email</th><th className="px-4 py-3">Interesse</th><th className="px-4 py-3 text-right">Ações</th></tr>

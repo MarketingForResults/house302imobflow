@@ -68,7 +68,7 @@ function PropertiesList() {
           </Select>
         </div>
 
-        <div className="overflow-hidden rounded-lg border bg-card">
+        <div className="overflow-x-auto rounded-lg border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
