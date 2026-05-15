@@ -305,7 +305,8 @@ function RentalsPage() {
                         <SelectContent><SelectItem value="residential">Residencial</SelectItem><SelectItem value="commercial">Comercial</SelectItem></SelectContent>
                       </Select>
                     </div>
-                    <div><Label className="text-xs">Aluguel mensal</Label><Input type="number" value={form.monthly_rent} onChange={(e) => setForm({ ...form, monthly_rent: e.target.value })} /></div>
+                    <div><Label className="text-xs">Aluguel mensal</Label><Input type="number" step="0.01" value={form.monthly_rent} onChange={(e) => setForm({ ...form, monthly_rent: e.target.value })} /></div>
+                    <div><Label className="text-xs">Caução (depósito)</Label><Input type="number" step="0.01" placeholder="Opcional" value={form.deposit_amount ?? ""} onChange={(e) => setForm({ ...form, deposit_amount: e.target.value })} /></div>
                     <div><Label className="text-xs">Início</Label><Input type="date" value={form.start_date ?? ""} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
                     <div><Label className="text-xs">Dia vencimento</Label><Input type="number" min={1} max={28} value={form.due_day} onChange={(e) => setForm({ ...form, due_day: e.target.value })} /></div>
                   </div>
