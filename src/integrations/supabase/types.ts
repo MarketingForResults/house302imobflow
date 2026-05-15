@@ -26,6 +26,7 @@ export type Database = {
           rental_default_term_months: number
           rental_grace_days: number
           rental_late_fee_pct: number
+          savings_monthly_rate_pct: number
           updated_at: string
           updated_by: string | null
         }
@@ -40,6 +41,7 @@ export type Database = {
           rental_default_term_months?: number
           rental_grace_days?: number
           rental_late_fee_pct?: number
+          savings_monthly_rate_pct?: number
           updated_at?: string
           updated_by?: string | null
         }
@@ -54,6 +56,7 @@ export type Database = {
           rental_default_term_months?: number
           rental_grace_days?: number
           rental_late_fee_pct?: number
+          savings_monthly_rate_pct?: number
           updated_at?: string
           updated_by?: string | null
         }
@@ -517,6 +520,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           deposit_amount: number | null
+          deposit_paid_at: string | null
           due_day: number
           end_date: string | null
           id: string
@@ -538,6 +542,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deposit_amount?: number | null
+          deposit_paid_at?: string | null
           due_day?: number
           end_date?: string | null
           id?: string
@@ -559,6 +564,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           deposit_amount?: number | null
+          deposit_paid_at?: string | null
           due_day?: number
           end_date?: string | null
           id?: string
