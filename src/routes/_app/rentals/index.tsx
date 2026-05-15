@@ -457,6 +457,9 @@ function RentalsPage() {
                 </div>
                 <div className="flex items-center gap-4 text-xs">
                   <span>Aluguel <strong className="tabular-nums">R$ {Number(c.monthly_rent).toFixed(2)}</strong></span>
+                  {c.deposit_amount != null && Number(c.deposit_amount) > 0 && (
+                    <span>Caução <strong className="tabular-nums text-blue-600">R$ {Number(c.deposit_amount).toFixed(2)}</strong></span>
+                  )}
                   <span>Aberto <strong className="tabular-nums text-amber-600">R$ {totals.openTotal.toFixed(2)}</strong></span>
                   <span>Pago <strong className="tabular-nums text-emerald-600">R$ {totals.paid.toFixed(2)}</strong></span>
                   <span className="rounded-full bg-secondary px-2 py-0.5">{c.status}</span>
