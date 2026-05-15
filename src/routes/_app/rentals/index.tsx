@@ -476,9 +476,42 @@ function RentalsPage() {
                 </div>
                 <div className="flex items-center gap-4 text-xs">
                   <span>Aluguel <strong className="tabular-nums">R$ {Number(c.monthly_rent).toFixed(2)}</strong></span>
-                  {c.deposit_amount != null && Number(c.deposit_amount) > 0 && (
-                    <span>Caução <strong className="tabular-nums text-blue-600">R$ {Number(c.deposit_amount).toFixed(2)}</strong></span>
-                  )}
+                  {c.deposit_amount != null && Number(c.deposit_amount) > 0 && (() => {
+                    const dy = depositYield(c);
+                    if (!dy) {
+                      return (
+                        <span className="flex items-center gap-1">
+                          Caução <strong className="tabular-nums text-blue-600">R$ {Number(c.deposit_amount).toFixed(2)}</strong>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-[11px]"
+                            onClick={async () => {
+                              const d = prompt("Data de confirmação do pagamento da caução (AAAA-MM-DD):", new Date().toISOString().slice(0, 10));
+                              if (!d) return;
+                              const { error } = await supabase.from("rental_contracts").update({ deposit_paid_at: d }).eq("id", c.id);
+                              if (error) return toast.error(error.message);
+                              toast.success("Caução confirmada");
+                              refetch();
+                            }}
+                          >
+                            Confirmar pagamento
+                          </Button>
+                        </span>
+                      );
+                    }
+                    return (
+                      <span title={`Rendimento poupança ${savingsMonthlyPct}% a.m. — ${dy.months} mês(es) desde ${formatDateBR(c.deposit_paid_at)}`}>
+                        Caução{" "}
+                        <strong className="tabular-nums text-blue-600">R$ {dy.principal.toFixed(2)}</strong>
+                        {" → "}
+                        <strong className="tabular-nums text-emerald-600">R$ {dy.updated.toFixed(2)}</strong>
+                        <span className="ml-1 text-[11px] text-muted-foreground">
+                          (+R$ {dy.gain.toFixed(2)} • {dy.months}m)
+                        </span>
+                      </span>
+                    );
+                  })()}
                   <span>Aberto <strong className="tabular-nums text-amber-600">R$ {totals.openTotal.toFixed(2)}</strong></span>
                   <span>Pago <strong className="tabular-nums text-emerald-600">R$ {totals.paid.toFixed(2)}</strong></span>
                   <span className="rounded-full bg-secondary px-2 py-0.5">{c.status}</span>
