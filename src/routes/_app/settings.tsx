@@ -76,7 +76,7 @@ function SettingsPage() {
     }
   }
 
-  if (!s) return <div className="p-8 text-sm text-muted-foreground">Carregando…</div>;
+  if (!s) return <div className="p-4 md:p-8 text-sm text-muted-foreground">Carregando…</div>;
 
   const Field = ({ k, label, type = "number", step = "0.01", suffix }: any) => (
     <div>
@@ -99,7 +99,7 @@ function SettingsPage() {
         actions={isAdmin ? <Button onClick={save} disabled={saving}>{saving ? "Salvando…" : "Salvar"}</Button> : null}
       />
 
-      <div className="space-y-6 p-8">
+      <div className="space-y-6 p-4 md:p-8">
         <section className="rounded-lg border bg-card p-6">
           <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">Aluguéis — multa, juros e recálculo</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -182,7 +182,7 @@ function SettingsPage() {
                 Nenhum índice consultado ainda. Clique em "Atualizar índices oficiais" para buscar do BCB/SGS.
               </div>
             ) : (
-              <div className="overflow-hidden rounded-md border">
+              <div className="overflow-x-auto rounded-md border">
                 <table className="w-full text-xs">
                   <thead className="bg-muted/40 text-muted-foreground">
                     <tr>

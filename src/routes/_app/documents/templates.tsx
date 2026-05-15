@@ -67,7 +67,7 @@ function TemplatesPage() {
         }
       />
 
-      <div className="grid gap-6 p-8 lg:grid-cols-3">
+      <div className="grid gap-6 p-4 md:p-8 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-3">
           {editing ? (
             <div className="rounded-lg border bg-card p-5">
@@ -98,9 +98,9 @@ function TemplatesPage() {
               </div>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-lg border bg-card">
+            <div className="overflow-x-auto rounded-lg border bg-card">
               {templates.length === 0 ? (
-                <div className="p-8 text-center text-sm text-muted-foreground">Nenhum modelo criado.</div>
+                <div className="p-4 md:p-8 text-center text-sm text-muted-foreground">Nenhum modelo criado.</div>
               ) : (
                 <table className="w-full text-sm">
                   <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">

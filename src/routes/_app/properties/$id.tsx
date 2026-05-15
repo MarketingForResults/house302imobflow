@@ -167,7 +167,7 @@ function PropertyEdit() {
           </>
         }
       />
-      <div className="grid gap-6 p-8 lg:grid-cols-3">
+      <div className="grid gap-6 p-4 md:p-8 lg:grid-cols-3">
         <Section title="Identificação" className="lg:col-span-2">
           <Field label="Título"><Input value={form.title ?? ""} onChange={(e) => set("title", e.target.value)} /></Field>
           <Field label="Descrição"><Textarea rows={3} value={form.description ?? ""} onChange={(e) => set("description", e.target.value)} /></Field>

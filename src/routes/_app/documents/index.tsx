@@ -62,7 +62,7 @@ function DocumentsList() {
           </>
         }
       />
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         {docs.length === 0 ? (
           <div className="rounded-lg border border-dashed bg-card p-12 text-center">
             <FileText className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
@@ -72,7 +72,7 @@ function DocumentsList() {
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border bg-card">
+          <div className="overflow-x-auto rounded-lg border bg-card">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                 <tr>
