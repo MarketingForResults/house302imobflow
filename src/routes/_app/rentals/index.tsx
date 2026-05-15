@@ -60,6 +60,7 @@ function RentalsPage() {
   const lateFeePct = Number(settings?.rental_late_fee_pct ?? 0);
   const dailyPct = Number(settings?.rental_daily_interest_pct ?? 0);
   const grace = Number(settings?.rental_grace_days ?? 0);
+  const savingsMonthlyPct = Number(settings?.savings_monthly_rate_pct ?? 0.5);
 
   function recalc(p: any) {
     const due = new Date(p.due_date);
@@ -72,6 +73,24 @@ function RentalsPage() {
     const fee = base * (lateFeePct / 100);
     const interest = base * (dailyPct / 100) * daysLate;
     return { base, fee, interest, total: base + fee + interest, daysLate };
+  }
+
+  // Compound monthly savings yield from deposit_paid_at until min(today, end_date)
+  function depositYield(c: any) {
+    const principal = Number(c.deposit_amount ?? 0);
+    if (!principal || !c.deposit_paid_at) return null;
+    const start = new Date(c.deposit_paid_at);
+    const today = new Date();
+    const end = c.end_date ? new Date(c.end_date) : today;
+    const cap = today < end ? today : end;
+    if (cap <= start) return { principal, months: 0, updated: principal, gain: 0 };
+    const months =
+      (cap.getFullYear() - start.getFullYear()) * 12 +
+      (cap.getMonth() - start.getMonth()) +
+      (cap.getDate() >= start.getDate() ? 0 : -1);
+    const m = Math.max(0, months);
+    const updated = principal * Math.pow(1 + savingsMonthlyPct / 100, m);
+    return { principal, months: m, updated, gain: updated - principal };
   }
 
   const paymentsByContract = useMemo(() => {
@@ -457,9 +476,42 @@ function RentalsPage() {
                 </div>
                 <div className="flex items-center gap-4 text-xs">
                   <span>Aluguel <strong className="tabular-nums">R$ {Number(c.monthly_rent).toFixed(2)}</strong></span>
-                  {c.deposit_amount != null && Number(c.deposit_amount) > 0 && (
-                    <span>Caução <strong className="tabular-nums text-blue-600">R$ {Number(c.deposit_amount).toFixed(2)}</strong></span>
-                  )}
+                  {c.deposit_amount != null && Number(c.deposit_amount) > 0 && (() => {
+                    const dy = depositYield(c);
+                    if (!dy) {
+                      return (
+                        <span className="flex items-center gap-1">
+                          Caução <strong className="tabular-nums text-blue-600">R$ {Number(c.deposit_amount).toFixed(2)}</strong>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-[11px]"
+                            onClick={async () => {
+                              const d = prompt("Data de confirmação do pagamento da caução (AAAA-MM-DD):", new Date().toISOString().slice(0, 10));
+                              if (!d) return;
+                              const { error } = await supabase.from("rental_contracts").update({ deposit_paid_at: d }).eq("id", c.id);
+                              if (error) return toast.error(error.message);
+                              toast.success("Caução confirmada");
+                              refetch();
+                            }}
+                          >
+                            Confirmar pagamento
+                          </Button>
+                        </span>
+                      );
+                    }
+                    return (
+                      <span title={`Rendimento poupança ${savingsMonthlyPct}% a.m. — ${dy.months} mês(es) desde ${formatDateBR(c.deposit_paid_at)}`}>
+                        Caução{" "}
+                        <strong className="tabular-nums text-blue-600">R$ {dy.principal.toFixed(2)}</strong>
+                        {" → "}
+                        <strong className="tabular-nums text-emerald-600">R$ {dy.updated.toFixed(2)}</strong>
+                        <span className="ml-1 text-[11px] text-muted-foreground">
+                          (+R$ {dy.gain.toFixed(2)} • {dy.months}m)
+                        </span>
+                      </span>
+                    );
+                  })()}
                   <span>Aberto <strong className="tabular-nums text-amber-600">R$ {totals.openTotal.toFixed(2)}</strong></span>
                   <span>Pago <strong className="tabular-nums text-emerald-600">R$ {totals.paid.toFixed(2)}</strong></span>
                   <span className="rounded-full bg-secondary px-2 py-0.5">{c.status}</span>
