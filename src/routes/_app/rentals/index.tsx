@@ -337,7 +337,7 @@ function RentalsPage() {
         }
       />
 
-      <div className="grid gap-4 p-8 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 p-4 md:p-8 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: "Contratos ativos", value: stats.active },
           { label: "A receber no mês (c/ encargos)", value: `R$ ${stats.monthDue.toFixed(2)}` },
@@ -351,7 +351,7 @@ function RentalsPage() {
         ))}
       </div>
 
-      <div className="px-8 pb-8 space-y-4">
+      <div className="px-4 md:px-8 pb-4 md:pb-8 space-y-4">
         <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
           <div className="flex-1 min-w-[220px]">
             <Label className="text-xs">Pesquisar</Label>

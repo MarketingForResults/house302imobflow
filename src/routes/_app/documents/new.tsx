@@ -102,7 +102,7 @@ function NewDocumentPage() {
           </>
         }
       />
-      <div className="grid gap-6 p-8 lg:grid-cols-3">
+      <div className="grid gap-6 p-4 md:p-8 lg:grid-cols-3">
         <div className="lg:col-span-1 space-y-4">
           <div className="rounded-lg border bg-card p-5 space-y-3">
             <div>

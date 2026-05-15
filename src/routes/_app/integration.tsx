@@ -160,7 +160,7 @@ function IntegrationPage() {
   return (
     <div>
       <PageHeader title="Integração WordPress" description="Configure e sincronize seu site" />
-      <div className="space-y-6 p-8">
+      <div className="space-y-6 p-4 md:p-8">
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-lg border bg-card p-5">
             <div className="mb-4 flex items-center gap-2 text-sm font-semibold"><Plug className="h-4 w-4" /> Configuração</div>

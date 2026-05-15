@@ -62,7 +62,7 @@ function DocumentsList() {
           </>
         }
       />
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         {docs.length === 0 ? (
           <div className="rounded-lg border border-dashed bg-card p-12 text-center">
             <FileText className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />

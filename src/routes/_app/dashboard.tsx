@@ -39,7 +39,7 @@ function Dashboard() {
   return (
     <div>
       <PageHeader title="Dashboard" description="Visão geral da operação" />
-      <div className="grid gap-4 p-8 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 p-4 md:p-8 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (
           <div key={c.label} className="rounded-lg border bg-card p-5">
             <div className="flex items-center justify-between">

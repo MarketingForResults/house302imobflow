@@ -83,7 +83,7 @@ function ClientsPage() {
           </DialogContent>
         </Dialog>
       } />
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         <div className="overflow-hidden rounded-lg border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">

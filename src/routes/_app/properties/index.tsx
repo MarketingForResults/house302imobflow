@@ -46,7 +46,7 @@ function PropertiesList() {
           </Button>
         }
       />
-      <div className="space-y-4 p-8">
+      <div className="space-y-4 p-4 md:p-8">
         <div className="flex flex-wrap gap-2">
           <div className="relative flex-1 min-w-[240px]">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
