@@ -123,7 +123,11 @@ function RentalsPage() {
     }
     const { data: { user } } = await supabase.auth.getUser();
     const { data: created, error } = await supabase.from("rental_contracts").insert({
-      ...form, monthly_rent: Number(form.monthly_rent), due_day: Number(form.due_day), created_by: user?.id,
+      ...form,
+      monthly_rent: Number(form.monthly_rent),
+      due_day: Number(form.due_day),
+      deposit_amount: form.deposit_amount ? Number(form.deposit_amount) : null,
+      created_by: user?.id,
     }).select("id").single();
     if (error) return toast.error(error.message);
     await supabase.rpc("generate_rental_payments", { _contract_id: created.id, _months: 12 });
