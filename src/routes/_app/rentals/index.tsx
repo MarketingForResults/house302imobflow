@@ -60,6 +60,7 @@ function RentalsPage() {
   const lateFeePct = Number(settings?.rental_late_fee_pct ?? 0);
   const dailyPct = Number(settings?.rental_daily_interest_pct ?? 0);
   const grace = Number(settings?.rental_grace_days ?? 0);
+  const savingsMonthlyPct = Number(settings?.savings_monthly_rate_pct ?? 0.5);
 
   function recalc(p: any) {
     const due = new Date(p.due_date);
@@ -72,6 +73,24 @@ function RentalsPage() {
     const fee = base * (lateFeePct / 100);
     const interest = base * (dailyPct / 100) * daysLate;
     return { base, fee, interest, total: base + fee + interest, daysLate };
+  }
+
+  // Compound monthly savings yield from deposit_paid_at until min(today, end_date)
+  function depositYield(c: any) {
+    const principal = Number(c.deposit_amount ?? 0);
+    if (!principal || !c.deposit_paid_at) return null;
+    const start = new Date(c.deposit_paid_at);
+    const today = new Date();
+    const end = c.end_date ? new Date(c.end_date) : today;
+    const cap = today < end ? today : end;
+    if (cap <= start) return { principal, months: 0, updated: principal, gain: 0 };
+    const months =
+      (cap.getFullYear() - start.getFullYear()) * 12 +
+      (cap.getMonth() - start.getMonth()) +
+      (cap.getDate() >= start.getDate() ? 0 : -1);
+    const m = Math.max(0, months);
+    const updated = principal * Math.pow(1 + savingsMonthlyPct / 100, m);
+    return { principal, months: m, updated, gain: updated - principal };
   }
 
   const paymentsByContract = useMemo(() => {
