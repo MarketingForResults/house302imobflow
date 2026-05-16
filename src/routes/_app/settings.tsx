@@ -26,6 +26,7 @@ function SettingsPage() {
   const { roles } = useAuth();
   const isAdmin = roles.includes("admin");
   const [s, setS] = useState<any>(null);
+  const [termPreview, setTermPreview] = useState<{ start: string; months: string }>({ start: new Date().toISOString().slice(0, 10), months: "" });
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [indexes, setIndexes] = useState<any[]>([]);
@@ -55,6 +56,11 @@ function SettingsPage() {
       rental_default_readjustment_index: s.rental_default_readjustment_index,
       rental_default_readjustment_month: s.rental_default_readjustment_month ? Number(s.rental_default_readjustment_month) : null,
       contract_default_commission_pct: Number(s.contract_default_commission_pct),
+      sale_default_commission_pct: Number(s.sale_default_commission_pct ?? 0),
+      sale_itbi_pct: Number(s.sale_itbi_pct ?? 0),
+      sale_default_payment_method: s.sale_default_payment_method ?? "a_vista",
+      sale_deed_type: s.sale_deed_type ?? "escritura_publica",
+      sale_default_down_payment_pct: Number(s.sale_default_down_payment_pct ?? 0),
       updated_by: user?.id,
     }).eq("id", true);
     setSaving(false);
@@ -131,6 +137,83 @@ function SettingsPage() {
             </div>
             <Field k="contract_default_commission_pct" label="Comissão padrão de contrato" suffix="%" />
           </div>
+
+          <div className="mt-6 rounded-md border bg-muted/20 p-4">
+            <h3 className="mb-3 text-xs font-semibold uppercase text-muted-foreground">Simulador de vigência</h3>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Informe a <strong>data de início</strong> e o <strong>prazo em meses</strong> — o <strong>fim do contrato</strong> é calculado automaticamente.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <Label className="text-xs">1. Início do contrato</Label>
+                <Input type="date" value={termPreview.start} onChange={(e) => setTermPreview({ ...termPreview, start: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">2. Prazo (meses)</Label>
+                <Input type="number" min={1} step="1" placeholder="Ex.: 12, 24, 36" value={termPreview.months}
+                  onChange={(e) => setTermPreview({ ...termPreview, months: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">3. Fim do contrato (calculado)</Label>
+                <Input type="text" readOnly className="bg-muted/40"
+                  value={(() => {
+                    const m = Number(termPreview.months);
+                    if (!termPreview.start || !m || m <= 0) return "—";
+                    const d = new Date(termPreview.start + "T00:00:00");
+                    const day = d.getDate();
+                    d.setMonth(d.getMonth() + m);
+                    if (d.getDate() < day) d.setDate(0);
+                    return formatDateBR(d.toISOString().slice(0, 10));
+                  })()} />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-lg border bg-card p-6">
+          <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">Compra e venda de imóvel — parâmetros padrão</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field k="sale_default_commission_pct" label="Comissão padrão de venda" suffix="%" />
+            <Field k="sale_itbi_pct" label="ITBI padrão" suffix="% sobre o valor da venda" />
+            <Field k="sale_default_down_payment_pct" label="Entrada padrão" suffix="% do valor" />
+            <div>
+              <Label className="text-xs">Forma de pagamento padrão</Label>
+              <Select
+                value={s.sale_default_payment_method ?? "a_vista"}
+                onValueChange={(v) => setS({ ...s, sale_default_payment_method: v })}
+                disabled={!isAdmin}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="a_vista">À vista</SelectItem>
+                  <SelectItem value="financiado">Financiamento bancário</SelectItem>
+                  <SelectItem value="parcelado_direto">Parcelado direto com vendedor</SelectItem>
+                  <SelectItem value="consorcio">Consórcio</SelectItem>
+                  <SelectItem value="fgts">Com uso do FGTS</SelectItem>
+                  <SelectItem value="permuta">Permuta</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Tipo de escritura/instrumento padrão</Label>
+              <Select
+                value={s.sale_deed_type ?? "escritura_publica"}
+                onValueChange={(v) => setS({ ...s, sale_deed_type: v })}
+                disabled={!isAdmin}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="escritura_publica">Escritura pública</SelectItem>
+                  <SelectItem value="contrato_particular">Contrato particular de compra e venda</SelectItem>
+                  <SelectItem value="promessa_compra_venda">Promessa de compra e venda</SelectItem>
+                  <SelectItem value="cessao_direitos">Cessão de direitos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Esses valores são usados como padrão ao gerar contratos e documentos de compra e venda.
+          </p>
         </section>
 
         <section className="rounded-lg border bg-card p-6">

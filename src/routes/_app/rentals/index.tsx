@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { newReportPdf } from "@/lib/pdf-utils";
+import { newReportPdf, generateDocumentPdf } from "@/lib/pdf-utils";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { Plus, FileDown, MessageCircle, KeyRound, Pencil, Trash2, Undo2, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, FileDown, MessageCircle, KeyRound, Pencil, Trash2, Undo2, ChevronDown, ChevronRight, Receipt } from "lucide-react";
 import { formatDateBR } from "@/lib/format-date";
 
 export const Route = createFileRoute("/_app/rentals/")({ component: RentalsPage });
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_app/rentals/")({ component: RentalsPage 
 function RentalsPage() {
   const qc = useQueryClient();
   const [openContract, setOpenContract] = useState(false);
-  const [form, setForm] = useState<any>({ kind: "residential", due_day: 5, monthly_rent: "" });
+  const [form, setForm] = useState<any>({ kind: "residential", due_day: 5, monthly_rent: "", term_months: 12 });
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
   const [addingFor, setAddingFor] = useState<any | null>(null); // contract object
@@ -29,6 +29,11 @@ function RentalsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all"); // all | with_late | with_open | all_paid
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  // Pagamento — confirmar com data
+  const [payingPayment, setPayingPayment] = useState<{ p: any; c: any } | null>(null);
+  const [payDate, setPayDate] = useState<string>("");
+  // Recibo — enviar PDF por e-mail/WhatsApp
+  const [receiptFor, setReceiptFor] = useState<{ p: any; c: any } | null>(null);
 
   const { data: settings } = useQuery({
     queryKey: ["app_settings"],
@@ -37,7 +42,7 @@ function RentalsPage() {
   const { data: contracts = [], refetch } = useQuery({
     queryKey: ["rental_contracts"],
     queryFn: async () =>
-      (await supabase.from("rental_contracts").select("*, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name, phone)").order("created_at", { ascending: false })).data ?? [],
+      (await supabase.from("rental_contracts").select("*, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name, phone, email)").order("created_at", { ascending: false })).data ?? [],
   });
   const { data: payments = [] } = useQuery({
     queryKey: ["rental_payments"],
@@ -136,33 +141,61 @@ function RentalsPage() {
     return { active: filteredContracts.filter((c: any) => c.status === "active").length, monthDue, monthPaid, late };
   }, [payments, filteredContracts, filteredContractIds, lateFeePct, dailyPct, grace]);
 
+  function addMonths(iso: string, months: number): string {
+    const d = new Date(iso + "T00:00:00");
+    const day = d.getDate();
+    d.setMonth(d.getMonth() + months);
+    if (d.getDate() < day) d.setDate(0); // último dia do mês anterior se overflow
+    return d.toISOString().slice(0, 10);
+  }
+
+  const computedEndDate = useMemo(() => {
+    const months = Number(form.term_months);
+    if (!form.start_date || !months || months <= 0) return "";
+    return addMonths(form.start_date, months);
+  }, [form.start_date, form.term_months]);
+
   async function createContract() {
     if (!form.property_id || !form.tenant_client_id || !form.monthly_rent || !form.start_date) {
       return toast.error("Preencha imóvel, inquilino, valor e data de início");
     }
+    const months = Number(form.term_months) || 12;
+    const end_date = addMonths(form.start_date, months);
     const { data: { user } } = await supabase.auth.getUser();
+    const { term_months: _t, ...rest } = form;
     const { data: created, error } = await supabase.from("rental_contracts").insert({
-      ...form,
+      ...rest,
       monthly_rent: Number(form.monthly_rent),
       due_day: Number(form.due_day),
       deposit_amount: form.deposit_amount ? Number(form.deposit_amount) : null,
+      end_date,
       created_by: user?.id,
     }).select("id").single();
     if (error) return toast.error(error.message);
-    await supabase.rpc("generate_rental_payments", { _contract_id: created.id, _months: 12 });
+    await supabase.rpc("generate_rental_payments", { _contract_id: created.id, _months: months });
     toast.success("Contrato criado e parcelas geradas");
-    setOpenContract(false); setForm({ kind: "residential", due_day: 5, monthly_rent: "" });
+    setOpenContract(false); setForm({ kind: "residential", due_day: 5, monthly_rent: "", term_months: 12 });
     refetch(); qc.invalidateQueries({ queryKey: ["rental_payments"] });
   }
 
-  async function markPaid(p: any) {
+  function openMarkPaid(c: any, p: any) {
+    setPayingPayment({ p, c });
+    setPayDate(new Date().toISOString().slice(0, 10));
+  }
+
+  async function confirmMarkPaid() {
+    if (!payingPayment) return;
+    const { p } = payingPayment;
     const total = recalc(p).total;
+    if (!payDate) return toast.error("Informe a data do pagamento");
+    const paidAtIso = new Date(payDate + "T12:00:00").toISOString();
     const { error } = await supabase.from("rental_payments").update({
-      status: "paid", paid_at: new Date().toISOString(), amount_paid: total,
+      status: "paid", paid_at: paidAtIso, amount_paid: total,
     }).eq("id", p.id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
-    toast.success(`Pagamento registrado (R$ ${total.toFixed(2)})`);
+    toast.success(`Pagamento registrado em ${formatDateBR(payDate)} (R$ ${total.toFixed(2)})`);
+    setPayingPayment(null);
   }
 
   async function revertPaid(id: string) {
@@ -288,6 +321,69 @@ function RentalsPage() {
     XLSX.writeFile(wb, "aluguéis.xlsx");
   }
 
+  async function buildReceiptPdf(c: any, p: any) {
+    const amount = Number(p.amount_paid ?? p.amount_due ?? 0);
+    const paidIso = p.paid_at ? p.paid_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const body =
+      `RECIBO DE PAGAMENTO DE ALUGUEL\n\n` +
+      `Recebemos de ${c.tenant?.full_name ?? "—"} a quantia de R$ ${amount.toFixed(2)}, ` +
+      `referente ao aluguel do imóvel ${c.properties?.code ?? ""} — ${c.properties?.title ?? ""}, ` +
+      `competência ${formatDateBR(p.reference_month)}, vencimento em ${formatDateBR(p.due_date)}, ` +
+      `pago em ${formatDateBR(paidIso)}.\n\n` +
+      `Contrato: ${c.code}\n` +
+      `Forma de pagamento: conforme ajuste entre as partes.\n\n` +
+      `Para clareza e validade, firmamos o presente recibo.`;
+    const doc = await generateDocumentPdf({
+      code: c.code,
+      locator: c.properties?.code ?? c.code,
+      title: `Recibo de aluguel — ${formatDateBR(p.reference_month)}`,
+      bodyText: body,
+      parties: [{ label: "Locador / Imobiliária", name: "House302 ImobiFlow" }],
+      footerNote: "Recibo de aluguel — House302 ImobiFlow",
+    });
+    const fileName = `recibo-${c.code}-${(p.reference_month ?? "").slice(0, 7)}.pdf`;
+    return { doc, fileName, amount, paidIso };
+  }
+
+  async function downloadReceipt() {
+    if (!receiptFor) return;
+    const { doc, fileName } = await buildReceiptPdf(receiptFor.c, receiptFor.p);
+    doc.save(fileName);
+  }
+
+  async function sendReceiptEmail() {
+    if (!receiptFor) return;
+    const { c, p } = receiptFor;
+    const { doc, fileName, amount, paidIso } = await buildReceiptPdf(c, p);
+    doc.save(fileName);
+    const email = (c.tenant?.email ?? "").trim();
+    const subject = `Recibo de aluguel ${c.code} — ${formatDateBR(p.reference_month)}`;
+    const bodyMsg =
+      `Olá ${c.tenant?.full_name ?? ""},\n\n` +
+      `Segue o recibo do aluguel do imóvel ${c.properties?.code ?? ""} ` +
+      `referente a ${formatDateBR(p.reference_month)}, no valor de R$ ${amount.toFixed(2)}, pago em ${formatDateBR(paidIso)}.\n\n` +
+      `O arquivo "${fileName}" foi baixado neste dispositivo — por favor, anexe-o a este e-mail antes de enviar.\n\n` +
+      `House302 ImobiFlow`;
+    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyMsg)}`;
+    toast.success("Recibo baixado — anexe ao e-mail antes de enviar");
+  }
+
+  async function sendReceiptWhatsapp() {
+    if (!receiptFor) return;
+    const { c, p } = receiptFor;
+    const { doc, fileName, amount, paidIso } = await buildReceiptPdf(c, p);
+    doc.save(fileName);
+    const phone = (c.tenant?.phone ?? "").replace(/\D/g, "");
+    if (!phone) { toast.error("Inquilino sem telefone cadastrado"); return; }
+    const msg =
+      `Olá ${c.tenant?.full_name ?? ""}! Segue o recibo do aluguel do imóvel ${c.properties?.code ?? ""} ` +
+      `(ref. ${formatDateBR(p.reference_month)}) no valor de R$ ${amount.toFixed(2)}, pago em ${formatDateBR(paidIso)}. ` +
+      `O arquivo "${fileName}" foi baixado — anexe na conversa antes de enviar. — House302`;
+    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+    toast.success("Recibo baixado — anexe no WhatsApp");
+  }
+
+
   return (
     <div>
       <PageHeader
@@ -326,8 +422,13 @@ function RentalsPage() {
                     </div>
                     <div><Label className="text-xs">Aluguel mensal</Label><Input type="number" step="0.01" value={form.monthly_rent} onChange={(e) => setForm({ ...form, monthly_rent: e.target.value })} /></div>
                     <div><Label className="text-xs">Caução (depósito)</Label><Input type="number" step="0.01" placeholder="Opcional" value={form.deposit_amount ?? ""} onChange={(e) => setForm({ ...form, deposit_amount: e.target.value })} /></div>
-                    <div><Label className="text-xs">Início</Label><Input type="date" value={form.start_date ?? ""} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
+                    <div><Label className="text-xs">Início do contrato</Label><Input type="date" value={form.start_date ?? ""} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
+                    <div><Label className="text-xs">Prazo (meses)</Label><Input type="number" min={1} step="1" value={form.term_months ?? ""} onChange={(e) => setForm({ ...form, term_months: e.target.value })} /></div>
                     <div><Label className="text-xs">Dia vencimento</Label><Input type="number" min={1} max={28} value={form.due_day} onChange={(e) => setForm({ ...form, due_day: e.target.value })} /></div>
+                    <div>
+                      <Label className="text-xs">Fim do contrato (calculado)</Label>
+                      <Input type="text" readOnly value={computedEndDate ? formatDateBR(computedEndDate) : "—"} className="bg-muted/40" />
+                    </div>
                   </div>
                 </div>
                 <DialogFooter><Button onClick={createContract}>Criar e gerar parcelas</Button></DialogFooter>
@@ -575,11 +676,12 @@ function RentalsPage() {
                                   <>
                                     <Button size="sm" variant="ghost" onClick={() => whatsappReminder(c, p)} title="Cobrar via WhatsApp"><MessageCircle className="h-3.5 w-3.5" /></Button>
                                     <Button size="sm" variant="ghost" onClick={() => setEditingPayment({ ...p })} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
-                                    <Button size="sm" variant="outline" onClick={() => markPaid(p)}>Marcar pago</Button>
+                                    <Button size="sm" variant="outline" onClick={() => openMarkPaid(c, p)}>Marcar pago</Button>
                                     <Button size="sm" variant="ghost" onClick={() => deletePayment(p.id)} title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                                   </>
                                 ) : (
                                   <>
+                                    <Button size="sm" variant="outline" onClick={() => setReceiptFor({ c, p })} title="Enviar recibo"><Receipt className="mr-1 h-3.5 w-3.5" />Recibo</Button>
                                     <Button size="sm" variant="ghost" onClick={() => revertPaid(p.id)} title="Voltar para pendente"><Undo2 className="h-3.5 w-3.5" /></Button>
                                     <Button size="sm" variant="ghost" onClick={() => setEditingPayment({ ...p })} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
                                     <Button size="sm" variant="ghost" onClick={() => deletePayment(p.id)} title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
@@ -642,6 +744,72 @@ function RentalsPage() {
             </div>
           </div>
           <DialogFooter><Button onClick={addPayment}>Adicionar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar pagamento — escolher data */}
+      <Dialog open={!!payingPayment} onOpenChange={(o) => !o && setPayingPayment(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Confirmar pagamento</DialogTitle></DialogHeader>
+          {payingPayment && (
+            <div className="grid gap-3 text-sm">
+              <div className="text-xs text-muted-foreground">
+                Contrato <strong>{payingPayment.c.code}</strong> • Ref. {formatDateBR(payingPayment.p.reference_month)} •
+                Vencimento {formatDateBR(payingPayment.p.due_date)}
+              </div>
+              <div>
+                <Label className="text-xs">Data do pagamento</Label>
+                <Input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+              </div>
+              <div className="rounded-md border bg-muted/30 p-2 text-xs">
+                Total a registrar: <strong className="tabular-nums">R$ {recalc(payingPayment.p).total.toFixed(2)}</strong>
+                {recalc(payingPayment.p).daysLate > 0 && (
+                  <span className="ml-1 text-muted-foreground">
+                    (inclui multa/juros por {recalc(payingPayment.p).daysLate} dia(s) de atraso)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayingPayment(null)}>Cancelar</Button>
+            <Button onClick={confirmMarkPaid}>Registrar pagamento</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Enviar recibo (PDF) */}
+      <Dialog open={!!receiptFor} onOpenChange={(o) => !o && setReceiptFor(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Enviar recibo do pagamento</DialogTitle></DialogHeader>
+          {receiptFor && (
+            <div className="grid gap-3 text-sm">
+              <div className="text-xs text-muted-foreground">
+                Contrato <strong>{receiptFor.c.code}</strong> • Ref. {formatDateBR(receiptFor.p.reference_month)} •
+                Pago em {receiptFor.p.paid_at ? formatDateBR(receiptFor.p.paid_at.slice(0, 10)) : "—"}
+              </div>
+              <div className="text-xs">
+                Inquilino: <strong>{receiptFor.c.tenant?.full_name ?? "—"}</strong><br />
+                E-mail: {receiptFor.c.tenant?.email ?? <span className="text-muted-foreground">não cadastrado</span>}<br />
+                Telefone: {receiptFor.c.tenant?.phone ?? <span className="text-muted-foreground">não cadastrado</span>}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                O recibo em PDF será baixado neste dispositivo. Em seguida, abriremos o e-mail ou o WhatsApp já com a
+                mensagem pronta — basta anexar o arquivo baixado antes de enviar.
+              </p>
+            </div>
+          )}
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="outline" onClick={downloadReceipt}>
+              <FileDown className="mr-1.5 h-4 w-4" />Apenas baixar PDF
+            </Button>
+            <Button variant="outline" onClick={sendReceiptEmail} disabled={!receiptFor?.c?.tenant?.email}>
+              Enviar por e-mail
+            </Button>
+            <Button onClick={sendReceiptWhatsapp} disabled={!receiptFor?.c?.tenant?.phone}>
+              <MessageCircle className="mr-1.5 h-4 w-4" />Enviar por WhatsApp
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
