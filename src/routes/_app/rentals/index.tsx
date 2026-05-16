@@ -141,33 +141,61 @@ function RentalsPage() {
     return { active: filteredContracts.filter((c: any) => c.status === "active").length, monthDue, monthPaid, late };
   }, [payments, filteredContracts, filteredContractIds, lateFeePct, dailyPct, grace]);
 
+  function addMonths(iso: string, months: number): string {
+    const d = new Date(iso + "T00:00:00");
+    const day = d.getDate();
+    d.setMonth(d.getMonth() + months);
+    if (d.getDate() < day) d.setDate(0); // último dia do mês anterior se overflow
+    return d.toISOString().slice(0, 10);
+  }
+
+  const computedEndDate = useMemo(() => {
+    const months = Number(form.term_months);
+    if (!form.start_date || !months || months <= 0) return "";
+    return addMonths(form.start_date, months);
+  }, [form.start_date, form.term_months]);
+
   async function createContract() {
     if (!form.property_id || !form.tenant_client_id || !form.monthly_rent || !form.start_date) {
       return toast.error("Preencha imóvel, inquilino, valor e data de início");
     }
+    const months = Number(form.term_months) || 12;
+    const end_date = addMonths(form.start_date, months);
     const { data: { user } } = await supabase.auth.getUser();
+    const { term_months: _t, ...rest } = form;
     const { data: created, error } = await supabase.from("rental_contracts").insert({
-      ...form,
+      ...rest,
       monthly_rent: Number(form.monthly_rent),
       due_day: Number(form.due_day),
       deposit_amount: form.deposit_amount ? Number(form.deposit_amount) : null,
+      end_date,
       created_by: user?.id,
     }).select("id").single();
     if (error) return toast.error(error.message);
-    await supabase.rpc("generate_rental_payments", { _contract_id: created.id, _months: 12 });
+    await supabase.rpc("generate_rental_payments", { _contract_id: created.id, _months: months });
     toast.success("Contrato criado e parcelas geradas");
-    setOpenContract(false); setForm({ kind: "residential", due_day: 5, monthly_rent: "" });
+    setOpenContract(false); setForm({ kind: "residential", due_day: 5, monthly_rent: "", term_months: 12 });
     refetch(); qc.invalidateQueries({ queryKey: ["rental_payments"] });
   }
 
-  async function markPaid(p: any) {
+  function openMarkPaid(c: any, p: any) {
+    setPayingPayment({ p, c });
+    setPayDate(new Date().toISOString().slice(0, 10));
+  }
+
+  async function confirmMarkPaid() {
+    if (!payingPayment) return;
+    const { p } = payingPayment;
     const total = recalc(p).total;
+    if (!payDate) return toast.error("Informe a data do pagamento");
+    const paidAtIso = new Date(payDate + "T12:00:00").toISOString();
     const { error } = await supabase.from("rental_payments").update({
-      status: "paid", paid_at: new Date().toISOString(), amount_paid: total,
+      status: "paid", paid_at: paidAtIso, amount_paid: total,
     }).eq("id", p.id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
-    toast.success(`Pagamento registrado (R$ ${total.toFixed(2)})`);
+    toast.success(`Pagamento registrado em ${formatDateBR(payDate)} (R$ ${total.toFixed(2)})`);
+    setPayingPayment(null);
   }
 
   async function revertPaid(id: string) {
