@@ -8,11 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { newReportPdf } from "@/lib/pdf-utils";
+import { newReportPdf, generateDocumentPdf } from "@/lib/pdf-utils";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { Plus, FileDown, MessageCircle, KeyRound, Pencil, Trash2, Undo2, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, FileDown, MessageCircle, KeyRound, Pencil, Trash2, Undo2, ChevronDown, ChevronRight, Receipt } from "lucide-react";
 import { formatDateBR } from "@/lib/format-date";
 
 export const Route = createFileRoute("/_app/rentals/")({ component: RentalsPage });
