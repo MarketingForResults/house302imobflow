@@ -56,6 +56,11 @@ function SettingsPage() {
       rental_default_readjustment_index: s.rental_default_readjustment_index,
       rental_default_readjustment_month: s.rental_default_readjustment_month ? Number(s.rental_default_readjustment_month) : null,
       contract_default_commission_pct: Number(s.contract_default_commission_pct),
+      sale_default_commission_pct: Number(s.sale_default_commission_pct ?? 0),
+      sale_itbi_pct: Number(s.sale_itbi_pct ?? 0),
+      sale_default_payment_method: s.sale_default_payment_method ?? "a_vista",
+      sale_deed_type: s.sale_deed_type ?? "escritura_publica",
+      sale_default_down_payment_pct: Number(s.sale_default_down_payment_pct ?? 0),
       updated_by: user?.id,
     }).eq("id", true);
     setSaving(false);
