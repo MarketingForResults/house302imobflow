@@ -321,6 +321,69 @@ function RentalsPage() {
     XLSX.writeFile(wb, "aluguéis.xlsx");
   }
 
+  async function buildReceiptPdf(c: any, p: any) {
+    const amount = Number(p.amount_paid ?? p.amount_due ?? 0);
+    const paidIso = p.paid_at ? p.paid_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const body =
+      `RECIBO DE PAGAMENTO DE ALUGUEL\n\n` +
+      `Recebemos de ${c.tenant?.full_name ?? "—"} a quantia de R$ ${amount.toFixed(2)}, ` +
+      `referente ao aluguel do imóvel ${c.properties?.code ?? ""} — ${c.properties?.title ?? ""}, ` +
+      `competência ${formatDateBR(p.reference_month)}, vencimento em ${formatDateBR(p.due_date)}, ` +
+      `pago em ${formatDateBR(paidIso)}.\n\n` +
+      `Contrato: ${c.code}\n` +
+      `Forma de pagamento: conforme ajuste entre as partes.\n\n` +
+      `Para clareza e validade, firmamos o presente recibo.`;
+    const doc = await generateDocumentPdf({
+      code: c.code,
+      locator: c.properties?.code ?? c.code,
+      title: `Recibo de aluguel — ${formatDateBR(p.reference_month)}`,
+      bodyText: body,
+      parties: [{ label: "Locador / Imobiliária", name: "House302 ImobiFlow" }],
+      footerNote: "Recibo de aluguel — House302 ImobiFlow",
+    });
+    const fileName = `recibo-${c.code}-${(p.reference_month ?? "").slice(0, 7)}.pdf`;
+    return { doc, fileName, amount, paidIso };
+  }
+
+  async function downloadReceipt() {
+    if (!receiptFor) return;
+    const { doc, fileName } = await buildReceiptPdf(receiptFor.c, receiptFor.p);
+    doc.save(fileName);
+  }
+
+  async function sendReceiptEmail() {
+    if (!receiptFor) return;
+    const { c, p } = receiptFor;
+    const { doc, fileName, amount, paidIso } = await buildReceiptPdf(c, p);
+    doc.save(fileName);
+    const email = (c.tenant?.email ?? "").trim();
+    const subject = `Recibo de aluguel ${c.code} — ${formatDateBR(p.reference_month)}`;
+    const bodyMsg =
+      `Olá ${c.tenant?.full_name ?? ""},\n\n` +
+      `Segue o recibo do aluguel do imóvel ${c.properties?.code ?? ""} ` +
+      `referente a ${formatDateBR(p.reference_month)}, no valor de R$ ${amount.toFixed(2)}, pago em ${formatDateBR(paidIso)}.\n\n` +
+      `O arquivo "${fileName}" foi baixado neste dispositivo — por favor, anexe-o a este e-mail antes de enviar.\n\n` +
+      `House302 ImobiFlow`;
+    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyMsg)}`;
+    toast.success("Recibo baixado — anexe ao e-mail antes de enviar");
+  }
+
+  async function sendReceiptWhatsapp() {
+    if (!receiptFor) return;
+    const { c, p } = receiptFor;
+    const { doc, fileName, amount, paidIso } = await buildReceiptPdf(c, p);
+    doc.save(fileName);
+    const phone = (c.tenant?.phone ?? "").replace(/\D/g, "");
+    if (!phone) { toast.error("Inquilino sem telefone cadastrado"); return; }
+    const msg =
+      `Olá ${c.tenant?.full_name ?? ""}! Segue o recibo do aluguel do imóvel ${c.properties?.code ?? ""} ` +
+      `(ref. ${formatDateBR(p.reference_month)}) no valor de R$ ${amount.toFixed(2)}, pago em ${formatDateBR(paidIso)}. ` +
+      `O arquivo "${fileName}" foi baixado — anexe na conversa antes de enviar. — House302`;
+    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+    toast.success("Recibo baixado — anexe no WhatsApp");
+  }
+
+
   return (
     <div>
       <PageHeader
