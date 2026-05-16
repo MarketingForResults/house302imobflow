@@ -42,7 +42,7 @@ function RentalsPage() {
   const { data: contracts = [], refetch } = useQuery({
     queryKey: ["rental_contracts"],
     queryFn: async () =>
-      (await supabase.from("rental_contracts").select("*, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name, phone)").order("created_at", { ascending: false })).data ?? [],
+      (await supabase.from("rental_contracts").select("*, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name, phone, email)").order("created_at", { ascending: false })).data ?? [],
   });
   const { data: payments = [] } = useQuery({
     queryKey: ["rental_payments"],
