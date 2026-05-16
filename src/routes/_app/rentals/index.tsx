@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_app/rentals/")({ component: RentalsPage 
 function RentalsPage() {
   const qc = useQueryClient();
   const [openContract, setOpenContract] = useState(false);
-  const [form, setForm] = useState<any>({ kind: "residential", due_day: 5, monthly_rent: "" });
+  const [form, setForm] = useState<any>({ kind: "residential", due_day: 5, monthly_rent: "", term_months: 12 });
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
   const [addingFor, setAddingFor] = useState<any | null>(null); // contract object
@@ -29,6 +29,11 @@ function RentalsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all"); // all | with_late | with_open | all_paid
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  // Pagamento — confirmar com data
+  const [payingPayment, setPayingPayment] = useState<{ p: any; c: any } | null>(null);
+  const [payDate, setPayDate] = useState<string>("");
+  // Recibo — enviar PDF por e-mail/WhatsApp
+  const [receiptFor, setReceiptFor] = useState<{ p: any; c: any } | null>(null);
 
   const { data: settings } = useQuery({
     queryKey: ["app_settings"],
