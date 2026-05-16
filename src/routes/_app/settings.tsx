@@ -26,6 +26,7 @@ function SettingsPage() {
   const { roles } = useAuth();
   const isAdmin = roles.includes("admin");
   const [s, setS] = useState<any>(null);
+  const [termPreview, setTermPreview] = useState<{ start: string; months: string }>({ start: new Date().toISOString().slice(0, 10), months: "" });
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [indexes, setIndexes] = useState<any[]>([]);
