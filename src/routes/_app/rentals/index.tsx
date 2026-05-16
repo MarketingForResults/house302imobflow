@@ -746,6 +746,72 @@ function RentalsPage() {
           <DialogFooter><Button onClick={addPayment}>Adicionar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmar pagamento — escolher data */}
+      <Dialog open={!!payingPayment} onOpenChange={(o) => !o && setPayingPayment(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Confirmar pagamento</DialogTitle></DialogHeader>
+          {payingPayment && (
+            <div className="grid gap-3 text-sm">
+              <div className="text-xs text-muted-foreground">
+                Contrato <strong>{payingPayment.c.code}</strong> • Ref. {formatDateBR(payingPayment.p.reference_month)} •
+                Vencimento {formatDateBR(payingPayment.p.due_date)}
+              </div>
+              <div>
+                <Label className="text-xs">Data do pagamento</Label>
+                <Input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+              </div>
+              <div className="rounded-md border bg-muted/30 p-2 text-xs">
+                Total a registrar: <strong className="tabular-nums">R$ {recalc(payingPayment.p).total.toFixed(2)}</strong>
+                {recalc(payingPayment.p).daysLate > 0 && (
+                  <span className="ml-1 text-muted-foreground">
+                    (inclui multa/juros por {recalc(payingPayment.p).daysLate} dia(s) de atraso)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayingPayment(null)}>Cancelar</Button>
+            <Button onClick={confirmMarkPaid}>Registrar pagamento</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Enviar recibo (PDF) */}
+      <Dialog open={!!receiptFor} onOpenChange={(o) => !o && setReceiptFor(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Enviar recibo do pagamento</DialogTitle></DialogHeader>
+          {receiptFor && (
+            <div className="grid gap-3 text-sm">
+              <div className="text-xs text-muted-foreground">
+                Contrato <strong>{receiptFor.c.code}</strong> • Ref. {formatDateBR(receiptFor.p.reference_month)} •
+                Pago em {receiptFor.p.paid_at ? formatDateBR(receiptFor.p.paid_at.slice(0, 10)) : "—"}
+              </div>
+              <div className="text-xs">
+                Inquilino: <strong>{receiptFor.c.tenant?.full_name ?? "—"}</strong><br />
+                E-mail: {receiptFor.c.tenant?.email ?? <span className="text-muted-foreground">não cadastrado</span>}<br />
+                Telefone: {receiptFor.c.tenant?.phone ?? <span className="text-muted-foreground">não cadastrado</span>}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                O recibo em PDF será baixado neste dispositivo. Em seguida, abriremos o e-mail ou o WhatsApp já com a
+                mensagem pronta — basta anexar o arquivo baixado antes de enviar.
+              </p>
+            </div>
+          )}
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="outline" onClick={downloadReceipt}>
+              <FileDown className="mr-1.5 h-4 w-4" />Apenas baixar PDF
+            </Button>
+            <Button variant="outline" onClick={sendReceiptEmail} disabled={!receiptFor?.c?.tenant?.email}>
+              Enviar por e-mail
+            </Button>
+            <Button onClick={sendReceiptWhatsapp} disabled={!receiptFor?.c?.tenant?.phone}>
+              <MessageCircle className="mr-1.5 h-4 w-4" />Enviar por WhatsApp
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
