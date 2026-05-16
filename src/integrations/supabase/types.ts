@@ -26,6 +26,11 @@ export type Database = {
           rental_default_term_months: number
           rental_grace_days: number
           rental_late_fee_pct: number
+          sale_deed_type: string
+          sale_default_commission_pct: number
+          sale_default_down_payment_pct: number
+          sale_default_payment_method: string
+          sale_itbi_pct: number
           savings_monthly_rate_pct: number
           updated_at: string
           updated_by: string | null
@@ -41,6 +46,11 @@ export type Database = {
           rental_default_term_months?: number
           rental_grace_days?: number
           rental_late_fee_pct?: number
+          sale_deed_type?: string
+          sale_default_commission_pct?: number
+          sale_default_down_payment_pct?: number
+          sale_default_payment_method?: string
+          sale_itbi_pct?: number
           savings_monthly_rate_pct?: number
           updated_at?: string
           updated_by?: string | null
@@ -56,6 +66,11 @@ export type Database = {
           rental_default_term_months?: number
           rental_grace_days?: number
           rental_late_fee_pct?: number
+          sale_deed_type?: string
+          sale_default_commission_pct?: number
+          sale_default_down_payment_pct?: number
+          sale_default_payment_method?: string
+          sale_itbi_pct?: number
           savings_monthly_rate_pct?: number
           updated_at?: string
           updated_by?: string | null
