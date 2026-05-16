@@ -608,11 +608,12 @@ function RentalsPage() {
                                   <>
                                     <Button size="sm" variant="ghost" onClick={() => whatsappReminder(c, p)} title="Cobrar via WhatsApp"><MessageCircle className="h-3.5 w-3.5" /></Button>
                                     <Button size="sm" variant="ghost" onClick={() => setEditingPayment({ ...p })} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
-                                    <Button size="sm" variant="outline" onClick={() => markPaid(p)}>Marcar pago</Button>
+                                    <Button size="sm" variant="outline" onClick={() => openMarkPaid(c, p)}>Marcar pago</Button>
                                     <Button size="sm" variant="ghost" onClick={() => deletePayment(p.id)} title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                                   </>
                                 ) : (
                                   <>
+                                    <Button size="sm" variant="outline" onClick={() => setReceiptFor({ c, p })} title="Enviar recibo"><Receipt className="mr-1 h-3.5 w-3.5" />Recibo</Button>
                                     <Button size="sm" variant="ghost" onClick={() => revertPaid(p.id)} title="Voltar para pendente"><Undo2 className="h-3.5 w-3.5" /></Button>
                                     <Button size="sm" variant="ghost" onClick={() => setEditingPayment({ ...p })} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
                                     <Button size="sm" variant="ghost" onClick={() => deletePayment(p.id)} title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
