@@ -424,7 +424,7 @@ function RentalsPage() {
                     <div><Label className="text-xs">Caução (depósito)</Label><Input type="number" step="0.01" placeholder="Opcional" value={form.deposit_amount ?? ""} onChange={(e) => setForm({ ...form, deposit_amount: e.target.value })} /></div>
                     <div><Label className="text-xs">Início do contrato</Label><Input type="date" value={form.start_date ?? ""} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
                     <div><Label className="text-xs">Prazo (meses)</Label><Input type="number" min={1} step="1" value={form.term_months ?? ""} onChange={(e) => setForm({ ...form, term_months: e.target.value })} /></div>
-                    <div><Label className="text-xs">Dia vencimento</Label><Input type="number" min={1} max={28} value={form.due_day} onChange={(e) => setForm({ ...form, due_day: e.target.value })} /></div>
+                    <div><Label className="text-xs">Dia vencimento</Label><Input type="number" min={1} max={31} value={form.due_day} onChange={(e) => setForm({ ...form, due_day: e.target.value })} /></div>
                     <div>
                       <Label className="text-xs">Fim do contrato (calculado)</Label>
                       <Input type="text" readOnly value={computedEndDate ? formatDateBR(computedEndDate) : "—"} className="bg-muted/40" />
