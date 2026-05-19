@@ -396,7 +396,7 @@ function RentalsPage() {
             <Button variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-4 w-4" />PDF</Button>
             <Dialog open={openContract} onOpenChange={setOpenContract}>
               <DialogTrigger asChild><Button><Plus className="mr-1.5 h-4 w-4" />Novo contrato</Button></DialogTrigger>
-              <DialogContent className="sm:max-w-[600px] w-[95vw] max-h-[95vh] overflow-y-auto">
+              <DialogContent className="w-full sm:max-w-[650px] max-h-[90vh] overflow-y-auto overflow-x-hidden">
                 <DialogHeader><DialogTitle>Novo contrato de aluguel</DialogTitle></DialogHeader>
                 <div className="grid gap-3">
                   <div>
