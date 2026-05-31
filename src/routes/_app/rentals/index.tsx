@@ -29,6 +29,7 @@ function RentalsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all"); // all | with_late | with_open | all_paid
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [selectedPayments, setSelectedPayments] = useState<Record<string, boolean>>({});
   // Pagamento — confirmar com data
   const [payingPayment, setPayingPayment] = useState<{ p: any; c: any } | null>(null);
   const [payDate, setPayDate] = useState<string>("");
@@ -160,19 +161,27 @@ function RentalsPage() {
       return toast.error("Preencha imóvel, inquilino, valor e data de início");
     }
     const months = Number(form.term_months) || 12;
+    const dueDay = Number(form.due_day);
+    if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) {
+      return toast.error("Informe um dia de vencimento entre 1 e 31");
+    }
     const end_date = addMonths(form.start_date, months);
     const { data: { user } } = await supabase.auth.getUser();
     const { term_months: _t, ...rest } = form;
     const { data: created, error } = await supabase.from("rental_contracts").insert({
       ...rest,
       monthly_rent: Number(form.monthly_rent),
-      due_day: Number(form.due_day),
+      due_day: dueDay,
       deposit_amount: form.deposit_amount ? Number(form.deposit_amount) : null,
       end_date,
       created_by: user?.id,
     }).select("id").single();
     if (error) return toast.error(error.message);
-    await supabase.rpc("generate_rental_payments", { _contract_id: created.id, _months: months });
+    const { error: paymentsError } = await supabase.rpc("generate_rental_payments", { _contract_id: created.id, _months: months });
+    if (paymentsError) {
+      refetch(); qc.invalidateQueries({ queryKey: ["rental_payments"] });
+      return toast.error(`Contrato criado, mas não foi possível gerar as parcelas: ${paymentsError.message}`);
+    }
     toast.success("Contrato criado e parcelas geradas");
     setOpenContract(false); setForm({ kind: "residential", due_day: 5, monthly_rent: "", term_months: 12 });
     refetch(); qc.invalidateQueries({ queryKey: ["rental_payments"] });
@@ -242,6 +251,60 @@ function RentalsPage() {
     setAddingFor(null); setNewPayment({});
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success("Parcela adicionada");
+  }
+
+  async function bulkDeletePayments(ids: string[]) {
+    if (ids.length === 0) return;
+    if (!confirm(`Tem certeza que deseja excluir ${ids.length} parcela(s) selecionada(s)?`)) return;
+    try {
+      const { error } = await supabase.from("rental_payments").delete().in("id", ids);
+      if (error) throw error;
+      setSelectedPayments((prev) => {
+        const next = { ...prev };
+        for (const id of ids) delete next[id];
+        return next;
+      });
+      qc.invalidateQueries({ queryKey: ["rental_payments"] });
+      toast.success(`${ids.length} parcela(s) excluída(s) com sucesso!`);
+    } catch (err: any) {
+      toast.error(`Erro ao excluir parcelas: ${err.message}`);
+    }
+  }
+
+  async function bulkMarkPaid(ids: string[]) {
+    if (ids.length === 0) return;
+    const defaultDate = new Date().toISOString().slice(0, 10);
+    const dateStr = prompt("Data do pagamento para as parcelas selecionadas (AAAA-MM-DD):", defaultDate);
+    if (dateStr === null) return;
+    if (!dateStr) return toast.error("Data de pagamento obrigatória!");
+    
+    try {
+      const { data: listToPay } = await supabase.from("rental_payments").select("*").in("id", ids);
+      if (!listToPay) return;
+      
+      const paidAtIso = new Date(dateStr + "T12:00:00").toISOString();
+      const promises = listToPay.map((p) => {
+        const total = recalc(p).total;
+        return supabase.from("rental_payments").update({
+          status: "paid",
+          paid_at: paidAtIso,
+          amount_paid: total
+        }).eq("id", p.id);
+      });
+      
+      await Promise.all(promises);
+      
+      setSelectedPayments((prev) => {
+        const next = { ...prev };
+        for (const id of ids) delete next[id];
+        return next;
+      });
+      
+      qc.invalidateQueries({ queryKey: ["rental_payments"] });
+      toast.success(`${ids.length} parcela(s) marcada(s) como pagas!`);
+    } catch (err: any) {
+      toast.error(`Erro ao registrar pagamentos: ${err.message}`);
+    }
   }
 
   async function deleteContracts(ids: string[]) {
@@ -625,8 +688,37 @@ function RentalsPage() {
               {isOpen && (
                 <>
                   <div className="flex items-center justify-between border-b bg-muted/10 px-4 py-2 text-xs">
-                    <span className="text-muted-foreground">{list.length} parcela(s)</span>
-                    <div className="space-x-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{list.length} parcela(s)</span>
+                      {(() => {
+                        const contractSelectedCount = list.filter((p: any) => selectedPayments[p.id]).length;
+                        if (contractSelectedCount > 0) {
+                          return (
+                            <span className="text-primary font-semibold">
+                              ({contractSelectedCount} selecionada(s))
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        const contractSelectedIds = list.filter((p: any) => selectedPayments[p.id]).map((p: any) => p.id);
+                        if (contractSelectedIds.length > 0) {
+                          return (
+                            <div className="flex items-center gap-1.5 border-r pr-2 mr-2">
+                              <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => bulkMarkPaid(contractSelectedIds)}>
+                                Marcar pagas
+                              </Button>
+                              <Button size="sm" variant="destructive" className="h-7 px-2 text-[11px]" onClick={() => bulkDeletePayments(contractSelectedIds)}>
+                                Excluir selecionadas
+                              </Button>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                       <Button size="sm" variant="ghost" onClick={() => generateMore(c.id)}>+12 meses</Button>
                       <Button size="sm" variant="outline" onClick={() => { setAddingFor(c); setNewPayment({ amount_due: c.monthly_rent }); }}>
                         <Plus className="mr-1 h-3.5 w-3.5" />Adicionar parcela
@@ -640,6 +732,20 @@ function RentalsPage() {
                     <table className="w-full text-sm">
                       <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                         <tr>
+                          <th className="px-4 py-2 text-left w-10">
+                            <input
+                              type="checkbox"
+                              checked={list.length > 0 && list.every((p: any) => selectedPayments[p.id])}
+                              onChange={(e) => {
+                                const next = { ...selectedPayments };
+                                for (const p of list) {
+                                  if (e.target.checked) next[p.id] = true;
+                                  else delete next[p.id];
+                                }
+                                setSelectedPayments(next);
+                              }}
+                            />
+                          </th>
                           <th className="px-4 py-2 text-left">Ref.</th>
                           <th className="px-4 py-2 text-left">Vencimento</th>
                           <th className="px-4 py-2 text-right">Valor</th>
@@ -656,6 +762,18 @@ function RentalsPage() {
                           const overdue = r.daysLate > 0;
                           return (
                             <tr key={p.id} className="border-t">
+                              <td className="px-4 py-2 text-left w-10">
+                                <input
+                                  type="checkbox"
+                                  checked={!!selectedPayments[p.id]}
+                                  onChange={(e) => {
+                                    const next = { ...selectedPayments };
+                                    if (e.target.checked) next[p.id] = true;
+                                    else delete next[p.id];
+                                    setSelectedPayments(next);
+                                  }}
+                                />
+                              </td>
                               <td className="px-4 py-2 text-xs">{formatDateBR(p.reference_month)}</td>
                               <td className={`px-4 py-2 text-xs ${overdue ? "text-destructive font-medium" : ""}`}>
                                 {formatDateBR(p.due_date)}{overdue && ` • ${r.daysLate}d atraso`}
