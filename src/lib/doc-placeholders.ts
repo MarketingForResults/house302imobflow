@@ -20,6 +20,76 @@ export const PLACEHOLDER_GROUPS = {
 
 export const ALL_PLACEHOLDERS = Object.values(PLACEHOLDER_GROUPS).flat();
 
+export const PLACEHOLDER_LABELS: Record<string, string> = {
+  "property.code": "Código do imóvel",
+  "property.title": "Título do imóvel",
+  "property.type": "Tipo do imóvel",
+  "property.status": "Status do imóvel",
+  "property.address": "Endereço do imóvel",
+  "property.neighborhood": "Bairro do imóvel",
+  "property.city": "Cidade do imóvel",
+  "property.state": "Estado (UF) do imóvel",
+  "property.area_m2": "Área do imóvel (m²)",
+  "property.bedrooms": "Quantidade de quartos",
+  "property.bathrooms": "Quantidade de banheiros",
+  "property.suites": "Quantidade de suítes",
+  "property.parking_spaces": "Vagas de garagem",
+  "property.price": "Preço do imóvel",
+  "client.full_name": "Nome completo do cliente",
+  "client.cpf": "CPF do cliente",
+  "client.email": "E-mail do cliente",
+  "client.phone": "Telefone do cliente",
+  "client.address": "Endereço do cliente",
+  "broker.full_name": "Nome completo do corretor",
+  "broker.cpf": "CPF do corretor",
+  "broker.creci": "CRECI do corretor",
+  "broker.email": "E-mail do corretor",
+  "broker.phone": "Telefone do corretor",
+  "date.today": "Data atual",
+  "date.today_long": "Data atual por extenso",
+  "values.amount": "Valor informado",
+  "values.amount_words": "Valor por extenso",
+  "values.deadline_days": "Prazo em dias",
+  "values.commission_pct": "Percentual de comissão",
+};
+
+export function richTextToPlainText(body: string): string {
+  if (!body) return "";
+  if (!/<[a-z][\s\S]*>/i.test(body)) return body;
+
+  const container = document.createElement("div");
+  container.innerHTML = body;
+  container.querySelectorAll("br").forEach((element) => element.replaceWith("\n"));
+  container.querySelectorAll("p, div, li, h1, h2, h3, h4, h5, h6").forEach((element) => {
+    element.insertAdjacentText("beforeend", "\n");
+  });
+  return (container.textContent ?? "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+export function sanitizeRichTextHtml(body: string): string {
+  if (!body || !/<[a-z][\s\S]*>/i.test(body)) return body;
+
+  const container = document.createElement("div");
+  container.innerHTML = body;
+  const allowedTags = new Set(["P", "BR", "DIV", "SPAN", "STRONG", "B", "EM", "I", "U", "OL", "UL", "LI", "H1", "H2", "H3", "H4"]);
+
+  for (const element of Array.from(container.querySelectorAll("*"))) {
+    if (!allowedTags.has(element.tagName)) {
+      if (["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED"].includes(element.tagName)) element.remove();
+      else element.replaceWith(...Array.from(element.childNodes));
+      continue;
+    }
+
+    for (const attribute of Array.from(element.attributes)) {
+      if (attribute.name !== "style") element.removeAttribute(attribute.name);
+    }
+    const textAlign = (element as HTMLElement).style.textAlign;
+    element.removeAttribute("style");
+    if (["left", "center", "right", "justify"].includes(textAlign)) (element as HTMLElement).style.textAlign = textAlign;
+  }
+  return container.innerHTML;
+}
+
 export function buildPlaceholderContext(input: {
   property?: any;
   client?: any;

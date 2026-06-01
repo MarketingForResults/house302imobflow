@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DOCUMENT_KIND_LABEL, buildPlaceholderContext, renderTemplate } from "@/lib/doc-placeholders";
+import { DOCUMENT_KIND_LABEL, buildPlaceholderContext, renderTemplate, richTextToPlainText, sanitizeRichTextHtml } from "@/lib/doc-placeholders";
 import { generateDocumentPdf } from "@/lib/pdf-utils";
 import { toast } from "sonner";
 import { ArrowLeft, Download } from "lucide-react";
@@ -78,7 +78,7 @@ function NewDocumentPage() {
       code: inserted.code,
       locator: property?.code ?? inserted.code,
       title,
-      bodyText: rendered,
+      bodyText: richTextToPlainText(rendered),
       parties: [
         client && { label: "CLIENTE", name: client.full_name, doc: client.cpf },
         broker && { label: "CORRETOR", name: broker.full_name, doc: broker.creci ? `CRECI ${broker.creci}` : broker.cpf },
@@ -156,7 +156,11 @@ function NewDocumentPage() {
         </div>
         <div className="lg:col-span-2 rounded-lg border bg-card p-5">
           <h3 className="mb-3 text-sm font-semibold">Pré-visualização</h3>
-          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded bg-muted/30 p-4 font-sans text-sm leading-relaxed">{rendered || "Selecione um modelo para ver o conteúdo."}</pre>
+          {rendered ? (
+            <div className="max-h-[60vh] overflow-auto rounded bg-muted/30 p-4 text-sm leading-relaxed [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-bold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-2 [&_ul]:list-disc" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(rendered) }} />
+          ) : (
+            <div className="rounded bg-muted/30 p-4 text-sm text-muted-foreground">Selecione um modelo para ver o conteúdo.</div>
+          )}
         </div>
       </div>
     </div>
