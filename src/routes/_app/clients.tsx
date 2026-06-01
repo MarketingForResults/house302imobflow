@@ -66,6 +66,8 @@ function ClientsPage() {
                 <div><Label>Telefone</Label><Input value={form.phone ?? ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
               </div>
               <div><Label>Email</Label><Input type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+              <div><Label>Endereço</Label><Input value={form.address ?? ""} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
+              <div><Label>Data de nascimento</Label><Input type="date" value={form.birth_date ?? ""} onChange={(e) => setForm({ ...form, birth_date: e.target.value || null })} /></div>
               <div>
                 <Label>Interesse</Label>
                 <Select value={form.interest_type ?? "buy"} onValueChange={(v) => setForm({ ...form, interest_type: v })}>

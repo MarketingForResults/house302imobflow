@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { LayoutDashboard, Home, Users, UserCog, Plug, LogOut, FileText, KeyRound, Settings, Menu } from "lucide-react";
+import { LayoutDashboard, Home, Users, UserCog, Plug, LogOut, FileText, KeyRound, Settings, Menu, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import logo from "@/assets/logo-house302.png";
@@ -13,6 +13,7 @@ const nav = [
   { to: "/properties", label: "Imóveis", icon: Home },
   { to: "/clients", label: "Clientes", icon: Users },
   { to: "/brokers", label: "Corretores", icon: UserCog },
+  { to: "/inspections", label: "Vistorias", icon: ClipboardCheck },
   { to: "/documents", label: "Documentos", icon: FileText },
   { to: "/rentals", label: "Aluguéis", icon: KeyRound },
   { to: "/integration", label: "Integração WP", icon: Plug },

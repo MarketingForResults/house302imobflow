@@ -4,6 +4,7 @@ import { ChangeEvent, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -280,25 +281,27 @@ function TemplatesPage() {
         <div className="rounded-lg border bg-card p-4">
           <h3 className="mb-1 text-sm font-semibold">Campos automáticos</h3>
           <p className="mb-4 text-xs text-muted-foreground">Clique em um campo para inseri-lo na posição atual do texto.</p>
-          {Object.entries(PLACEHOLDER_GROUPS).map(([group, items]) => (
-            <div key={group} className="mb-4">
-              <div className="mb-1.5 text-xs font-semibold text-muted-foreground">{group}</div>
-              <div className="grid gap-1">
-                {items.map((placeholder) => (
-                  <button
-                    key={placeholder}
-                    onClick={() => insertPlaceholder(placeholder)}
-                    disabled={!editing}
-                    className="rounded border bg-muted/20 px-2 py-1.5 text-left hover:border-primary hover:bg-accent disabled:opacity-50"
-                    title={`Insere {{${placeholder}}}`}
-                  >
-                    <span className="block text-xs font-medium">{PLACEHOLDER_LABELS[placeholder]}</span>
-                    <code className="block text-[10px] text-muted-foreground">{`{{${placeholder}}}`}</code>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
+          <Accordion type="multiple" defaultValue={Object.keys(PLACEHOLDER_GROUPS)}>
+            {Object.entries(PLACEHOLDER_GROUPS).map(([group, items]) => (
+              <AccordionItem key={group} value={group}>
+                <AccordionTrigger className="py-2.5 text-xs font-semibold">{group}</AccordionTrigger>
+                <AccordionContent className="grid gap-1 pb-3">
+                  {items.map((placeholder) => (
+                    <button
+                      key={placeholder}
+                      onClick={() => insertPlaceholder(placeholder)}
+                      disabled={!editing}
+                      className="group rounded border bg-muted/20 px-2 py-1.5 text-left transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-50 disabled:hover:bg-muted/20 disabled:hover:text-foreground"
+                      title={`Insere {{${placeholder}}}`}
+                    >
+                      <span className="block text-xs font-medium">{PLACEHOLDER_LABELS[placeholder]}</span>
+                      <code className="block text-[10px] text-muted-foreground transition-colors group-hover:text-primary-foreground/85">{`{{${placeholder}}}`}</code>
+                    </button>
+                  ))}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </div>
       </div>
     </div>

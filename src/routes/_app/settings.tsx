@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -61,6 +62,15 @@ function SettingsPage() {
       sale_default_payment_method: s.sale_default_payment_method ?? "a_vista",
       sale_deed_type: s.sale_deed_type ?? "escritura_publica",
       sale_default_down_payment_pct: Number(s.sale_default_down_payment_pct ?? 0),
+      company_legal_name: s.company_legal_name ?? null,
+      company_trade_name: s.company_trade_name ?? null,
+      company_cnpj: s.company_cnpj ?? null,
+      company_creci: s.company_creci ?? null,
+      company_address: s.company_address ?? null,
+      company_phone: s.company_phone ?? null,
+      company_email: s.company_email ?? null,
+      rental_contract_notes: s.rental_contract_notes ?? null,
+      sale_contract_notes: s.sale_contract_notes ?? null,
       updated_by: user?.id,
     }).eq("id", true);
     setSaving(false);
@@ -106,6 +116,20 @@ function SettingsPage() {
       />
 
       <div className="space-y-6 p-4 md:p-8">
+        <section className="rounded-lg border bg-card p-6">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-muted-foreground">Dados institucionais para documentos</h2>
+          <p className="mb-4 text-xs text-muted-foreground">Informações da imobiliária disponíveis para contratos, autorizações e outros modelos.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field k="company_legal_name" label="Razão social" type="text" />
+            <Field k="company_trade_name" label="Nome fantasia" type="text" />
+            <Field k="company_cnpj" label="CNPJ" type="text" />
+            <Field k="company_creci" label="CRECI da imobiliária" type="text" />
+            <Field k="company_phone" label="Telefone" type="text" />
+            <Field k="company_email" label="E-mail" type="email" />
+            <div className="sm:col-span-2"><Field k="company_address" label="Endereço completo" type="text" /></div>
+          </div>
+        </section>
+
         <section className="rounded-lg border bg-card p-6">
           <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">Aluguéis — multa, juros e recálculo</h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -214,6 +238,23 @@ function SettingsPage() {
           <p className="mt-3 text-xs text-muted-foreground">
             Esses valores são usados como padrão ao gerar contratos e documentos de compra e venda.
           </p>
+        </section>
+
+        <section className="rounded-lg border bg-card p-6">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-muted-foreground">Cláusulas e observações padrão</h2>
+          <p className="mb-4 text-xs text-muted-foreground">Textos auxiliares disponíveis nos campos automáticos dos modelos.</p>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <Label className="text-xs">Contratos de aluguel</Label>
+              <Textarea rows={6} value={s.rental_contract_notes ?? ""} disabled={!isAdmin}
+                onChange={(e) => setS({ ...s, rental_contract_notes: e.target.value })} />
+            </div>
+            <div>
+              <Label className="text-xs">Contratos de compra e venda</Label>
+              <Textarea rows={6} value={s.sale_contract_notes ?? ""} disabled={!isAdmin}
+                onChange={(e) => setS({ ...s, sale_contract_notes: e.target.value })} />
+            </div>
+          </div>
         </section>
 
         <section className="rounded-lg border bg-card p-6">

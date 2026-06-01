@@ -17,6 +17,13 @@ export type Database = {
       app_settings: {
         Row: {
           contract_default_commission_pct: number | null
+          company_address: string | null
+          company_cnpj: string | null
+          company_creci: string | null
+          company_email: string | null
+          company_legal_name: string | null
+          company_phone: string | null
+          company_trade_name: string | null
           id: boolean
           rental_daily_interest_pct: number
           rental_default_contract_type: string
@@ -26,17 +33,26 @@ export type Database = {
           rental_default_term_months: number
           rental_grace_days: number
           rental_late_fee_pct: number
+          rental_contract_notes: string | null
           sale_deed_type: string
           sale_default_commission_pct: number
           sale_default_down_payment_pct: number
           sale_default_payment_method: string
           sale_itbi_pct: number
+          sale_contract_notes: string | null
           savings_monthly_rate_pct: number
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           contract_default_commission_pct?: number | null
+          company_address?: string | null
+          company_cnpj?: string | null
+          company_creci?: string | null
+          company_email?: string | null
+          company_legal_name?: string | null
+          company_phone?: string | null
+          company_trade_name?: string | null
           id?: boolean
           rental_daily_interest_pct?: number
           rental_default_contract_type?: string
@@ -46,17 +62,26 @@ export type Database = {
           rental_default_term_months?: number
           rental_grace_days?: number
           rental_late_fee_pct?: number
+          rental_contract_notes?: string | null
           sale_deed_type?: string
           sale_default_commission_pct?: number
           sale_default_down_payment_pct?: number
           sale_default_payment_method?: string
           sale_itbi_pct?: number
+          sale_contract_notes?: string | null
           savings_monthly_rate_pct?: number
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           contract_default_commission_pct?: number | null
+          company_address?: string | null
+          company_cnpj?: string | null
+          company_creci?: string | null
+          company_email?: string | null
+          company_legal_name?: string | null
+          company_phone?: string | null
+          company_trade_name?: string | null
           id?: boolean
           rental_daily_interest_pct?: number
           rental_default_contract_type?: string
@@ -66,11 +91,13 @@ export type Database = {
           rental_default_term_months?: number
           rental_grace_days?: number
           rental_late_fee_pct?: number
+          rental_contract_notes?: string | null
           sale_deed_type?: string
           sale_default_commission_pct?: number
           sale_default_down_payment_pct?: number
           sale_default_payment_method?: string
           sale_itbi_pct?: number
+          sale_contract_notes?: string | null
           savings_monthly_rate_pct?: number
           updated_at?: string
           updated_by?: string | null
@@ -91,6 +118,7 @@ export type Database = {
           full_name: string
           id: string
           phone: string | null
+          registration_status: string
           updated_at: string
           user_id: string | null
         }
@@ -107,6 +135,7 @@ export type Database = {
           full_name: string
           id?: string
           phone?: string | null
+          registration_status?: string
           updated_at?: string
           user_id?: string | null
         }
@@ -123,6 +152,7 @@ export type Database = {
           full_name?: string
           id?: string
           phone?: string | null
+          registration_status?: string
           updated_at?: string
           user_id?: string | null
         }
@@ -322,6 +352,137 @@ export type Database = {
           name?: string
           reference_month?: string
           source_url?: string | null
+        }
+        Relationships: []
+      }
+      inspection_images: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          inspection_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          inspection_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          inspection_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_images_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspections: {
+        Row: {
+          area_m2: number | null
+          bathrooms: number | null
+          bedrooms: number | null
+          city: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          neighborhood: string | null
+          notes: string | null
+          owner_address: string | null
+          owner_cpf: string | null
+          owner_email: string | null
+          owner_name: string
+          owner_phone: string | null
+          parking_spaces: number | null
+          property_address: string
+          property_description: string | null
+          property_title: string | null
+          property_type: Database["public"]["Enums"]["property_type"]
+          rental_max_price: number | null
+          rental_min_price: number | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sale_max_price: number | null
+          sale_min_price: number | null
+          state: string | null
+          status: string
+          suites: number | null
+          updated_at: string
+        }
+        Insert: {
+          area_m2?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          neighborhood?: string | null
+          notes?: string | null
+          owner_address?: string | null
+          owner_cpf?: string | null
+          owner_email?: string | null
+          owner_name: string
+          owner_phone?: string | null
+          parking_spaces?: number | null
+          property_address: string
+          property_description?: string | null
+          property_title?: string | null
+          property_type?: Database["public"]["Enums"]["property_type"]
+          rental_max_price?: number | null
+          rental_min_price?: number | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sale_max_price?: number | null
+          sale_min_price?: number | null
+          state?: string | null
+          status?: string
+          suites?: number | null
+          updated_at?: string
+        }
+        Update: {
+          area_m2?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          neighborhood?: string | null
+          notes?: string | null
+          owner_address?: string | null
+          owner_cpf?: string | null
+          owner_email?: string | null
+          owner_name?: string
+          owner_phone?: string | null
+          parking_spaces?: number | null
+          property_address?: string
+          property_description?: string | null
+          property_title?: string | null
+          property_type?: Database["public"]["Enums"]["property_type"]
+          rental_max_price?: number | null
+          rental_min_price?: number | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sale_max_price?: number | null
+          sale_min_price?: number | null
+          state?: string | null
+          status?: string
+          suites?: number | null
+          updated_at?: string
         }
         Relationships: []
       }

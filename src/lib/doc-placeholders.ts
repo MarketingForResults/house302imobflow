@@ -9,11 +9,15 @@ export const PLACEHOLDER_GROUPS = {
     "property.parking_spaces", "property.price",
   ],
   Cliente: [
-    "client.full_name", "client.cpf", "client.email", "client.phone", "client.address",
+    "client.full_name", "client.cpf", "client.email", "client.phone", "client.address", "client.birth_date",
   ],
   Corretor: [
-    "broker.full_name", "broker.cpf", "broker.creci", "broker.email", "broker.phone",
+    "broker.full_name", "broker.cpf", "broker.creci", "broker.registration_status", "broker.email", "broker.phone", "broker.address", "broker.birth_date",
   ],
+  Imobiliária: [
+    "company.legal_name", "company.trade_name", "company.cnpj", "company.creci", "company.address", "company.phone", "company.email",
+  ],
+  Contratos: ["contract.rental_notes", "contract.sale_notes"],
   Datas: ["date.today", "date.today_long"],
   Valores: ["values.amount", "values.amount_words", "values.deadline_days", "values.commission_pct"],
 } as const;
@@ -40,11 +44,24 @@ export const PLACEHOLDER_LABELS: Record<string, string> = {
   "client.email": "E-mail do cliente",
   "client.phone": "Telefone do cliente",
   "client.address": "Endereço do cliente",
+  "client.birth_date": "Data de nascimento do cliente",
   "broker.full_name": "Nome completo do corretor",
   "broker.cpf": "CPF do corretor",
   "broker.creci": "CRECI do corretor",
+  "broker.registration_status": "Situação profissional do corretor",
   "broker.email": "E-mail do corretor",
   "broker.phone": "Telefone do corretor",
+  "broker.address": "Endereço do corretor",
+  "broker.birth_date": "Data de nascimento do corretor",
+  "company.legal_name": "Razão social da imobiliária",
+  "company.trade_name": "Nome fantasia da imobiliária",
+  "company.cnpj": "CNPJ da imobiliária",
+  "company.creci": "CRECI da imobiliária",
+  "company.address": "Endereço da imobiliária",
+  "company.phone": "Telefone da imobiliária",
+  "company.email": "E-mail da imobiliária",
+  "contract.rental_notes": "Cláusulas padrão para aluguel",
+  "contract.sale_notes": "Cláusulas padrão para compra e venda",
   "date.today": "Data atual",
   "date.today_long": "Data atual por extenso",
   "values.amount": "Valor informado",
@@ -94,10 +111,16 @@ export function buildPlaceholderContext(input: {
   property?: any;
   client?: any;
   broker?: any;
+  settings?: any;
   values?: { amount?: number; amount_words?: string; deadline_days?: number; commission_pct?: number };
 }) {
   const fmtMoney = (v: any) =>
     v == null || v === "" ? "" : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtDate = (v: any) => {
+    if (!v) return "";
+    const [year, month, day] = String(v).slice(0, 10).split("-");
+    return day && month && year ? `${day}/${month}/${year}` : String(v);
+  };
   const today = new Date();
   const todayLong = today.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
 
@@ -124,13 +147,30 @@ export function buildPlaceholderContext(input: {
       email: input.client?.email ?? "",
       phone: input.client?.phone ?? "",
       address: input.client?.address ?? "",
+      birth_date: fmtDate(input.client?.birth_date),
     },
     broker: {
       full_name: input.broker?.full_name ?? "",
       cpf: input.broker?.cpf ?? "",
       creci: input.broker?.creci ?? "",
+      registration_status: input.broker?.registration_status === "irregular" ? "Corretor sem registro profissional (Autônomo)" : "Corretor regular com registro profissional",
       email: input.broker?.email ?? "",
       phone: input.broker?.phone ?? "",
+      address: input.broker?.address ?? "",
+      birth_date: fmtDate(input.broker?.birth_date),
+    },
+    company: {
+      legal_name: input.settings?.company_legal_name ?? "",
+      trade_name: input.settings?.company_trade_name ?? "",
+      cnpj: input.settings?.company_cnpj ?? "",
+      creci: input.settings?.company_creci ?? "",
+      address: input.settings?.company_address ?? "",
+      phone: input.settings?.company_phone ?? "",
+      email: input.settings?.company_email ?? "",
+    },
+    contract: {
+      rental_notes: input.settings?.rental_contract_notes ?? "",
+      sale_notes: input.settings?.sale_contract_notes ?? "",
     },
     date: {
       today: `${today.getDate()}/${today.getMonth() + 1}/${String(today.getFullYear()).slice(-2)}`,

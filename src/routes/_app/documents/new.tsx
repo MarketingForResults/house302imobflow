@@ -40,6 +40,10 @@ function NewDocumentPage() {
     queryKey: ["brokers-min"],
     queryFn: async () => (await supabase.from("brokers").select("*").eq("active", true).order("full_name")).data ?? [],
   });
+  const { data: settings } = useQuery({
+    queryKey: ["app-settings-documents"],
+    queryFn: async () => (await supabase.from("app_settings").select("*").eq("id", true).maybeSingle()).data,
+  });
 
   const template = useMemo(() => templates.find((t: any) => t.id === templateId), [templates, templateId]);
   const property = useMemo(() => properties.find((p: any) => p.id === propertyId), [properties, propertyId]);
@@ -48,10 +52,10 @@ function NewDocumentPage() {
 
   const ctx = useMemo(() =>
     buildPlaceholderContext({
-      property, client, broker,
+      property, client, broker, settings,
       values: { amount: amount ? Number(amount) : undefined, deadline_days: deadlineDays ? Number(deadlineDays) : undefined },
     }),
-  [property, client, broker, amount, deadlineDays]);
+  [property, client, broker, settings, amount, deadlineDays]);
 
   const rendered = useMemo(() => template ? renderTemplate(template.body ?? "", ctx) : "", [template, ctx]);
 

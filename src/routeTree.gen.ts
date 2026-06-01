@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppIntegrationRouteImport } from './routes/_app/integration'
+import { Route as AppInspectionsRouteImport } from './routes/_app/inspections'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppClientsRouteImport } from './routes/_app/clients'
 import { Route as AppBrokersRouteImport } from './routes/_app/brokers'
@@ -46,6 +47,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
 const AppIntegrationRoute = AppIntegrationRouteImport.update({
   id: '/integration',
   path: '/integration',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInspectionsRoute = AppInspectionsRouteImport.update({
+  id: '/inspections',
+  path: '/inspections',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
+  '/inspections': typeof AppInspectionsRoute
   '/integration': typeof AppIntegrationRoute
   '/settings': typeof AppSettingsRoute
   '/documents/new': typeof AppDocumentsNewRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
+  '/inspections': typeof AppInspectionsRoute
   '/integration': typeof AppIntegrationRoute
   '/settings': typeof AppSettingsRoute
   '/documents/new': typeof AppDocumentsNewRoute
@@ -132,6 +140,7 @@ export interface FileRoutesById {
   '/_app/brokers': typeof AppBrokersRoute
   '/_app/clients': typeof AppClientsRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/inspections': typeof AppInspectionsRoute
   '/_app/integration': typeof AppIntegrationRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/documents/new': typeof AppDocumentsNewRoute
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
     | '/brokers'
     | '/clients'
     | '/dashboard'
+    | '/inspections'
     | '/integration'
     | '/settings'
     | '/documents/new'
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
     | '/brokers'
     | '/clients'
     | '/dashboard'
+    | '/inspections'
     | '/integration'
     | '/settings'
     | '/documents/new'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
     | '/_app/brokers'
     | '/_app/clients'
     | '/_app/dashboard'
+    | '/_app/inspections'
     | '/_app/integration'
     | '/_app/settings'
     | '/_app/documents/new'
@@ -231,6 +243,13 @@ declare module '@tanstack/react-router' {
       path: '/integration'
       fullPath: '/integration'
       preLoaderRoute: typeof AppIntegrationRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/inspections': {
+      id: '/_app/inspections'
+      path: '/inspections'
+      fullPath: '/inspections'
+      preLoaderRoute: typeof AppInspectionsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/dashboard': {
@@ -303,6 +322,7 @@ interface AppRouteChildren {
   AppBrokersRoute: typeof AppBrokersRoute
   AppClientsRoute: typeof AppClientsRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppInspectionsRoute: typeof AppInspectionsRoute
   AppIntegrationRoute: typeof AppIntegrationRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppDocumentsNewRoute: typeof AppDocumentsNewRoute
@@ -317,6 +337,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppBrokersRoute: AppBrokersRoute,
   AppClientsRoute: AppClientsRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppInspectionsRoute: AppInspectionsRoute,
   AppIntegrationRoute: AppIntegrationRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppDocumentsNewRoute: AppDocumentsNewRoute,
@@ -337,3 +358,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

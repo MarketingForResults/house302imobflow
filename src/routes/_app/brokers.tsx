@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { useState } from "react";
@@ -14,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/_app/brokers")({ component: BrokersPage });
 
-const EMPTY = { active: true } as any;
+const EMPTY = { active: true, registration_status: "regular" } as any;
 
 function BrokersPage() {
   const qc = useQueryClient();
@@ -28,18 +29,20 @@ function BrokersPage() {
   });
 
   function openNew() { setForm(EMPTY); setOpen(true); }
-  function openEdit(b: any) { setForm({ ...b }); setOpen(true); }
+  function openEdit(b: any) { setForm({ ...b, registration_status: b.registration_status ?? (b.creci ? "regular" : "irregular") }); setOpen(true); }
 
   async function save() {
     if (!form.full_name) return toast.error("Informe o nome");
+    if (form.registration_status === "regular" && !form.creci?.trim()) return toast.error("Informe o número do registro CRECI");
+    const normalizedForm = { ...form, creci: form.registration_status === "irregular" ? null : form.creci };
     if (isEdit) {
-      const { id, created_at, updated_at, ...patch } = form;
+      const { id, created_at, updated_at, ...patch } = normalizedForm;
       if (patch.commission_pct === "") patch.commission_pct = null;
       const { error } = await supabase.from("brokers").update(patch).eq("id", id);
       if (error) return toast.error(error.message);
       toast.success("Corretor atualizado");
     } else {
-      const { error } = await supabase.from("brokers").insert(form);
+      const { error } = await supabase.from("brokers").insert(normalizedForm);
       if (error) return toast.error(error.message);
       toast.success("Corretor cadastrado");
     }
@@ -67,13 +70,27 @@ function BrokersPage() {
             <div className="space-y-3">
               <div><Label>Nome completo</Label><Input value={form.full_name ?? ""} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>CRECI</Label><Input value={form.creci ?? ""} onChange={(e) => setForm({ ...form, creci: e.target.value })} /></div>
+                <div>
+                  <Label>Situação do registro profissional</Label>
+                  <Select value={form.registration_status ?? "regular"} onValueChange={(value) => setForm({ ...form, registration_status: value, creci: value === "irregular" ? null : form.creci })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="regular">Corretor regular com registro profissional</SelectItem>
+                      <SelectItem value="irregular">Corretor sem registro profissional (Autônomo)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div><Label>Comissão padrão (%)</Label><Input type="number" step="0.01" value={form.commission_pct ?? ""} onChange={(e) => setForm({ ...form, commission_pct: e.target.value })} /></div>
               </div>
+              {form.registration_status !== "irregular" && (
+                <div><Label>Número do registro CRECI</Label><Input value={form.creci ?? ""} onChange={(e) => setForm({ ...form, creci: e.target.value })} /></div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Telefone</Label><Input value={form.phone ?? ""} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
                 <div><Label>Email</Label><Input type="email" value={form.email ?? ""} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               </div>
+              <div><Label>Endereço</Label><Input value={form.address ?? ""} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
+              <div><Label>Data de nascimento</Label><Input type="date" value={form.birth_date ?? ""} onChange={(e) => setForm({ ...form, birth_date: e.target.value || null })} /></div>
             </div>
             <DialogFooter>
               {isEdit && <Button variant="ghost" onClick={() => { setOpen(false); setForm(EMPTY); }}>Cancelar</Button>}
@@ -93,7 +110,7 @@ function BrokersPage() {
               {brokers.map((b: any) => (
                 <tr key={b.id} className="border-t">
                   <td className="px-4 py-3 font-medium">{b.full_name}</td>
-                  <td className="px-4 py-3">{b.creci ?? "—"}</td>
+                  <td className="px-4 py-3">{b.registration_status === "irregular" ? "Autônomo sem registro" : (b.creci ?? "—")}</td>
                   <td className="px-4 py-3">{b.phone ?? "—"}</td>
                   <td className="px-4 py-3">{b.commission_pct ? `${b.commission_pct}%` : "—"}</td>
                   <td className="px-4 py-3">
