@@ -150,6 +150,21 @@ function RentalsPage() {
     return d.toISOString().slice(0, 10);
   }
 
+  function formatDateInputBR(date = new Date()) {
+    return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+  }
+
+  function parseDateInputBR(value: string) {
+    const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!match) return null;
+
+    const [, day, month, year] = match.map(Number);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
   const computedEndDate = useMemo(() => {
     const months = Number(form.term_months);
     if (!form.start_date || !months || months <= 0) return "";
@@ -651,9 +666,11 @@ function RentalsPage() {
                             variant="outline"
                             className="h-6 px-2 text-[11px]"
                             onClick={async () => {
-                              const d = prompt("Data de confirmação do pagamento da caução (AAAA-MM-DD):", new Date().toISOString().slice(0, 10));
-                              if (!d) return;
-                              const { error } = await supabase.from("rental_contracts").update({ deposit_paid_at: d }).eq("id", c.id);
+                              const input = prompt("Data de confirmação do pagamento da caução (DD/MM/AAAA):", formatDateInputBR());
+                              if (!input) return;
+                              const depositPaidAt = parseDateInputBR(input);
+                              if (!depositPaidAt) return toast.error("Informe uma data válida no formato DD/MM/AAAA");
+                              const { error } = await supabase.from("rental_contracts").update({ deposit_paid_at: depositPaidAt }).eq("id", c.id);
                               if (error) return toast.error(error.message);
                               toast.success("Caução confirmada");
                               refetch();
