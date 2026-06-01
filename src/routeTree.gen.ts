@@ -9,10 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PartnerRegistrationRouteImport } from './routes/partner-registration'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppPartnersRouteImport } from './routes/_app/partners'
 import { Route as AppIntegrationRouteImport } from './routes/_app/integration'
 import { Route as AppInspectionsRouteImport } from './routes/_app/inspections'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
@@ -25,6 +27,11 @@ import { Route as AppPropertiesIdRouteImport } from './routes/_app/properties/$i
 import { Route as AppDocumentsTemplatesRouteImport } from './routes/_app/documents/templates'
 import { Route as AppDocumentsNewRouteImport } from './routes/_app/documents/new'
 
+const PartnerRegistrationRoute = PartnerRegistrationRouteImport.update({
+  id: '/partner-registration',
+  path: '/partner-registration',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -42,6 +49,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPartnersRoute = AppPartnersRouteImport.update({
+  id: '/partners',
+  path: '/partners',
   getParentRoute: () => AppRoute,
 } as any)
 const AppIntegrationRoute = AppIntegrationRouteImport.update({
@@ -103,11 +115,13 @@ const AppDocumentsNewRoute = AppDocumentsNewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/partner-registration': typeof PartnerRegistrationRoute
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
   '/inspections': typeof AppInspectionsRoute
   '/integration': typeof AppIntegrationRoute
+  '/partners': typeof AppPartnersRoute
   '/settings': typeof AppSettingsRoute
   '/documents/new': typeof AppDocumentsNewRoute
   '/documents/templates': typeof AppDocumentsTemplatesRoute
@@ -119,11 +133,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/partner-registration': typeof PartnerRegistrationRoute
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
   '/inspections': typeof AppInspectionsRoute
   '/integration': typeof AppIntegrationRoute
+  '/partners': typeof AppPartnersRoute
   '/settings': typeof AppSettingsRoute
   '/documents/new': typeof AppDocumentsNewRoute
   '/documents/templates': typeof AppDocumentsTemplatesRoute
@@ -137,11 +153,13 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/partner-registration': typeof PartnerRegistrationRoute
   '/_app/brokers': typeof AppBrokersRoute
   '/_app/clients': typeof AppClientsRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/inspections': typeof AppInspectionsRoute
   '/_app/integration': typeof AppIntegrationRoute
+  '/_app/partners': typeof AppPartnersRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/documents/new': typeof AppDocumentsNewRoute
   '/_app/documents/templates': typeof AppDocumentsTemplatesRoute
@@ -155,11 +173,13 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/partner-registration'
     | '/brokers'
     | '/clients'
     | '/dashboard'
     | '/inspections'
     | '/integration'
+    | '/partners'
     | '/settings'
     | '/documents/new'
     | '/documents/templates'
@@ -171,11 +191,13 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/partner-registration'
     | '/brokers'
     | '/clients'
     | '/dashboard'
     | '/inspections'
     | '/integration'
+    | '/partners'
     | '/settings'
     | '/documents/new'
     | '/documents/templates'
@@ -188,11 +210,13 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/login'
+    | '/partner-registration'
     | '/_app/brokers'
     | '/_app/clients'
     | '/_app/dashboard'
     | '/_app/inspections'
     | '/_app/integration'
+    | '/_app/partners'
     | '/_app/settings'
     | '/_app/documents/new'
     | '/_app/documents/templates'
@@ -206,10 +230,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  PartnerRegistrationRoute: typeof PartnerRegistrationRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/partner-registration': {
+      id: '/partner-registration'
+      path: '/partner-registration'
+      fullPath: '/partner-registration'
+      preLoaderRoute: typeof PartnerRegistrationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -236,6 +268,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/partners': {
+      id: '/_app/partners'
+      path: '/partners'
+      fullPath: '/partners'
+      preLoaderRoute: typeof AppPartnersRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/integration': {
@@ -324,6 +363,7 @@ interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
   AppInspectionsRoute: typeof AppInspectionsRoute
   AppIntegrationRoute: typeof AppIntegrationRoute
+  AppPartnersRoute: typeof AppPartnersRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppDocumentsNewRoute: typeof AppDocumentsNewRoute
   AppDocumentsTemplatesRoute: typeof AppDocumentsTemplatesRoute
@@ -339,6 +379,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
   AppInspectionsRoute: AppInspectionsRoute,
   AppIntegrationRoute: AppIntegrationRoute,
+  AppPartnersRoute: AppPartnersRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppDocumentsNewRoute: AppDocumentsNewRoute,
   AppDocumentsTemplatesRoute: AppDocumentsTemplatesRoute,
@@ -354,6 +395,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  PartnerRegistrationRoute: PartnerRegistrationRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
