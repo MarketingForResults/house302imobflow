@@ -203,6 +203,51 @@ export type Database = {
         }
         Relationships: []
       }
+      capture_partners: {
+        Row: {
+          active: boolean
+          address: string | null
+          cpf_cnpj: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          notes: string | null
+          phone: string | null
+          pix_key: string | null
+          registration_status: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          address?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          pix_key?: string | null
+          registration_status?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          address?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          pix_key?: string | null
+          registration_status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       document_templates: {
         Row: {
           active: boolean
@@ -528,11 +573,16 @@ export type Database = {
       properties: {
         Row: {
           accepts_trade: boolean | null
+          admin_review_notes: string | null
+          admin_reviewed_at: string | null
+          admin_reviewed_by: string | null
           address: string | null
           area_m2: number | null
           bathrooms: number | null
           bedrooms: number | null
           broker_id: string | null
+          capture_notes: string | null
+          capture_partner_id: string | null
           city: string | null
           client_id: string | null
           code: string
@@ -546,11 +596,21 @@ export type Database = {
           furnished: boolean | null
           id: string
           latitude: number | null
+          listing_purpose: string
           longitude: number | null
           neighborhood: string | null
           parking_spaces: number | null
           planned_furniture: boolean | null
           price: number | null
+          owner_address: string | null
+          owner_cpf: string | null
+          owner_email: string | null
+          owner_name: string | null
+          owner_phone: string | null
+          rental_max_price: number | null
+          rental_min_price: number | null
+          sale_max_price: number | null
+          sale_min_price: number | null
           state: string | null
           status: Database["public"]["Enums"]["property_status"]
           suites: number | null
@@ -560,16 +620,22 @@ export type Database = {
           type: Database["public"]["Enums"]["property_type"]
           updated_at: string
           video_url: string | null
+          workflow_status: string
           wp_post_id: number | null
           wp_synced_at: string | null
         }
         Insert: {
           accepts_trade?: boolean | null
+          admin_review_notes?: string | null
+          admin_reviewed_at?: string | null
+          admin_reviewed_by?: string | null
           address?: string | null
           area_m2?: number | null
           bathrooms?: number | null
           bedrooms?: number | null
           broker_id?: string | null
+          capture_notes?: string | null
+          capture_partner_id?: string | null
           city?: string | null
           client_id?: string | null
           code?: string
@@ -583,11 +649,21 @@ export type Database = {
           furnished?: boolean | null
           id?: string
           latitude?: number | null
+          listing_purpose?: string
           longitude?: number | null
           neighborhood?: string | null
           parking_spaces?: number | null
           planned_furniture?: boolean | null
           price?: number | null
+          owner_address?: string | null
+          owner_cpf?: string | null
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          rental_max_price?: number | null
+          rental_min_price?: number | null
+          sale_max_price?: number | null
+          sale_min_price?: number | null
           state?: string | null
           status?: Database["public"]["Enums"]["property_status"]
           suites?: number | null
@@ -597,16 +673,22 @@ export type Database = {
           type: Database["public"]["Enums"]["property_type"]
           updated_at?: string
           video_url?: string | null
+          workflow_status?: string
           wp_post_id?: number | null
           wp_synced_at?: string | null
         }
         Update: {
           accepts_trade?: boolean | null
+          admin_review_notes?: string | null
+          admin_reviewed_at?: string | null
+          admin_reviewed_by?: string | null
           address?: string | null
           area_m2?: number | null
           bathrooms?: number | null
           bedrooms?: number | null
           broker_id?: string | null
+          capture_notes?: string | null
+          capture_partner_id?: string | null
           city?: string | null
           client_id?: string | null
           code?: string
@@ -620,11 +702,21 @@ export type Database = {
           furnished?: boolean | null
           id?: string
           latitude?: number | null
+          listing_purpose?: string
           longitude?: number | null
           neighborhood?: string | null
           parking_spaces?: number | null
           planned_furniture?: boolean | null
           price?: number | null
+          owner_address?: string | null
+          owner_cpf?: string | null
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          rental_max_price?: number | null
+          rental_min_price?: number | null
+          sale_max_price?: number | null
+          sale_min_price?: number | null
           state?: string | null
           status?: Database["public"]["Enums"]["property_status"]
           suites?: number | null
@@ -634,10 +726,18 @@ export type Database = {
           type?: Database["public"]["Enums"]["property_type"]
           updated_at?: string
           video_url?: string | null
+          workflow_status?: string
           wp_post_id?: number | null
           wp_synced_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "properties_capture_partner_id_fkey"
+            columns: ["capture_partner_id"]
+            isOneToOne: false
+            referencedRelation: "capture_partners"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "properties_broker_id_fkey"
             columns: ["broker_id"]
@@ -650,6 +750,66 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_inspections: {
+        Row: {
+          assigned_broker_id: string | null
+          contact_notes: string | null
+          created_at: string
+          id: string
+          property_id: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scheduled_at: string | null
+          status: string
+          technical_notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_broker_id?: string | null
+          contact_notes?: string | null
+          created_at?: string
+          id?: string
+          property_id: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduled_at?: string | null
+          status?: string
+          technical_notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_broker_id?: string | null
+          contact_notes?: string | null
+          created_at?: string
+          id?: string
+          property_id?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduled_at?: string | null
+          status?: string
+          technical_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_inspections_assigned_broker_id_fkey"
+            columns: ["assigned_broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_inspections_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]
@@ -916,6 +1076,7 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      is_operational_user: { Args: { _user_id: string }; Returns: boolean }
       mark_late_rental_payments: { Args: never; Returns: number }
     }
     Enums: {
