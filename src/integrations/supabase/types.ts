@@ -110,6 +110,9 @@ export type Database = {
           address: string | null
           avatar_url: string | null
           birth_date: string | null
+          city: string | null
+          cnh: string | null
+          complement: string | null
           commission_pct: number | null
           cpf: string | null
           created_at: string
@@ -117,16 +120,25 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          neighborhood: string | null
+          number: string | null
           phone: string | null
           registration_status: string
+          rg: string | null
+          state: string | null
+          street: string | null
           updated_at: string
           user_id: string | null
+          zip_code: string | null
         }
         Insert: {
           active?: boolean
           address?: string | null
           avatar_url?: string | null
           birth_date?: string | null
+          city?: string | null
+          cnh?: string | null
+          complement?: string | null
           commission_pct?: number | null
           cpf?: string | null
           created_at?: string
@@ -134,16 +146,25 @@ export type Database = {
           email?: string | null
           full_name: string
           id?: string
+          neighborhood?: string | null
+          number?: string | null
           phone?: string | null
           registration_status?: string
+          rg?: string | null
+          state?: string | null
+          street?: string | null
           updated_at?: string
           user_id?: string | null
+          zip_code?: string | null
         }
         Update: {
           active?: boolean
           address?: string | null
           avatar_url?: string | null
           birth_date?: string | null
+          city?: string | null
+          cnh?: string | null
+          complement?: string | null
           commission_pct?: number | null
           cpf?: string | null
           created_at?: string
@@ -151,10 +172,16 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          neighborhood?: string | null
+          number?: string | null
           phone?: string | null
           registration_status?: string
+          rg?: string | null
+          state?: string | null
+          street?: string | null
           updated_at?: string
           user_id?: string | null
+          zip_code?: string | null
         }
         Relationships: []
       }
@@ -163,43 +190,70 @@ export type Database = {
           address: string | null
           avatar_url: string | null
           birth_date: string | null
+          city: string | null
+          cnh: string | null
+          complement: string | null
           cpf: string | null
           created_at: string
           email: string | null
           full_name: string
           id: string
           interest_type: Database["public"]["Enums"]["interest_type"] | null
+          neighborhood: string | null
           notes: string | null
+          number: string | null
           phone: string | null
+          rg: string | null
+          state: string | null
+          street: string | null
           updated_at: string
+          zip_code: string | null
         }
         Insert: {
           address?: string | null
           avatar_url?: string | null
           birth_date?: string | null
+          city?: string | null
+          cnh?: string | null
+          complement?: string | null
           cpf?: string | null
           created_at?: string
           email?: string | null
           full_name: string
           id?: string
           interest_type?: Database["public"]["Enums"]["interest_type"] | null
+          neighborhood?: string | null
           notes?: string | null
+          number?: string | null
           phone?: string | null
+          rg?: string | null
+          state?: string | null
+          street?: string | null
           updated_at?: string
+          zip_code?: string | null
         }
         Update: {
           address?: string | null
           avatar_url?: string | null
           birth_date?: string | null
+          city?: string | null
+          cnh?: string | null
+          complement?: string | null
           cpf?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
           id?: string
           interest_type?: Database["public"]["Enums"]["interest_type"] | null
+          neighborhood?: string | null
           notes?: string | null
+          number?: string | null
           phone?: string | null
+          rg?: string | null
+          state?: string | null
+          street?: string | null
           updated_at?: string
+          zip_code?: string | null
         }
         Relationships: []
       }
@@ -207,43 +261,142 @@ export type Database = {
         Row: {
           active: boolean
           address: string | null
+          city: string | null
+          cnh: string | null
+          complement: string | null
           cpf_cnpj: string | null
           created_at: string
           email: string | null
           full_name: string
           id: string
+          neighborhood: string | null
           notes: string | null
+          number: string | null
           phone: string | null
+          payment_details: string | null
+          payment_preference: string | null
           pix_key: string | null
+          property_address: string | null
+          property_city: string | null
+          property_complement: string | null
+          property_neighborhood: string | null
+          property_notes: string | null
+          property_number: string | null
+          property_owner_email: string | null
+          property_owner_name: string | null
+          property_owner_phone: string | null
+          property_state: string | null
+          property_street: string | null
+          property_zip_code: string | null
           registration_status: string
+          rg: string | null
+          state: string | null
+          street: string | null
           updated_at: string
+          zip_code: string | null
         }
         Insert: {
           active?: boolean
           address?: string | null
+          city?: string | null
+          cnh?: string | null
+          complement?: string | null
           cpf_cnpj?: string | null
           created_at?: string
           email?: string | null
           full_name: string
           id?: string
+          neighborhood?: string | null
           notes?: string | null
+          number?: string | null
           phone?: string | null
+          payment_details?: string | null
+          payment_preference?: string | null
           pix_key?: string | null
+          property_address?: string | null
+          property_city?: string | null
+          property_complement?: string | null
+          property_neighborhood?: string | null
+          property_notes?: string | null
+          property_number?: string | null
+          property_owner_email?: string | null
+          property_owner_name?: string | null
+          property_owner_phone?: string | null
+          property_state?: string | null
+          property_street?: string | null
+          property_zip_code?: string | null
           registration_status?: string
+          rg?: string | null
+          state?: string | null
+          street?: string | null
           updated_at?: string
+          zip_code?: string | null
         }
         Update: {
           active?: boolean
           address?: string | null
+          city?: string | null
+          cnh?: string | null
+          complement?: string | null
           cpf_cnpj?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
           id?: string
+          neighborhood?: string | null
           notes?: string | null
+          number?: string | null
           phone?: string | null
+          payment_details?: string | null
+          payment_preference?: string | null
           pix_key?: string | null
+          property_address?: string | null
+          property_city?: string | null
+          property_complement?: string | null
+          property_neighborhood?: string | null
+          property_notes?: string | null
+          property_number?: string | null
+          property_owner_email?: string | null
+          property_owner_name?: string | null
+          property_owner_phone?: string | null
+          property_state?: string | null
+          property_street?: string | null
+          property_zip_code?: string | null
           registration_status?: string
+          rg?: string | null
+          state?: string | null
+          street?: string | null
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
+      document_kinds: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          label: string
+          sort_order: number
+          system_kind: boolean
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id: string
+          label: string
+          sort_order?: number
+          system_kind?: boolean
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label?: string
+          sort_order?: number
+          system_kind?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -256,7 +409,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
-          kind: Database["public"]["Enums"]["document_kind"]
+          kind: string
           name: string
           updated_at: string
         }
@@ -267,7 +420,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
-          kind: Database["public"]["Enums"]["document_kind"]
+          kind: string
           name: string
           updated_at?: string
         }
@@ -278,7 +431,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
-          kind?: Database["public"]["Enums"]["document_kind"]
+          kind?: string
           name?: string
           updated_at?: string
         }
@@ -293,7 +446,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
-          kind: Database["public"]["Enums"]["document_kind"]
+          kind: string
           notes: string | null
           partner_id: string | null
           payload_snapshot: Json
@@ -311,7 +464,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          kind: Database["public"]["Enums"]["document_kind"]
+          kind: string
           notes?: string | null
           partner_id?: string | null
           payload_snapshot?: Json
@@ -329,7 +482,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          kind?: Database["public"]["Enums"]["document_kind"]
+          kind?: string
           notes?: string | null
           partner_id?: string | null
           payload_snapshot?: Json

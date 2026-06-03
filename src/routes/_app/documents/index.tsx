@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { DOCUMENT_KIND_LABEL } from "@/lib/doc-placeholders";
+import { DEFAULT_DOCUMENT_KINDS, DOCUMENT_KIND_LABEL } from "@/lib/doc-placeholders";
 import { FileText, Plus, Settings2, Pencil, Trash2 } from "lucide-react";
 import { formatDateBR } from "@/lib/format-date";
 import { useState } from "react";
@@ -27,6 +27,16 @@ function DocumentsList() {
     queryKey: ["document_templates"],
     queryFn: async () => (await supabase.from("document_templates").select("*").order("name")).data ?? [],
   });
+  const { data: documentKinds = DEFAULT_DOCUMENT_KINDS } = useQuery({
+    queryKey: ["document_kinds"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("document_kinds").select("*").eq("active", true).order("sort_order").order("label");
+      if (error) return DEFAULT_DOCUMENT_KINDS;
+      return data?.length ? data : DEFAULT_DOCUMENT_KINDS;
+    },
+  });
+  const kindLabelById = Object.fromEntries(documentKinds.map((kind: any) => [kind.id, kind.label]));
+  const kindLabel = (kind: string) => kindLabelById[kind] ?? DOCUMENT_KIND_LABEL[kind] ?? kind;
 
   async function saveEdit() {
     if (!editing) return;
@@ -88,7 +98,7 @@ function DocumentsList() {
                 {docs.map((d: any) => (
                   <tr key={d.id} className="border-t hover:bg-muted/30">
                     <td className="px-4 py-2 font-mono text-xs">{d.code}</td>
-                    <td className="px-4 py-2">{DOCUMENT_KIND_LABEL[d.kind] ?? d.kind}</td>
+                    <td className="px-4 py-2">{kindLabel(d.kind)}</td>
                     <td className="px-4 py-2">{d.title ?? "—"}</td>
                     <td className="px-4 py-2 text-xs">{d.status}</td>
                     <td className="px-4 py-2 text-xs text-muted-foreground">{formatDateBR(d.created_at)}</td>

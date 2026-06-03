@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DOCUMENT_KIND_LABEL, buildPlaceholderContext, renderTemplate, richTextToPlainText, sanitizeRichTextHtml } from "@/lib/doc-placeholders";
+import { DEFAULT_DOCUMENT_KINDS, DOCUMENT_KIND_LABEL, buildPlaceholderContext, renderTemplate, richTextToPlainText, sanitizeRichTextHtml } from "@/lib/doc-placeholders";
 import { generateDocumentPdf } from "@/lib/pdf-utils";
 import { toast } from "sonner";
 import { ArrowLeft, Download } from "lucide-react";
@@ -27,6 +27,14 @@ function NewDocumentPage() {
   const { data: templates = [] } = useQuery({
     queryKey: ["templates-active"],
     queryFn: async () => (await supabase.from("document_templates").select("*").eq("active", true).order("name")).data ?? [],
+  });
+  const { data: documentKinds = DEFAULT_DOCUMENT_KINDS } = useQuery({
+    queryKey: ["document_kinds"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("document_kinds").select("*").eq("active", true).order("sort_order").order("label");
+      if (error) return DEFAULT_DOCUMENT_KINDS;
+      return data?.length ? data : DEFAULT_DOCUMENT_KINDS;
+    },
   });
   const { data: properties = [] } = useQuery({
     queryKey: ["properties-min"],
@@ -58,11 +66,13 @@ function NewDocumentPage() {
   [property, client, broker, settings, amount, deadlineDays]);
 
   const rendered = useMemo(() => template ? renderTemplate(template.body ?? "", ctx) : "", [template, ctx]);
+  const kindLabelById = useMemo(() => Object.fromEntries(documentKinds.map((kind: any) => [kind.id, kind.label])), [documentKinds]);
+  const kindLabel = (kind: string) => kindLabelById[kind] ?? DOCUMENT_KIND_LABEL[kind] ?? kind;
 
   async function generate() {
     if (!template) return toast.error("Selecione um modelo");
     setSaving(true);
-    const title = `${DOCUMENT_KIND_LABEL[template.kind] ?? template.kind}${property ? ` — ${property.code}` : ""}`;
+    const title = `${kindLabel(template.kind)}${property ? ` — ${property.code}` : ""}`;
     const { data: { user } } = await supabase.auth.getUser();
     const { data: inserted, error } = await supabase.from("documents").insert({
       template_id: template.id,

@@ -8,7 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DOCUMENT_KIND_LABEL, PLACEHOLDER_GROUPS, PLACEHOLDER_LABELS, sanitizeRichTextHtml } from "@/lib/doc-placeholders";
+import { DEFAULT_DOCUMENT_KINDS, DOCUMENT_KIND_LABEL, PLACEHOLDER_GROUPS, PLACEHOLDER_LABELS, sanitizeRichTextHtml } from "@/lib/doc-placeholders";
 import { toast } from "sonner";
 import {
   AlignCenter,
@@ -27,6 +27,7 @@ import {
   Trash2,
   Underline,
   Undo2,
+  X,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_app/documents/templates")({ component: TemplatesPage });
@@ -67,27 +68,93 @@ function TemplatesPage() {
   const qc = useQueryClient();
   const editorRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const bodyDraftRef = useRef("");
   const [editing, setEditing] = useState<any | null>(null);
   const [editorVersion, setEditorVersion] = useState(0);
   const [importing, setImporting] = useState(false);
+  const [newKindName, setNewKindName] = useState("");
 
   const { data: templates = [], refetch } = useQuery({
     queryKey: ["document_templates"],
     queryFn: async () => (await supabase.from("document_templates").select("*").order("created_at", { ascending: false })).data ?? [],
   });
+  const { data: documentKinds = DEFAULT_DOCUMENT_KINDS } = useQuery({
+    queryKey: ["document_kinds"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("document_kinds")
+        .select("*")
+        .eq("active", true)
+        .order("sort_order")
+        .order("label");
+      if (error) return DEFAULT_DOCUMENT_KINDS;
+      return data?.length ? data : DEFAULT_DOCUMENT_KINDS;
+    },
+  });
+
+  const kindLabelById = Object.fromEntries(documentKinds.map((kind: any) => [kind.id, kind.label]));
+  const kindLabel = (kind: string) => kindLabelById[kind] ?? DOCUMENT_KIND_LABEL[kind] ?? kind;
 
   function openEditor(template: any) {
+    bodyDraftRef.current = template.body ?? "";
     setEditing(template);
     setEditorVersion((version) => version + 1);
   }
 
   function newTemplate() {
-    openEditor({ name: "", kind: "custom", body: "", active: true });
+    openEditor({ name: "", kind: documentKinds[0]?.id ?? "custom", body: "", active: true });
+  }
+
+  function slugifyKind(label: string) {
+    return label
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 60);
+  }
+
+  async function addDocumentKind() {
+    const label = newKindName.trim();
+    if (!label) return toast.error("Informe o nome da modalidade");
+    const id = slugifyKind(label);
+    if (!id) return toast.error("Use letras ou numeros no nome da modalidade");
+    if (documentKinds.some((kind: any) => kind.id === id)) return toast.error("Esta modalidade ja existe");
+
+    const { error } = await supabase.from("document_kinds").insert({
+      id,
+      label,
+      active: true,
+      system_kind: false,
+      sort_order: documentKinds.length * 10 + 100,
+    });
+    if (error) return toast.error(error.message);
+    setNewKindName("");
+    setEditing((current: any) => current ? { ...current, kind: id } : current);
+    qc.invalidateQueries({ queryKey: ["document_kinds"] });
+    toast.success("Modalidade adicionada");
+  }
+
+  async function removeDocumentKind(kind: any) {
+    if (kind.system_kind) return toast.error("As modalidades padrao nao podem ser excluidas");
+    if (templates.some((template: any) => template.kind === kind.id)) {
+      return toast.error("Esta modalidade esta em uso por um modelo");
+    }
+    if (!confirm(`Excluir a modalidade ${kind.label}?`)) return;
+    const { error } = await supabase.from("document_kinds").delete().eq("id", kind.id);
+    if (error) return toast.error(error.message);
+    if (editing?.kind === kind.id) setEditing({ ...editing, kind: "custom" });
+    qc.invalidateQueries({ queryKey: ["document_kinds"] });
+    toast.success("Modalidade excluida");
   }
 
   async function save() {
     if (!editing.name?.trim()) return toast.error("Informe um nome");
-    const payload = { ...editing, body: sanitizeRichTextHtml(editorRef.current?.innerHTML ?? editing.body ?? "") };
+    const payload = {
+      ...editing,
+      body: sanitizeRichTextHtml(editorRef.current?.innerHTML ?? bodyDraftRef.current ?? editing.body ?? ""),
+    };
     if (payload.id) {
       const { error } = await supabase.from("document_templates").update(payload).eq("id", payload.id);
       if (error) return toast.error(error.message);
@@ -111,7 +178,7 @@ function TemplatesPage() {
   function runEditorCommand(command: string, value?: string) {
     editorRef.current?.focus();
     document.execCommand(command, false, value);
-    setEditing((current: any) => ({ ...current, body: editorRef.current?.innerHTML ?? "" }));
+    bodyDraftRef.current = editorRef.current?.innerHTML ?? bodyDraftRef.current;
   }
 
   function insertPlaceholder(placeholder: string) {
@@ -119,11 +186,12 @@ function TemplatesPage() {
     editorRef.current?.focus();
     const token = ` {{${placeholder}}} `;
     if (!document.execCommand("insertText", false, token)) {
-      setEditing((current: any) => ({ ...current, body: `${current.body ?? ""}${token}` }));
+      bodyDraftRef.current = `${editorRef.current?.innerHTML ?? bodyDraftRef.current ?? editing.body ?? ""}${token}`;
+      setEditing((current: any) => ({ ...current, body: bodyDraftRef.current }));
       setEditorVersion((version) => version + 1);
       return;
     }
-    setEditing((current: any) => ({ ...current, body: editorRef.current?.innerHTML ?? "" }));
+    bodyDraftRef.current = editorRef.current?.innerHTML ?? bodyDraftRef.current;
   }
 
   async function extractText(file: File) {
@@ -157,6 +225,7 @@ function TemplatesPage() {
       const extracted = (await extractText(file)).replace(/\r/g, "").replace(/[ \t]+/g, " ").trim();
       if (!extracted) throw new Error("Não foi possível reconhecer texto neste arquivo.");
       const body = textToEditorHtml(suggestPlaceholders(extracted));
+      bodyDraftRef.current = body;
       setEditing((current: any) => ({
         ...current,
         name: current.name || file.name.replace(/\.[^.]+$/, ""),
@@ -198,9 +267,33 @@ function TemplatesPage() {
                   <Select value={editing.kind} onValueChange={(value) => setEditing({ ...editing, kind: value })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {Object.entries(DOCUMENT_KIND_LABEL).map(([key, label]) => <SelectItem key={key} value={key}>{label}</SelectItem>)}
+                      {documentKinds.map((kind: any) => <SelectItem key={kind.id} value={kind.id}>{kind.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+              <div className="mt-3 rounded-md border bg-muted/10 p-3">
+                <Label className="mb-1.5 block text-xs">Gerenciar modalidades de documento</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Ex.: Carta proposta, Termo de vistoria..."
+                    value={newKindName}
+                    onChange={(event) => setNewKindName(event.target.value)}
+                    onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addDocumentKind(); } }}
+                  />
+                  <Button type="button" variant="outline" onClick={addDocumentKind}><Plus className="mr-1.5 h-4 w-4" />Adicionar</Button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {documentKinds.map((kind: any) => (
+                    <span key={kind.id} className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-1 text-xs">
+                      {kind.label}
+                      {!kind.system_kind && (
+                        <button type="button" className="text-muted-foreground hover:text-destructive" onClick={() => removeDocumentKind(kind)} title="Excluir modalidade">
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </span>
+                  ))}
                 </div>
               </div>
 
@@ -218,7 +311,7 @@ function TemplatesPage() {
               <div className="mt-4">
                 <Label className="mb-1.5 block text-xs">Corpo do modelo</Label>
                 <div className="overflow-hidden rounded-md border">
-                  <div className="flex flex-wrap gap-1 border-b bg-muted/30 p-1.5">
+                  <div className="flex flex-wrap gap-1 border-b bg-muted/30 p-1.5" onMouseDown={(event) => event.preventDefault()}>
                     <Button type="button" variant="ghost" size="sm" title="Desfazer" onClick={() => runEditorCommand("undo")}><Undo2 className="h-4 w-4" /></Button>
                     <Button type="button" variant="ghost" size="sm" title="Refazer" onClick={() => runEditorCommand("redo")}><Redo2 className="h-4 w-4" /></Button>
                     <span className="mx-1 border-l" />
@@ -240,8 +333,8 @@ function TemplatesPage() {
                     contentEditable
                     suppressContentEditableWarning
                     className="min-h-[420px] bg-background p-4 text-sm leading-relaxed outline-none [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-bold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-2 [&_ul]:list-disc"
-                    dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(editing.body ?? "") }}
-                    onInput={(event) => setEditing({ ...editing, body: event.currentTarget.innerHTML })}
+                    dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(bodyDraftRef.current) }}
+                    onInput={(event) => { bodyDraftRef.current = event.currentTarget.innerHTML; }}
                   />
                 </div>
                 <p className="mt-1.5 text-[11px] text-muted-foreground">Use os campos automáticos ao lado para preencher dados do imóvel, cliente e corretor ao gerar o documento.</p>
@@ -264,7 +357,7 @@ function TemplatesPage() {
                     {templates.map((template: any) => (
                       <tr key={template.id} className="border-t hover:bg-muted/30">
                         <td className="px-4 py-2">{template.name}</td>
-                        <td className="px-4 py-2 text-xs">{DOCUMENT_KIND_LABEL[template.kind] ?? template.kind}</td>
+                        <td className="px-4 py-2 text-xs">{kindLabel(template.kind)}</td>
                         <td className="px-4 py-2 text-right">
                           <Button variant="ghost" size="sm" onClick={() => openEditor(template)}>Editar</Button>
                           <Button variant="ghost" size="sm" onClick={() => remove(template.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -289,6 +382,7 @@ function TemplatesPage() {
                   {items.map((placeholder) => (
                     <button
                       key={placeholder}
+                      onMouseDown={(event) => event.preventDefault()}
                       onClick={() => insertPlaceholder(placeholder)}
                       disabled={!editing}
                       className="group rounded border bg-muted/20 px-2 py-1.5 text-left transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-50 disabled:hover:bg-muted/20 disabled:hover:text-foreground"

@@ -194,9 +194,10 @@ CREATE TRIGGER guard_property_inspection_review
 ALTER TABLE public.capture_partners ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.property_inspections ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "capture partners public registration" ON public.capture_partners;
 CREATE POLICY "capture partners public registration"
   ON public.capture_partners
-  FOR INSERT TO anon
+  FOR INSERT TO anon, authenticated
   WITH CHECK (registration_status = 'pending' AND active = false);
 
 CREATE POLICY "capture partners operational read"
@@ -255,5 +256,6 @@ CREATE POLICY "property images operational delete"
   USING (bucket_id = 'property-images' AND public.is_operational_user(auth.uid()));
 
 GRANT INSERT ON public.capture_partners TO anon;
+GRANT INSERT ON public.capture_partners TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.capture_partners TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.property_inspections TO authenticated;

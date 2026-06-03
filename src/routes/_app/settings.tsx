@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { RefreshCw, ExternalLink } from "lucide-react";
 import { refreshEconomicIndexes } from "@/lib/economic-indexes.functions";
 import { formatDateBR } from "@/lib/format-date";
+import { maskCnpj, maskPhone } from "@/lib/form-utils";
 
 export const Route = createFileRoute("/_app/settings")({ component: SettingsPage });
 
@@ -94,12 +95,12 @@ function SettingsPage() {
 
   if (!s) return <div className="p-4 md:p-8 text-sm text-muted-foreground">Carregando…</div>;
 
-  const Field = ({ k, label, type = "number", step = "0.01", suffix }: any) => (
+  const Field = ({ k, label, type = "number", step = "0.01", suffix, mask }: any) => (
     <div>
       <Label className="text-xs">{label}</Label>
       <div className="flex items-center gap-2">
         <Input type={type} step={step} value={s[k] ?? ""} disabled={!isAdmin}
-          onChange={(e) => setS({ ...s, [k]: e.target.value })} />
+          onChange={(e) => setS({ ...s, [k]: mask ? mask(e.target.value) : e.target.value })} />
         {suffix && <span className="text-xs text-muted-foreground whitespace-nowrap">{suffix}</span>}
       </div>
     </div>
@@ -122,9 +123,9 @@ function SettingsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field k="company_legal_name" label="Razão social" type="text" />
             <Field k="company_trade_name" label="Nome fantasia" type="text" />
-            <Field k="company_cnpj" label="CNPJ" type="text" />
+            <Field k="company_cnpj" label="CNPJ" type="text" mask={maskCnpj} />
             <Field k="company_creci" label="CRECI da imobiliária" type="text" />
-            <Field k="company_phone" label="Telefone" type="text" />
+            <Field k="company_phone" label="Telefone" type="text" mask={maskPhone} />
             <Field k="company_email" label="E-mail" type="email" />
             <div className="sm:col-span-2"><Field k="company_address" label="Endereço completo" type="text" /></div>
           </div>

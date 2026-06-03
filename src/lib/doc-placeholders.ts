@@ -9,7 +9,9 @@ export const PLACEHOLDER_GROUPS = {
     "property.parking_spaces", "property.price",
   ],
   Cliente: [
-    "client.full_name", "client.cpf", "client.email", "client.phone", "client.address", "client.birth_date",
+    "client.full_name", "client.cpf", "client.email", "client.phone", "client.address",
+    "client.zip_code", "client.street", "client.number", "client.complement",
+    "client.neighborhood", "client.city", "client.state", "client.birth_date",
   ],
   Corretor: [
     "broker.full_name", "broker.cpf", "broker.creci", "broker.registration_status", "broker.email", "broker.phone", "broker.address", "broker.birth_date",
@@ -44,6 +46,13 @@ export const PLACEHOLDER_LABELS: Record<string, string> = {
   "client.email": "E-mail do cliente",
   "client.phone": "Telefone do cliente",
   "client.address": "Endereço do cliente",
+  "client.zip_code": "CEP do cliente",
+  "client.street": "Rua do cliente",
+  "client.number": "Numero do endereco do cliente",
+  "client.complement": "Complemento do endereco do cliente",
+  "client.neighborhood": "Bairro do cliente",
+  "client.city": "Cidade do cliente",
+  "client.state": "Estado (UF) do cliente",
   "client.birth_date": "Data de nascimento do cliente",
   "broker.full_name": "Nome completo do corretor",
   "broker.cpf": "CPF do corretor",
@@ -147,6 +156,13 @@ export function buildPlaceholderContext(input: {
       email: input.client?.email ?? "",
       phone: input.client?.phone ?? "",
       address: input.client?.address ?? "",
+      zip_code: input.client?.zip_code ?? "",
+      street: input.client?.street ?? "",
+      number: input.client?.number ?? "",
+      complement: input.client?.complement ?? "",
+      neighborhood: input.client?.neighborhood ?? "",
+      city: input.client?.city ?? "",
+      state: input.client?.state ?? "",
       birth_date: fmtDate(input.client?.birth_date),
     },
     broker: {
@@ -204,3 +220,11 @@ export const DOCUMENT_KIND_LABEL: Record<string, string> = {
   rental_commercial: "Contrato de locação comercial",
   custom: "Personalizado",
 };
+
+export const DEFAULT_DOCUMENT_KINDS = Object.entries(DOCUMENT_KIND_LABEL).map(([id, label], index) => ({
+  id,
+  label,
+  active: true,
+  system_kind: true,
+  sort_order: (index + 1) * 10,
+}));

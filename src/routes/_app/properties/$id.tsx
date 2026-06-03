@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
+import { maskCep, maskCpf, maskPhone } from "@/lib/form-utils";
 import { toast } from "sonner";
 import { Trash2, Upload, Star, ArrowLeft } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -388,8 +389,8 @@ function PropertyEdit() {
               </Select>
             </Field>
             <Field label="Nome do proprietário ou responsável"><Input value={form.owner_name ?? ""} onChange={(e) => set("owner_name", e.target.value)} /></Field>
-            <Field label="CPF do proprietário"><Input value={form.owner_cpf ?? ""} onChange={(e) => set("owner_cpf", e.target.value)} /></Field>
-            <Field label="Telefone para contato"><Input value={form.owner_phone ?? ""} onChange={(e) => set("owner_phone", e.target.value)} /></Field>
+            <Field label="CPF do proprietário"><Input value={form.owner_cpf ?? ""} onChange={(e) => set("owner_cpf", maskCpf(e.target.value))} /></Field>
+            <Field label="Telefone para contato"><Input value={form.owner_phone ?? ""} onChange={(e) => set("owner_phone", maskPhone(e.target.value))} /></Field>
             <Field label="E-mail para contato"><Input type="email" value={form.owner_email ?? ""} onChange={(e) => set("owner_email", e.target.value)} /></Field>
             <div className="md:col-span-3"><Field label="Endereço do proprietário"><Input value={form.owner_address ?? ""} onChange={(e) => set("owner_address", e.target.value)} /></Field></div>
             <div className="md:col-span-3"><Field label="Observações da captação"><Textarea rows={3} value={form.capture_notes ?? ""} onChange={(e) => set("capture_notes", e.target.value)} /></Field></div>
@@ -461,7 +462,7 @@ function PropertyEdit() {
                   <Input
                     placeholder="Ex: 58030-000"
                     value={cep}
-                    onChange={(e) => setCep(e.target.value)}
+                    onChange={(e) => setCep(maskCep(e.target.value))}
                     onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), searchCep())}
                   />
                   <Button type="button" variant="secondary" onClick={searchCep} disabled={searchingCep}>
@@ -491,7 +492,7 @@ function PropertyEdit() {
 
             <Field label="Bairro"><Input value={form.neighborhood ?? ""} onChange={(e) => set("neighborhood", e.target.value)} /></Field>
             <Field label="Endereço (Rua e número)"><Input value={form.address ?? ""} onChange={(e) => set("address", e.target.value)} /></Field>
-
+            
             <div className="md:col-span-4 flex flex-wrap gap-2 items-center justify-between border-t border-b py-4 my-2">
               <span className="text-xs text-muted-foreground">Preencha o endereço acima e clique ao lado para buscar as coordenadas geográficas automaticamente</span>
               <Button type="button" variant="outline" size="sm" onClick={() => updateCoordinates(form.address, form.neighborhood, form.city, form.state)} disabled={fetchingCoords || !form.address || !form.city || !form.state}>

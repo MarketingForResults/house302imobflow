@@ -17,6 +17,7 @@ import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppPartnersRouteImport } from './routes/_app/partners'
 import { Route as AppIntegrationRouteImport } from './routes/_app/integration'
 import { Route as AppInspectionsRouteImport } from './routes/_app/inspections'
+import { Route as AppFinanceRouteImport } from './routes/_app/finance'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppClientsRouteImport } from './routes/_app/clients'
 import { Route as AppBrokersRouteImport } from './routes/_app/brokers'
@@ -64,6 +65,11 @@ const AppIntegrationRoute = AppIntegrationRouteImport.update({
 const AppInspectionsRoute = AppInspectionsRouteImport.update({
   id: '/inspections',
   path: '/inspections',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFinanceRoute = AppFinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
+  '/finance': typeof AppFinanceRoute
   '/inspections': typeof AppInspectionsRoute
   '/integration': typeof AppIntegrationRoute
   '/partners': typeof AppPartnersRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
+  '/finance': typeof AppFinanceRoute
   '/inspections': typeof AppInspectionsRoute
   '/integration': typeof AppIntegrationRoute
   '/partners': typeof AppPartnersRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/_app/brokers': typeof AppBrokersRoute
   '/_app/clients': typeof AppClientsRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/finance': typeof AppFinanceRoute
   '/_app/inspections': typeof AppInspectionsRoute
   '/_app/integration': typeof AppIntegrationRoute
   '/_app/partners': typeof AppPartnersRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/brokers'
     | '/clients'
     | '/dashboard'
+    | '/finance'
     | '/inspections'
     | '/integration'
     | '/partners'
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/brokers'
     | '/clients'
     | '/dashboard'
+    | '/finance'
     | '/inspections'
     | '/integration'
     | '/partners'
@@ -214,6 +225,7 @@ export interface FileRouteTypes {
     | '/_app/brokers'
     | '/_app/clients'
     | '/_app/dashboard'
+    | '/_app/finance'
     | '/_app/inspections'
     | '/_app/integration'
     | '/_app/partners'
@@ -291,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInspectionsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/finance': {
+      id: '/_app/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof AppFinanceRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
@@ -361,6 +380,7 @@ interface AppRouteChildren {
   AppBrokersRoute: typeof AppBrokersRoute
   AppClientsRoute: typeof AppClientsRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppFinanceRoute: typeof AppFinanceRoute
   AppInspectionsRoute: typeof AppInspectionsRoute
   AppIntegrationRoute: typeof AppIntegrationRoute
   AppPartnersRoute: typeof AppPartnersRoute
@@ -377,6 +397,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppBrokersRoute: AppBrokersRoute,
   AppClientsRoute: AppClientsRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppFinanceRoute: AppFinanceRoute,
   AppInspectionsRoute: AppInspectionsRoute,
   AppIntegrationRoute: AppIntegrationRoute,
   AppPartnersRoute: AppPartnersRoute,
