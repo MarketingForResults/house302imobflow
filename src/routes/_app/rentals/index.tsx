@@ -6,21 +6,53 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { newReportPdf, generateDocumentPdf } from "@/lib/pdf-utils";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
-import { Plus, FileDown, MessageCircle, KeyRound, Pencil, Trash2, Undo2, ChevronDown, ChevronRight, Receipt } from "lucide-react";
+import {
+  Plus,
+  FileDown,
+  MessageCircle,
+  KeyRound,
+  Pencil,
+  Trash2,
+  Undo2,
+  ChevronDown,
+  ChevronRight,
+  Receipt,
+} from "lucide-react";
 import { formatDateBR } from "@/lib/format-date";
+import { EntityDocuments } from "@/components/entity-documents";
+import { uploadEntityDocument } from "@/lib/entity-documents";
 
 export const Route = createFileRoute("/_app/rentals/")({ component: RentalsPage });
 
 function RentalsPage() {
   const qc = useQueryClient();
   const [openContract, setOpenContract] = useState(false);
-  const [form, setForm] = useState<any>({ kind: "residential", due_day: 5, monthly_rent: "", term_months: 12 });
+  const [form, setForm] = useState<any>({
+    kind: "residential",
+    due_day: 5,
+    monthly_rent: "",
+    term_months: 12,
+  });
+  const [contractFile, setContractFile] = useState<File | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
   const [addingFor, setAddingFor] = useState<any | null>(null); // contract object
@@ -38,28 +70,46 @@ function RentalsPage() {
 
   const { data: settings } = useQuery({
     queryKey: ["app_settings"],
-    queryFn: async () => (await supabase.from("app_settings").select("*").eq("id", true).maybeSingle()).data,
+    queryFn: async () =>
+      (await supabase.from("app_settings").select("*").eq("id", true).maybeSingle()).data,
   });
   const { data: contracts = [], refetch } = useQuery({
     queryKey: ["rental_contracts"],
     queryFn: async () =>
-      (await supabase.from("rental_contracts").select("*, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name, phone, email)").order("created_at", { ascending: false })).data ?? [],
+      (
+        await supabase
+          .from("rental_contracts")
+          .select(
+            "*, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name, phone, email)",
+          )
+          .order("created_at", { ascending: false })
+      ).data ?? [],
   });
   const { data: payments = [] } = useQuery({
     queryKey: ["rental_payments"],
-    queryFn: async () => (await supabase.from("rental_payments").select("*").order("due_date", { ascending: true })).data ?? [],
+    queryFn: async () =>
+      (await supabase.from("rental_payments").select("*").order("due_date", { ascending: true }))
+        .data ?? [],
   });
   const { data: properties = [] } = useQuery({
     queryKey: ["properties-min"],
-    queryFn: async () => (await supabase.from("properties").select("id, code, title").order("code", { ascending: false })).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("properties")
+          .select("id, code, title")
+          .order("code", { ascending: false })
+      ).data ?? [],
   });
   const { data: clients = [] } = useQuery({
     queryKey: ["clients-min"],
-    queryFn: async () => (await supabase.from("clients").select("id, full_name, phone").order("full_name")).data ?? [],
+    queryFn: async () =>
+      (await supabase.from("clients").select("id, full_name, phone").order("full_name")).data ?? [],
   });
 
   const today = new Date().toISOString().slice(0, 10);
-  const monthStart = new Date(); monthStart.setDate(1);
+  const monthStart = new Date();
+  monthStart.setDate(1);
   const monthStartIso = monthStart.toISOString().slice(0, 10);
 
   // Late fee + daily interest recalculation based on app_settings
@@ -111,9 +161,15 @@ function RentalsPage() {
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
       if (q) {
         const hay = [
-          c.code, c.properties?.code, c.properties?.title,
-          c.tenant?.full_name, c.tenant?.phone,
-        ].filter(Boolean).join(" ").toLowerCase();
+          c.code,
+          c.properties?.code,
+          c.properties?.title,
+          c.tenant?.full_name,
+          c.tenant?.phone,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
         if (!hay.includes(q)) return false;
       }
       if (paymentFilter !== "all") {
@@ -128,10 +184,15 @@ function RentalsPage() {
     });
   }, [contracts, search, statusFilter, paymentFilter, paymentsByContract, today]);
 
-  const filteredContractIds = useMemo(() => new Set(filteredContracts.map((c: any) => c.id)), [filteredContracts]);
+  const filteredContractIds = useMemo(
+    () => new Set(filteredContracts.map((c: any) => c.id)),
+    [filteredContracts],
+  );
 
   const stats = useMemo(() => {
-    let monthDue = 0, monthPaid = 0, late = 0;
+    let monthDue = 0,
+      monthPaid = 0,
+      late = 0;
     for (const p of payments) {
       if (!filteredContractIds.has(p.contract_id)) continue;
       if (p.status === "paid" && p.paid_at && p.paid_at.slice(0, 10) >= monthStartIso)
@@ -139,7 +200,12 @@ function RentalsPage() {
       if (p.status !== "paid" && p.due_date >= monthStartIso) monthDue += recalc(p).total;
       if (p.status !== "paid" && p.due_date < today) late++;
     }
-    return { active: filteredContracts.filter((c: any) => c.status === "active").length, monthDue, monthPaid, late };
+    return {
+      active: filteredContracts.filter((c: any) => c.status === "active").length,
+      monthDue,
+      monthPaid,
+      late,
+    };
   }, [payments, filteredContracts, filteredContractIds, lateFeePct, dailyPct, grace]);
 
   function addMonths(iso: string, months: number): string {
@@ -160,7 +226,8 @@ function RentalsPage() {
 
     const [, day, month, year] = match.map(Number);
     const date = new Date(year, month - 1, day);
-    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day)
+      return null;
 
     return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   }
@@ -181,25 +248,53 @@ function RentalsPage() {
       return toast.error("Informe um dia de vencimento entre 1 e 31");
     }
     const end_date = addMonths(form.start_date, months);
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     const { term_months: _t, ...rest } = form;
-    const { data: created, error } = await supabase.from("rental_contracts").insert({
-      ...rest,
-      monthly_rent: Number(form.monthly_rent),
-      due_day: dueDay,
-      deposit_amount: form.deposit_amount ? Number(form.deposit_amount) : null,
-      end_date,
-      created_by: user?.id,
-    }).select("id").single();
+    const { data: created, error } = await supabase
+      .from("rental_contracts")
+      .insert({
+        ...rest,
+        monthly_rent: Number(form.monthly_rent),
+        due_day: dueDay,
+        deposit_amount: form.deposit_amount ? Number(form.deposit_amount) : null,
+        end_date,
+        created_by: user?.id,
+      })
+      .select("id")
+      .single();
     if (error) return toast.error(error.message);
-    const { error: paymentsError } = await supabase.rpc("generate_rental_payments", { _contract_id: created.id, _months: months });
+    const { error: paymentsError } = await supabase.rpc("generate_rental_payments", {
+      _contract_id: created.id,
+      _months: months,
+    });
     if (paymentsError) {
-      refetch(); qc.invalidateQueries({ queryKey: ["rental_payments"] });
-      return toast.error(`Contrato criado, mas não foi possível gerar as parcelas: ${paymentsError.message}`);
+      refetch();
+      qc.invalidateQueries({ queryKey: ["rental_payments"] });
+      return toast.error(
+        `Contrato criado, mas não foi possível gerar as parcelas: ${paymentsError.message}`,
+      );
+    }
+    if (contractFile) {
+      try {
+        await uploadEntityDocument({
+          entityType: "rental_contract",
+          entityId: created.id,
+          documentKind: "contract",
+          label: "Contrato de aluguel digitalizado",
+          file: contractFile,
+        });
+      } catch (uploadError: any) {
+        toast.error(`Contrato criado, mas não foi possível anexar o PDF: ${uploadError.message}`);
+      }
     }
     toast.success("Contrato criado e parcelas geradas");
-    setOpenContract(false); setForm({ kind: "residential", due_day: 5, monthly_rent: "", term_months: 12 });
-    refetch(); qc.invalidateQueries({ queryKey: ["rental_payments"] });
+    setOpenContract(false);
+    setForm({ kind: "residential", due_day: 5, monthly_rent: "", term_months: 12 });
+    setContractFile(null);
+    refetch();
+    qc.invalidateQueries({ queryKey: ["rental_payments"] });
   }
 
   function openMarkPaid(c: any, p: any) {
@@ -213,9 +308,14 @@ function RentalsPage() {
     const total = recalc(p).total;
     if (!payDate) return toast.error("Informe a data do pagamento");
     const paidAtIso = new Date(payDate + "T12:00:00").toISOString();
-    const { error } = await supabase.from("rental_payments").update({
-      status: "paid", paid_at: paidAtIso, amount_paid: total,
-    }).eq("id", p.id);
+    const { error } = await supabase
+      .from("rental_payments")
+      .update({
+        status: "paid",
+        paid_at: paidAtIso,
+        amount_paid: total,
+      })
+      .eq("id", p.id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success(`Pagamento registrado em ${formatDateBR(payDate)} (R$ ${total.toFixed(2)})`);
@@ -223,9 +323,14 @@ function RentalsPage() {
   }
 
   async function revertPaid(id: string) {
-    const { error } = await supabase.from("rental_payments").update({
-      status: "pending", paid_at: null, amount_paid: null,
-    }).eq("id", id);
+    const { error } = await supabase
+      .from("rental_payments")
+      .update({
+        status: "pending",
+        paid_at: null,
+        amount_paid: null,
+      })
+      .eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success("Parcela revertida para pendente");
@@ -242,9 +347,15 @@ function RentalsPage() {
   async function saveEdit() {
     if (!editingPayment) return;
     const { id, due_date, amount_due, reference_month, notes } = editingPayment;
-    const { error } = await supabase.from("rental_payments").update({
-      due_date, amount_due: Number(amount_due), reference_month, notes,
-    }).eq("id", id);
+    const { error } = await supabase
+      .from("rental_payments")
+      .update({
+        due_date,
+        amount_due: Number(amount_due),
+        reference_month,
+        notes,
+      })
+      .eq("id", id);
     if (error) return toast.error(error.message);
     setEditingPayment(null);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
@@ -252,7 +363,12 @@ function RentalsPage() {
   }
 
   async function addPayment() {
-    if (!addingFor || !newPayment.due_date || !newPayment.reference_month || !newPayment.amount_due) {
+    if (
+      !addingFor ||
+      !newPayment.due_date ||
+      !newPayment.reference_month ||
+      !newPayment.amount_due
+    ) {
       return toast.error("Preencha referência, vencimento e valor");
     }
     const { error } = await supabase.from("rental_payments").insert({
@@ -263,7 +379,8 @@ function RentalsPage() {
       notes: newPayment.notes ?? null,
     });
     if (error) return toast.error(error.message);
-    setAddingFor(null); setNewPayment({});
+    setAddingFor(null);
+    setNewPayment({});
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success("Parcela adicionada");
   }
@@ -289,32 +406,38 @@ function RentalsPage() {
   async function bulkMarkPaid(ids: string[]) {
     if (ids.length === 0) return;
     const defaultDate = new Date().toISOString().slice(0, 10);
-    const dateStr = prompt("Data do pagamento para as parcelas selecionadas (AAAA-MM-DD):", defaultDate);
+    const dateStr = prompt(
+      "Data do pagamento para as parcelas selecionadas (AAAA-MM-DD):",
+      defaultDate,
+    );
     if (dateStr === null) return;
     if (!dateStr) return toast.error("Data de pagamento obrigatória!");
-    
+
     try {
       const { data: listToPay } = await supabase.from("rental_payments").select("*").in("id", ids);
       if (!listToPay) return;
-      
+
       const paidAtIso = new Date(dateStr + "T12:00:00").toISOString();
       const promises = listToPay.map((p) => {
         const total = recalc(p).total;
-        return supabase.from("rental_payments").update({
-          status: "paid",
-          paid_at: paidAtIso,
-          amount_paid: total
-        }).eq("id", p.id);
+        return supabase
+          .from("rental_payments")
+          .update({
+            status: "paid",
+            paid_at: paidAtIso,
+            amount_paid: total,
+          })
+          .eq("id", p.id);
       });
-      
+
       await Promise.all(promises);
-      
+
       setSelectedPayments((prev) => {
         const next = { ...prev };
         for (const id of ids) delete next[id];
         return next;
       });
-      
+
       qc.invalidateQueries({ queryKey: ["rental_payments"] });
       toast.success(`${ids.length} parcela(s) marcada(s) como pagas!`);
     } catch (err: any) {
@@ -324,7 +447,12 @@ function RentalsPage() {
 
   async function deleteContracts(ids: string[]) {
     if (ids.length === 0) return;
-    if (!confirm(`Excluir ${ids.length} contrato(s) e TODAS as parcelas vinculadas? Esta ação é irreversível.`)) return;
+    if (
+      !confirm(
+        `Excluir ${ids.length} contrato(s) e TODAS as parcelas vinculadas? Esta ação é irreversível.`,
+      )
+    )
+      return;
     const { error: e1 } = await supabase.from("rental_payments").delete().in("contract_id", ids);
     if (e1) return toast.error(e1.message);
     const { error: e2 } = await supabase.from("rental_contracts").delete().in("id", ids);
@@ -336,7 +464,10 @@ function RentalsPage() {
   }
 
   async function generateMore(contractId: string) {
-    const { data, error } = await supabase.rpc("generate_rental_payments", { _contract_id: contractId, _months: 12 });
+    const { data, error } = await supabase.rpc("generate_rental_payments", {
+      _contract_id: contractId,
+      _months: 12,
+    });
     if (error) return toast.error(error.message);
     toast.success(`${data} parcela(s) geradas`);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
@@ -353,30 +484,54 @@ function RentalsPage() {
     const phone = (c.tenant?.phone ?? "").replace(/\D/g, "");
     if (!phone) return toast.error("Inquilino sem telefone cadastrado");
     const r = recalc(p);
-    const extra = r.daysLate > 0
-      ? ` Com multa e juros (${r.daysLate} dia(s) de atraso): R$ ${r.total.toFixed(2)}.`
-      : "";
+    const extra =
+      r.daysLate > 0
+        ? ` Com multa e juros (${r.daysLate} dia(s) de atraso): R$ ${r.total.toFixed(2)}.`
+        : "";
     const msg = `Olá ${c.tenant?.full_name ?? ""}, lembrete da House302: o aluguel do imóvel ${c.properties?.code} (ref. ${formatDateBR(p.reference_month)}) no valor de R$ ${r.base.toFixed(2)} vence em ${formatDateBR(p.due_date)}.${extra} Contrato ${c.code}.`;
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   }
 
   async function exportPdf() {
-    const title = search || statusFilter !== "all" || paymentFilter !== "all"
-      ? "Relatório de aluguéis — filtro aplicado"
-      : "Relatório de aluguéis — mês atual";
+    const title =
+      search || statusFilter !== "all" || paymentFilter !== "all"
+        ? "Relatório de aluguéis — filtro aplicado"
+        : "Relatório de aluguéis — mês atual";
     const { doc } = await newReportPdf(title);
     const rows: any[] = [];
     for (const c of filteredContracts) {
-      for (const p of (paymentsByContract[c.id] ?? [])) {
+      for (const p of paymentsByContract[c.id] ?? []) {
         if (!(p.due_date >= monthStartIso || p.status !== "paid")) continue;
         const r = recalc(p);
-        rows.push([c.code, c.properties?.code ?? "—", c.tenant?.full_name ?? "—", formatDateBR(p.reference_month), formatDateBR(p.due_date), `R$ ${r.base.toFixed(2)}`, `R$ ${r.total.toFixed(2)}`, p.status]);
+        rows.push([
+          c.code,
+          c.properties?.code ?? "—",
+          c.tenant?.full_name ?? "—",
+          formatDateBR(p.reference_month),
+          formatDateBR(p.due_date),
+          `R$ ${r.base.toFixed(2)}`,
+          `R$ ${r.total.toFixed(2)}`,
+          p.status,
+        ]);
       }
     }
     autoTable(doc, {
       startY: 36,
-      head: [["Contrato", "Imóvel", "Inquilino", "Ref.", "Vencimento", "Valor", "Total c/ encargos", "Status"]],
-      body: rows, styles: { fontSize: 8 }, headStyles: { fillColor: [0, 0, 200] },
+      head: [
+        [
+          "Contrato",
+          "Imóvel",
+          "Inquilino",
+          "Ref.",
+          "Vencimento",
+          "Valor",
+          "Total c/ encargos",
+          "Status",
+        ],
+      ],
+      body: rows,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [0, 0, 200] },
     });
     doc.save("aluguéis.pdf");
   }
@@ -388,9 +543,17 @@ function RentalsPage() {
         const c = contracts.find((x: any) => x.id === p.contract_id);
         const r = recalc(p);
         return {
-          Contrato: c?.code, Imóvel: c?.properties?.code, Inquilino: c?.tenant?.full_name,
-          Referência: formatDateBR(p.reference_month), Vencimento: formatDateBR(p.due_date), Valor: r.base,
-          Multa: r.fee, Juros: r.interest, Total: r.total, Pago: p.amount_paid ?? "", Status: p.status,
+          Contrato: c?.code,
+          Imóvel: c?.properties?.code,
+          Inquilino: c?.tenant?.full_name,
+          Referência: formatDateBR(p.reference_month),
+          Vencimento: formatDateBR(p.due_date),
+          Valor: r.base,
+          Multa: r.fee,
+          Juros: r.interest,
+          Total: r.total,
+          Pago: p.amount_paid ?? "",
+          Status: p.status,
         };
       });
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -452,7 +615,10 @@ function RentalsPage() {
     const { doc, fileName, amount, paidIso } = await buildReceiptPdf(c, p);
     doc.save(fileName);
     const phone = (c.tenant?.phone ?? "").replace(/\D/g, "");
-    if (!phone) { toast.error("Inquilino sem telefone cadastrado"); return; }
+    if (!phone) {
+      toast.error("Inquilino sem telefone cadastrado");
+      return;
+    }
     const msg =
       `Olá ${c.tenant?.full_name ?? ""}! Segue o recibo do aluguel do imóvel ${c.properties?.code ?? ""} ` +
       `(ref. ${formatDateBR(p.reference_month)}) no valor de R$ ${amount.toFixed(2)}, pago em ${formatDateBR(paidIso)}. ` +
@@ -461,7 +627,6 @@ function RentalsPage() {
     toast.success("Recibo baixado — anexe no WhatsApp");
   }
 
-
   return (
     <div>
       <PageHeader
@@ -469,47 +634,150 @@ function RentalsPage() {
         description="Contratos e parcelas — encargos calculados automaticamente conforme as Configurações"
         actions={
           <>
-            <Button variant="outline" onClick={markLate}>Marcar atrasados</Button>
-            <Button variant="outline" onClick={exportXlsx}><FileDown className="mr-1.5 h-4 w-4" />XLSX</Button>
-            <Button variant="outline" onClick={exportPdf}><FileDown className="mr-1.5 h-4 w-4" />PDF</Button>
+            <Button variant="outline" onClick={markLate}>
+              Marcar atrasados
+            </Button>
+            <Button variant="outline" onClick={exportXlsx}>
+              <FileDown className="mr-1.5 h-4 w-4" />
+              XLSX
+            </Button>
+            <Button variant="outline" onClick={exportPdf}>
+              <FileDown className="mr-1.5 h-4 w-4" />
+              PDF
+            </Button>
             <Dialog open={openContract} onOpenChange={setOpenContract}>
-              <DialogTrigger asChild><Button><Plus className="mr-1.5 h-4 w-4" />Novo contrato</Button></DialogTrigger>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Novo contrato
+                </Button>
+              </DialogTrigger>
               <DialogContent className="w-full sm:max-w-[650px] max-h-[90vh] overflow-y-auto overflow-x-hidden">
-                <DialogHeader><DialogTitle>Novo contrato de aluguel</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>Novo contrato de aluguel</DialogTitle>
+                </DialogHeader>
                 <div className="grid gap-3">
                   <div>
                     <Label className="text-xs">Imóvel</Label>
-                    <Select value={form.property_id ?? ""} onValueChange={(v) => setForm({ ...form, property_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
-                      <SelectContent>{properties.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.code} — {p.title}</SelectItem>)}</SelectContent>
+                    <Select
+                      value={form.property_id ?? ""}
+                      onValueChange={(v) => setForm({ ...form, property_id: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {properties.map((p: any) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.code} — {p.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label className="text-xs">Inquilino</Label>
-                    <Select value={form.tenant_client_id ?? ""} onValueChange={(v) => setForm({ ...form, tenant_client_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
-                      <SelectContent>{clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}</SelectContent>
+                    <Select
+                      value={form.tenant_client_id ?? ""}
+                      onValueChange={(v) => setForm({ ...form, tenant_client_id: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clients.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div><Label className="text-xs">Tipo</Label>
-                      <Select value={form.kind} onValueChange={(v) => setForm({ ...form, kind: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectItem value="residential">Residencial</SelectItem><SelectItem value="commercial">Comercial</SelectItem></SelectContent>
+                    <div>
+                      <Label className="text-xs">Tipo</Label>
+                      <Select
+                        value={form.kind}
+                        onValueChange={(v) => setForm({ ...form, kind: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="residential">Residencial</SelectItem>
+                          <SelectItem value="commercial">Comercial</SelectItem>
+                        </SelectContent>
                       </Select>
                     </div>
-                    <div><Label className="text-xs">Aluguel mensal</Label><Input type="number" step="0.01" value={form.monthly_rent} onChange={(e) => setForm({ ...form, monthly_rent: e.target.value })} /></div>
-                    <div><Label className="text-xs">Caução (depósito)</Label><Input type="number" step="0.01" placeholder="Opcional" value={form.deposit_amount ?? ""} onChange={(e) => setForm({ ...form, deposit_amount: e.target.value })} /></div>
-                    <div><Label className="text-xs">Início do contrato</Label><Input type="date" value={form.start_date ?? ""} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></div>
-                    <div><Label className="text-xs">Prazo (meses)</Label><Input type="number" min={1} step="1" value={form.term_months ?? ""} onChange={(e) => setForm({ ...form, term_months: e.target.value })} /></div>
-                    <div><Label className="text-xs">Dia vencimento</Label><Input type="number" min={1} max={31} value={form.due_day} onChange={(e) => setForm({ ...form, due_day: e.target.value })} /></div>
+                    <div>
+                      <Label className="text-xs">Aluguel mensal</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={form.monthly_rent}
+                        onChange={(e) => setForm({ ...form, monthly_rent: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Caução (depósito)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Opcional"
+                        value={form.deposit_amount ?? ""}
+                        onChange={(e) => setForm({ ...form, deposit_amount: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Início do contrato</Label>
+                      <Input
+                        type="date"
+                        value={form.start_date ?? ""}
+                        onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Prazo (meses)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        step="1"
+                        value={form.term_months ?? ""}
+                        onChange={(e) => setForm({ ...form, term_months: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Dia vencimento</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={form.due_day}
+                        onChange={(e) => setForm({ ...form, due_day: e.target.value })}
+                      />
+                    </div>
                     <div>
                       <Label className="text-xs">Fim do contrato (calculado)</Label>
-                      <Input type="text" readOnly value={computedEndDate ? formatDateBR(computedEndDate) : "—"} className="bg-muted/40" />
+                      <Input
+                        type="text"
+                        readOnly
+                        value={computedEndDate ? formatDateBR(computedEndDate) : "—"}
+                        className="bg-muted/40"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Contrato digitalizado (PDF)</Label>
+                      <Input
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        onChange={(event) => setContractFile(event.target.files?.[0] ?? null)}
+                      />
                     </div>
                   </div>
                 </div>
-                <DialogFooter><Button onClick={createContract}>Criar e gerar parcelas</Button></DialogFooter>
+                <DialogFooter>
+                  <Button onClick={createContract}>Criar e gerar parcelas</Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </>
@@ -543,7 +811,9 @@ function RentalsPage() {
           <div className="w-44">
             <Label className="text-xs">Status do contrato</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="active">Ativo</SelectItem>
@@ -556,7 +826,9 @@ function RentalsPage() {
           <div className="w-52">
             <Label className="text-xs">Parcelas</Label>
             <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
                 <SelectItem value="with_late">Com atrasadas</SelectItem>
@@ -566,7 +838,14 @@ function RentalsPage() {
             </Select>
           </div>
           {(search || statusFilter !== "all" || paymentFilter !== "all") && (
-            <Button variant="ghost" onClick={() => { setSearch(""); setStatusFilter("all"); setPaymentFilter("all"); }}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSearch("");
+                setStatusFilter("all");
+                setPaymentFilter("all");
+              }}
+            >
               Limpar
             </Button>
           )}
@@ -599,24 +878,30 @@ function RentalsPage() {
                 disabled={Object.values(selected).filter(Boolean).length === 0}
                 onClick={() => deleteContracts(Object.keys(selected).filter((k) => selected[k]))}
               >
-                <Trash2 className="mr-1.5 h-3.5 w-3.5" />Excluir selecionados
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                Excluir selecionados
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => deleteContracts(filteredContracts.map((c: any) => c.id))}
               >
-                <Trash2 className="mr-1.5 h-3.5 w-3.5" />Excluir todos do filtro
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                Excluir todos do filtro
               </Button>
             </div>
           </div>
         )}
 
         {contracts.length === 0 && (
-          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">Nenhum contrato cadastrado.</div>
+          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+            Nenhum contrato cadastrado.
+          </div>
         )}
         {contracts.length > 0 && filteredContracts.length === 0 && (
-          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">Nenhum contrato corresponde ao filtro.</div>
+          <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+            Nenhum contrato corresponde ao filtro.
+          </div>
         )}
 
         {filteredContracts.map((c: any) => {
@@ -629,7 +914,7 @@ function RentalsPage() {
               else acc.openTotal += r.total;
               return acc;
             },
-            { paid: 0, openTotal: 0 }
+            { paid: 0, openTotal: 0 },
           );
 
           return (
@@ -646,57 +931,103 @@ function RentalsPage() {
                     onClick={() => setExpanded({ ...expanded, [c.id]: !isOpen })}
                     className="flex items-center gap-2 text-left hover:opacity-80"
                   >
-                    {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    {isOpen ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
                     <KeyRound className="h-4 w-4 text-primary" />
                     <span className="font-mono text-xs">{c.code}</span>
-                    <span className="font-semibold">{c.properties?.code} — {c.properties?.title}</span>
-                    <span className="text-muted-foreground">• Inquilino: {c.tenant?.full_name ?? "—"}</span>
+                    <span className="font-semibold">
+                      {c.properties?.code} — {c.properties?.title}
+                    </span>
+                    <span className="text-muted-foreground">
+                      • Inquilino: {c.tenant?.full_name ?? "—"}
+                    </span>
                   </button>
                 </div>
                 <div className="flex items-center gap-4 text-xs">
-                  <span>Aluguel <strong className="tabular-nums">R$ {Number(c.monthly_rent).toFixed(2)}</strong></span>
-                  {c.deposit_amount != null && Number(c.deposit_amount) > 0 && (() => {
-                    const dy = depositYield(c);
-                    if (!dy) {
+                  <span>
+                    Aluguel{" "}
+                    <strong className="tabular-nums">R$ {Number(c.monthly_rent).toFixed(2)}</strong>
+                  </span>
+                  {c.deposit_amount != null &&
+                    Number(c.deposit_amount) > 0 &&
+                    (() => {
+                      const dy = depositYield(c);
+                      if (!dy) {
+                        return (
+                          <span className="flex items-center gap-1">
+                            Caução{" "}
+                            <strong className="tabular-nums text-blue-600">
+                              R$ {Number(c.deposit_amount).toFixed(2)}
+                            </strong>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[11px]"
+                              onClick={async () => {
+                                const input = prompt(
+                                  "Data de confirmação do pagamento da caução (DD/MM/AAAA):",
+                                  formatDateInputBR(),
+                                );
+                                if (!input) return;
+                                const depositPaidAt = parseDateInputBR(input);
+                                if (!depositPaidAt)
+                                  return toast.error(
+                                    "Informe uma data válida no formato DD/MM/AAAA",
+                                  );
+                                const { error } = await supabase
+                                  .from("rental_contracts")
+                                  .update({ deposit_paid_at: depositPaidAt })
+                                  .eq("id", c.id);
+                                if (error) return toast.error(error.message);
+                                toast.success("Caução confirmada");
+                                refetch();
+                              }}
+                            >
+                              Confirmar pagamento
+                            </Button>
+                          </span>
+                        );
+                      }
                       return (
-                        <span className="flex items-center gap-1">
-                          Caução <strong className="tabular-nums text-blue-600">R$ {Number(c.deposit_amount).toFixed(2)}</strong>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 text-[11px]"
-                            onClick={async () => {
-                              const input = prompt("Data de confirmação do pagamento da caução (DD/MM/AAAA):", formatDateInputBR());
-                              if (!input) return;
-                              const depositPaidAt = parseDateInputBR(input);
-                              if (!depositPaidAt) return toast.error("Informe uma data válida no formato DD/MM/AAAA");
-                              const { error } = await supabase.from("rental_contracts").update({ deposit_paid_at: depositPaidAt }).eq("id", c.id);
-                              if (error) return toast.error(error.message);
-                              toast.success("Caução confirmada");
-                              refetch();
-                            }}
-                          >
-                            Confirmar pagamento
-                          </Button>
+                        <span
+                          title={`Rendimento poupança ${savingsMonthlyPct}% a.m. — ${dy.months} mês(es) desde ${formatDateBR(c.deposit_paid_at)}`}
+                        >
+                          Caução{" "}
+                          <strong className="tabular-nums text-blue-600">
+                            R$ {dy.principal.toFixed(2)}
+                          </strong>
+                          {" → "}
+                          <strong className="tabular-nums text-emerald-600">
+                            R$ {dy.updated.toFixed(2)}
+                          </strong>
+                          <span className="ml-1 text-[11px] text-muted-foreground">
+                            (+R$ {dy.gain.toFixed(2)} • {dy.months}m)
+                          </span>
                         </span>
                       );
-                    }
-                    return (
-                      <span title={`Rendimento poupança ${savingsMonthlyPct}% a.m. — ${dy.months} mês(es) desde ${formatDateBR(c.deposit_paid_at)}`}>
-                        Caução{" "}
-                        <strong className="tabular-nums text-blue-600">R$ {dy.principal.toFixed(2)}</strong>
-                        {" → "}
-                        <strong className="tabular-nums text-emerald-600">R$ {dy.updated.toFixed(2)}</strong>
-                        <span className="ml-1 text-[11px] text-muted-foreground">
-                          (+R$ {dy.gain.toFixed(2)} • {dy.months}m)
-                        </span>
-                      </span>
-                    );
-                  })()}
-                  <span>Aberto <strong className="tabular-nums text-amber-600">R$ {totals.openTotal.toFixed(2)}</strong></span>
-                  <span>Pago <strong className="tabular-nums text-emerald-600">R$ {totals.paid.toFixed(2)}</strong></span>
+                    })()}
+                  <span>
+                    Aberto{" "}
+                    <strong className="tabular-nums text-amber-600">
+                      R$ {totals.openTotal.toFixed(2)}
+                    </strong>
+                  </span>
+                  <span>
+                    Pago{" "}
+                    <strong className="tabular-nums text-emerald-600">
+                      R$ {totals.paid.toFixed(2)}
+                    </strong>
+                  </span>
                   <span className="rounded-full bg-secondary px-2 py-0.5">{c.status}</span>
-                  <Button size="sm" variant="ghost" onClick={() => deleteContracts([c.id])} title="Excluir contrato">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => deleteContracts([c.id])}
+                    title="Excluir contrato"
+                  >
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   </Button>
                 </div>
@@ -704,11 +1035,21 @@ function RentalsPage() {
 
               {isOpen && (
                 <>
+                  <div className="border-b p-4">
+                    <EntityDocuments
+                      entityType="rental_contract"
+                      entityId={c.id}
+                      title="Contrato digitalizado e anexos"
+                      accept=".pdf,application/pdf"
+                    />
+                  </div>
                   <div className="flex items-center justify-between border-b bg-muted/10 px-4 py-2 text-xs">
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground">{list.length} parcela(s)</span>
                       {(() => {
-                        const contractSelectedCount = list.filter((p: any) => selectedPayments[p.id]).length;
+                        const contractSelectedCount = list.filter(
+                          (p: any) => selectedPayments[p.id],
+                        ).length;
                         if (contractSelectedCount > 0) {
                           return (
                             <span className="text-primary font-semibold">
@@ -721,14 +1062,26 @@ function RentalsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {(() => {
-                        const contractSelectedIds = list.filter((p: any) => selectedPayments[p.id]).map((p: any) => p.id);
+                        const contractSelectedIds = list
+                          .filter((p: any) => selectedPayments[p.id])
+                          .map((p: any) => p.id);
                         if (contractSelectedIds.length > 0) {
                           return (
                             <div className="flex items-center gap-1.5 border-r pr-2 mr-2">
-                              <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => bulkMarkPaid(contractSelectedIds)}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-[11px]"
+                                onClick={() => bulkMarkPaid(contractSelectedIds)}
+                              >
                                 Marcar pagas
                               </Button>
-                              <Button size="sm" variant="destructive" className="h-7 px-2 text-[11px]" onClick={() => bulkDeletePayments(contractSelectedIds)}>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="h-7 px-2 text-[11px]"
+                                onClick={() => bulkDeletePayments(contractSelectedIds)}
+                              >
                                 Excluir selecionadas
                               </Button>
                             </div>
@@ -736,15 +1089,27 @@ function RentalsPage() {
                         }
                         return null;
                       })()}
-                      <Button size="sm" variant="ghost" onClick={() => generateMore(c.id)}>+12 meses</Button>
-                      <Button size="sm" variant="outline" onClick={() => { setAddingFor(c); setNewPayment({ amount_due: c.monthly_rent }); }}>
-                        <Plus className="mr-1 h-3.5 w-3.5" />Adicionar parcela
+                      <Button size="sm" variant="ghost" onClick={() => generateMore(c.id)}>
+                        +12 meses
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setAddingFor(c);
+                          setNewPayment({ amount_due: c.monthly_rent });
+                        }}
+                      >
+                        <Plus className="mr-1 h-3.5 w-3.5" />
+                        Adicionar parcela
                       </Button>
                     </div>
                   </div>
 
                   {list.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-muted-foreground">Nenhuma parcela.</div>
+                    <div className="p-4 text-center text-xs text-muted-foreground">
+                      Nenhuma parcela.
+                    </div>
                   ) : (
                     <table className="w-full text-sm">
                       <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
@@ -752,7 +1117,9 @@ function RentalsPage() {
                           <th className="px-4 py-2 text-left w-10">
                             <input
                               type="checkbox"
-                              checked={list.length > 0 && list.every((p: any) => selectedPayments[p.id])}
+                              checked={
+                                list.length > 0 && list.every((p: any) => selectedPayments[p.id])
+                              }
                               onChange={(e) => {
                                 const next = { ...selectedPayments };
                                 for (const p of list) {
@@ -791,35 +1158,112 @@ function RentalsPage() {
                                   }}
                                 />
                               </td>
-                              <td className="px-4 py-2 text-xs">{formatDateBR(p.reference_month)}</td>
-                              <td className={`px-4 py-2 text-xs ${overdue ? "text-destructive font-medium" : ""}`}>
-                                {formatDateBR(p.due_date)}{overdue && ` • ${r.daysLate}d atraso`}
-                              </td>
-                              <td className="px-4 py-2 text-right tabular-nums">R$ {r.base.toFixed(2)}</td>
-                              <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{r.fee ? `R$ ${r.fee.toFixed(2)}` : "—"}</td>
-                              <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{r.interest ? `R$ ${r.interest.toFixed(2)}` : "—"}</td>
-                              <td className="px-4 py-2 text-right tabular-nums font-semibold">R$ {r.total.toFixed(2)}</td>
                               <td className="px-4 py-2 text-xs">
-                                {p.status === "paid"
-                                  ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">pago</span>
-                                  : overdue
-                                    ? <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-700">atrasado</span>
-                                    : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">pendente</span>}
+                                {formatDateBR(p.reference_month)}
+                              </td>
+                              <td
+                                className={`px-4 py-2 text-xs ${overdue ? "text-destructive font-medium" : ""}`}
+                              >
+                                {formatDateBR(p.due_date)}
+                                {overdue && ` • ${r.daysLate}d atraso`}
+                              </td>
+                              <td className="px-4 py-2 text-right tabular-nums">
+                                R$ {r.base.toFixed(2)}
+                              </td>
+                              <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">
+                                {r.fee ? `R$ ${r.fee.toFixed(2)}` : "—"}
+                              </td>
+                              <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">
+                                {r.interest ? `R$ ${r.interest.toFixed(2)}` : "—"}
+                              </td>
+                              <td className="px-4 py-2 text-right tabular-nums font-semibold">
+                                R$ {r.total.toFixed(2)}
+                              </td>
+                              <td className="px-4 py-2 text-xs">
+                                {p.status === "paid" ? (
+                                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
+                                    pago
+                                  </span>
+                                ) : overdue ? (
+                                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-700">
+                                    atrasado
+                                  </span>
+                                ) : (
+                                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">
+                                    pendente
+                                  </span>
+                                )}
                               </td>
                               <td className="px-4 py-2 text-right whitespace-nowrap">
                                 {p.status !== "paid" ? (
                                   <>
-                                    <Button size="sm" variant="ghost" onClick={() => whatsappReminder(c, p)} title="Cobrar via WhatsApp"><MessageCircle className="h-3.5 w-3.5" /></Button>
-                                    <Button size="sm" variant="ghost" onClick={() => setEditingPayment({ ...p })} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
-                                    <Button size="sm" variant="outline" onClick={() => openMarkPaid(c, p)}>Marcar pago</Button>
-                                    <Button size="sm" variant="ghost" onClick={() => deletePayment(p.id)} title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => whatsappReminder(c, p)}
+                                      title="Cobrar via WhatsApp"
+                                    >
+                                      <MessageCircle className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setEditingPayment({ ...p })}
+                                      title="Editar"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => openMarkPaid(c, p)}
+                                    >
+                                      Marcar pago
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => deletePayment(p.id)}
+                                      title="Excluir"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                    </Button>
                                   </>
                                 ) : (
                                   <>
-                                    <Button size="sm" variant="outline" onClick={() => setReceiptFor({ c, p })} title="Enviar recibo"><Receipt className="mr-1 h-3.5 w-3.5" />Recibo</Button>
-                                    <Button size="sm" variant="ghost" onClick={() => revertPaid(p.id)} title="Voltar para pendente"><Undo2 className="h-3.5 w-3.5" /></Button>
-                                    <Button size="sm" variant="ghost" onClick={() => setEditingPayment({ ...p })} title="Editar"><Pencil className="h-3.5 w-3.5" /></Button>
-                                    <Button size="sm" variant="ghost" onClick={() => deletePayment(p.id)} title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setReceiptFor({ c, p })}
+                                      title="Enviar recibo"
+                                    >
+                                      <Receipt className="mr-1 h-3.5 w-3.5" />
+                                      Recibo
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => revertPaid(p.id)}
+                                      title="Voltar para pendente"
+                                    >
+                                      <Undo2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setEditingPayment({ ...p })}
+                                      title="Editar"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => deletePayment(p.id)}
+                                      title="Excluir"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                    </Button>
                                   </>
                                 )}
                               </td>
@@ -839,65 +1283,125 @@ function RentalsPage() {
       {/* Edit payment dialog */}
       <Dialog open={!!editingPayment} onOpenChange={(o) => !o && setEditingPayment(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Editar parcela</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Editar parcela</DialogTitle>
+          </DialogHeader>
           {editingPayment && (
             <div className="grid gap-3">
-              <div><Label className="text-xs">Mês de referência</Label>
-                <Input type="date" value={editingPayment.reference_month} onChange={(e) => setEditingPayment({ ...editingPayment, reference_month: e.target.value })} />
+              <div>
+                <Label className="text-xs">Mês de referência</Label>
+                <Input
+                  type="date"
+                  value={editingPayment.reference_month}
+                  onChange={(e) =>
+                    setEditingPayment({ ...editingPayment, reference_month: e.target.value })
+                  }
+                />
               </div>
-              <div><Label className="text-xs">Vencimento</Label>
-                <Input type="date" value={editingPayment.due_date} onChange={(e) => setEditingPayment({ ...editingPayment, due_date: e.target.value })} />
+              <div>
+                <Label className="text-xs">Vencimento</Label>
+                <Input
+                  type="date"
+                  value={editingPayment.due_date}
+                  onChange={(e) =>
+                    setEditingPayment({ ...editingPayment, due_date: e.target.value })
+                  }
+                />
               </div>
-              <div><Label className="text-xs">Valor</Label>
-                <Input type="number" step="0.01" value={editingPayment.amount_due} onChange={(e) => setEditingPayment({ ...editingPayment, amount_due: e.target.value })} />
+              <div>
+                <Label className="text-xs">Valor</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editingPayment.amount_due}
+                  onChange={(e) =>
+                    setEditingPayment({ ...editingPayment, amount_due: e.target.value })
+                  }
+                />
               </div>
-              <div><Label className="text-xs">Observações</Label>
-                <Input value={editingPayment.notes ?? ""} onChange={(e) => setEditingPayment({ ...editingPayment, notes: e.target.value })} />
+              <div>
+                <Label className="text-xs">Observações</Label>
+                <Input
+                  value={editingPayment.notes ?? ""}
+                  onChange={(e) => setEditingPayment({ ...editingPayment, notes: e.target.value })}
+                />
               </div>
             </div>
           )}
-          <DialogFooter><Button onClick={saveEdit}>Salvar</Button></DialogFooter>
+          <DialogFooter>
+            <Button onClick={saveEdit}>Salvar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Add payment dialog */}
       <Dialog open={!!addingFor} onOpenChange={(o) => !o && setAddingFor(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Adicionar parcela {addingFor?.code}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Adicionar parcela {addingFor?.code}</DialogTitle>
+          </DialogHeader>
           <div className="grid gap-3">
-            <div><Label className="text-xs">Mês de referência</Label>
-              <Input type="date" value={newPayment.reference_month ?? ""} onChange={(e) => setNewPayment({ ...newPayment, reference_month: e.target.value })} />
+            <div>
+              <Label className="text-xs">Mês de referência</Label>
+              <Input
+                type="date"
+                value={newPayment.reference_month ?? ""}
+                onChange={(e) => setNewPayment({ ...newPayment, reference_month: e.target.value })}
+              />
             </div>
-            <div><Label className="text-xs">Vencimento</Label>
-              <Input type="date" value={newPayment.due_date ?? ""} onChange={(e) => setNewPayment({ ...newPayment, due_date: e.target.value })} />
+            <div>
+              <Label className="text-xs">Vencimento</Label>
+              <Input
+                type="date"
+                value={newPayment.due_date ?? ""}
+                onChange={(e) => setNewPayment({ ...newPayment, due_date: e.target.value })}
+              />
             </div>
-            <div><Label className="text-xs">Valor</Label>
-              <Input type="number" step="0.01" value={newPayment.amount_due ?? ""} onChange={(e) => setNewPayment({ ...newPayment, amount_due: e.target.value })} />
+            <div>
+              <Label className="text-xs">Valor</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={newPayment.amount_due ?? ""}
+                onChange={(e) => setNewPayment({ ...newPayment, amount_due: e.target.value })}
+              />
             </div>
-            <div><Label className="text-xs">Observações</Label>
-              <Input value={newPayment.notes ?? ""} onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })} />
+            <div>
+              <Label className="text-xs">Observações</Label>
+              <Input
+                value={newPayment.notes ?? ""}
+                onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
+              />
             </div>
           </div>
-          <DialogFooter><Button onClick={addPayment}>Adicionar</Button></DialogFooter>
+          <DialogFooter>
+            <Button onClick={addPayment}>Adicionar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Confirmar pagamento — escolher data */}
       <Dialog open={!!payingPayment} onOpenChange={(o) => !o && setPayingPayment(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Confirmar pagamento</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Confirmar pagamento</DialogTitle>
+          </DialogHeader>
           {payingPayment && (
             <div className="grid gap-3 text-sm">
               <div className="text-xs text-muted-foreground">
-                Contrato <strong>{payingPayment.c.code}</strong> • Ref. {formatDateBR(payingPayment.p.reference_month)} •
-                Vencimento {formatDateBR(payingPayment.p.due_date)}
+                Contrato <strong>{payingPayment.c.code}</strong> • Ref.{" "}
+                {formatDateBR(payingPayment.p.reference_month)} • Vencimento{" "}
+                {formatDateBR(payingPayment.p.due_date)}
               </div>
               <div>
                 <Label className="text-xs">Data do pagamento</Label>
                 <Input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
               </div>
               <div className="rounded-md border bg-muted/30 p-2 text-xs">
-                Total a registrar: <strong className="tabular-nums">R$ {recalc(payingPayment.p).total.toFixed(2)}</strong>
+                Total a registrar:{" "}
+                <strong className="tabular-nums">
+                  R$ {recalc(payingPayment.p).total.toFixed(2)}
+                </strong>
                 {recalc(payingPayment.p).daysLate > 0 && (
                   <span className="ml-1 text-muted-foreground">
                     (inclui multa/juros por {recalc(payingPayment.p).daysLate} dia(s) de atraso)
@@ -907,7 +1411,9 @@ function RentalsPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPayingPayment(null)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setPayingPayment(null)}>
+              Cancelar
+            </Button>
             <Button onClick={confirmMarkPaid}>Registrar pagamento</Button>
           </DialogFooter>
         </DialogContent>
@@ -916,33 +1422,50 @@ function RentalsPage() {
       {/* Enviar recibo (PDF) */}
       <Dialog open={!!receiptFor} onOpenChange={(o) => !o && setReceiptFor(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Enviar recibo do pagamento</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Enviar recibo do pagamento</DialogTitle>
+          </DialogHeader>
           {receiptFor && (
             <div className="grid gap-3 text-sm">
               <div className="text-xs text-muted-foreground">
-                Contrato <strong>{receiptFor.c.code}</strong> • Ref. {formatDateBR(receiptFor.p.reference_month)} •
-                Pago em {receiptFor.p.paid_at ? formatDateBR(receiptFor.p.paid_at.slice(0, 10)) : "—"}
+                Contrato <strong>{receiptFor.c.code}</strong> • Ref.{" "}
+                {formatDateBR(receiptFor.p.reference_month)} • Pago em{" "}
+                {receiptFor.p.paid_at ? formatDateBR(receiptFor.p.paid_at.slice(0, 10)) : "—"}
               </div>
               <div className="text-xs">
-                Inquilino: <strong>{receiptFor.c.tenant?.full_name ?? "—"}</strong><br />
-                E-mail: {receiptFor.c.tenant?.email ?? <span className="text-muted-foreground">não cadastrado</span>}<br />
-                Telefone: {receiptFor.c.tenant?.phone ?? <span className="text-muted-foreground">não cadastrado</span>}
+                Inquilino: <strong>{receiptFor.c.tenant?.full_name ?? "—"}</strong>
+                <br />
+                E-mail:{" "}
+                {receiptFor.c.tenant?.email ?? (
+                  <span className="text-muted-foreground">não cadastrado</span>
+                )}
+                <br />
+                Telefone:{" "}
+                {receiptFor.c.tenant?.phone ?? (
+                  <span className="text-muted-foreground">não cadastrado</span>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
-                O recibo em PDF será baixado neste dispositivo. Em seguida, abriremos o e-mail ou o WhatsApp já com a
-                mensagem pronta — basta anexar o arquivo baixado antes de enviar.
+                O recibo em PDF será baixado neste dispositivo. Em seguida, abriremos o e-mail ou o
+                WhatsApp já com a mensagem pronta — basta anexar o arquivo baixado antes de enviar.
               </p>
             </div>
           )}
           <DialogFooter className="flex flex-col gap-2 sm:flex-row">
             <Button variant="outline" onClick={downloadReceipt}>
-              <FileDown className="mr-1.5 h-4 w-4" />Apenas baixar PDF
+              <FileDown className="mr-1.5 h-4 w-4" />
+              Apenas baixar PDF
             </Button>
-            <Button variant="outline" onClick={sendReceiptEmail} disabled={!receiptFor?.c?.tenant?.email}>
+            <Button
+              variant="outline"
+              onClick={sendReceiptEmail}
+              disabled={!receiptFor?.c?.tenant?.email}
+            >
               Enviar por e-mail
             </Button>
             <Button onClick={sendReceiptWhatsapp} disabled={!receiptFor?.c?.tenant?.phone}>
-              <MessageCircle className="mr-1.5 h-4 w-4" />Enviar por WhatsApp
+              <MessageCircle className="mr-1.5 h-4 w-4" />
+              Enviar por WhatsApp
             </Button>
           </DialogFooter>
         </DialogContent>
