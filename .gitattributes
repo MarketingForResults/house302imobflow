@@ -1,1 +1,4 @@
+.gitattributes text eol=lf
 src/routeTree.gen.ts text eol=lf
+supabase/config.toml text eol=lf
+supabase/migrations/*.sql text eol=lf
