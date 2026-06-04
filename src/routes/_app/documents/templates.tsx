@@ -167,14 +167,16 @@ function TemplatesPage() {
   }
 
   async function removeDocumentKind(kind: any) {
-    if (kind.system_kind) return toast.error("As modalidades padrao nao podem ser excluidas");
     if (templates.some((template: any) => template.kind === kind.id)) {
       return toast.error("Esta modalidade esta em uso por um modelo");
     }
     if (!confirm(`Excluir a modalidade ${kind.label}?`)) return;
     const { error } = await supabase.from("document_kinds").delete().eq("id", kind.id);
     if (error) return toast.error(error.message);
-    if (editing?.kind === kind.id) setEditing({ ...editing, kind: "custom" });
+    if (editing?.kind === kind.id) {
+      const fallbackKind = documentKinds.find((candidate: any) => candidate.id !== kind.id);
+      setEditing({ ...editing, kind: fallbackKind?.id ?? "custom" });
+    }
     qc.invalidateQueries({ queryKey: ["document_kinds"] });
     toast.success("Modalidade excluida");
   }
@@ -356,16 +358,14 @@ function TemplatesPage() {
                       className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-1 text-xs"
                     >
                       {kind.label}
-                      {!kind.system_kind && (
-                        <button
-                          type="button"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => removeDocumentKind(kind)}
-                          title="Excluir modalidade"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => removeDocumentKind(kind)}
+                        title="Excluir modalidade"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </span>
                   ))}
                 </div>
