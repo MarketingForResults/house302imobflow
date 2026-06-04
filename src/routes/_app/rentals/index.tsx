@@ -752,6 +752,7 @@ function RentalsPage() {
                         type="number"
                         min={1}
                         max={31}
+                        step={1}
                         value={form.due_day}
                         onChange={(e) => setForm({ ...form, due_day: e.target.value })}
                       />
