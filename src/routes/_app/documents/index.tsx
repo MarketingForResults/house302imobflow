@@ -5,8 +5,20 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { DEFAULT_DOCUMENT_KINDS, DOCUMENT_KIND_LABEL } from "@/lib/doc-placeholders";
 import { FileText, Plus, Settings2, Pencil, Trash2 } from "lucide-react";
 import { formatDateBR } from "@/lib/format-date";
@@ -21,16 +33,24 @@ function DocumentsList() {
 
   const { data: docs = [] } = useQuery({
     queryKey: ["documents"],
-    queryFn: async () => (await supabase.from("documents").select("*").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () =>
+      (await supabase.from("documents").select("*").order("created_at", { ascending: false }))
+        .data ?? [],
   });
   const { data: templates = [] } = useQuery({
     queryKey: ["document_templates"],
-    queryFn: async () => (await supabase.from("document_templates").select("*").order("name")).data ?? [],
+    queryFn: async () =>
+      (await supabase.from("document_templates").select("*").order("name")).data ?? [],
   });
   const { data: documentKinds = DEFAULT_DOCUMENT_KINDS } = useQuery({
     queryKey: ["document_kinds"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("document_kinds").select("*").eq("active", true).order("sort_order").order("label");
+      const { data, error } = await supabase
+        .from("document_kinds")
+        .select("*")
+        .eq("active", true)
+        .order("sort_order")
+        .order("label");
       if (error) return DEFAULT_DOCUMENT_KINDS;
       return data?.length ? data : DEFAULT_DOCUMENT_KINDS;
     },
@@ -40,9 +60,14 @@ function DocumentsList() {
 
   async function saveEdit() {
     if (!editing) return;
-    const { error } = await supabase.from("documents").update({
-      title: editing.title, status: editing.status, notes: editing.notes,
-    }).eq("id", editing.id);
+    const { error } = await supabase
+      .from("documents")
+      .update({
+        title: editing.title,
+        status: editing.status,
+        notes: editing.notes,
+      })
+      .eq("id", editing.id);
     if (error) return toast.error(error.message);
     setEditing(null);
     qc.invalidateQueries({ queryKey: ["documents"] });
@@ -64,10 +89,16 @@ function DocumentsList() {
         actions={
           <>
             <Button variant="outline" asChild>
-              <Link to="/documents/templates"><Settings2 className="mr-1.5 h-4 w-4" />Modelos ({templates.length})</Link>
+              <Link to="/documents/templates">
+                <Settings2 className="mr-1.5 h-4 w-4" />
+                Modelos ({templates.length})
+              </Link>
             </Button>
             <Button asChild>
-              <Link to="/documents/new"><Plus className="mr-1.5 h-4 w-4" />Novo documento</Link>
+              <Link to="/documents/new">
+                <Plus className="mr-1.5 h-4 w-4" />
+                Novo documento
+              </Link>
             </Button>
           </>
         }
@@ -101,10 +132,26 @@ function DocumentsList() {
                     <td className="px-4 py-2">{kindLabel(d.kind)}</td>
                     <td className="px-4 py-2">{d.title ?? "—"}</td>
                     <td className="px-4 py-2 text-xs">{d.status}</td>
-                    <td className="px-4 py-2 text-xs text-muted-foreground">{formatDateBR(d.created_at)}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">
+                      {formatDateBR(d.created_at)}
+                    </td>
                     <td className="px-4 py-2 text-right whitespace-nowrap">
-                      <Button size="sm" variant="ghost" onClick={() => setEditing({ ...d })} title="Editar"><Pencil className="h-4 w-4" /></Button>
-                      <Button size="sm" variant="ghost" onClick={() => remove(d.id)} title="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditing({ ...d })}
+                        title="Editar"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => remove(d.id)}
+                        title="Excluir"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -116,14 +163,27 @@ function DocumentsList() {
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Editar documento {editing?.code}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Editar documento {editing?.code}</DialogTitle>
+          </DialogHeader>
           {editing && (
             <div className="space-y-3">
-              <div><Label>Título</Label><Input value={editing.title ?? ""} onChange={(e) => setEditing({ ...editing, title: e.target.value })} /></div>
+              <div>
+                <Label>Título</Label>
+                <Input
+                  value={editing.title ?? ""}
+                  onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+                />
+              </div>
               <div>
                 <Label>Status</Label>
-                <Select value={editing.status} onValueChange={(v) => setEditing({ ...editing, status: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={editing.status}
+                  onValueChange={(v) => setEditing({ ...editing, status: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="draft">Rascunho</SelectItem>
                     <SelectItem value="issued">Emitido</SelectItem>
@@ -132,11 +192,19 @@ function DocumentsList() {
                   </SelectContent>
                 </Select>
               </div>
-              <div><Label>Observações</Label><Input value={editing.notes ?? ""} onChange={(e) => setEditing({ ...editing, notes: e.target.value })} /></div>
+              <div>
+                <Label>Observações</Label>
+                <Input
+                  value={editing.notes ?? ""}
+                  onChange={(e) => setEditing({ ...editing, notes: e.target.value })}
+                />
+              </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button>
+            <Button variant="ghost" onClick={() => setEditing(null)}>
+              Cancelar
+            </Button>
             <Button onClick={saveEdit}>Salvar</Button>
           </DialogFooter>
         </DialogContent>

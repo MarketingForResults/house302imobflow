@@ -1,9 +1,12 @@
 // Formata datas no padrão d/m/aa (ex.: 5/3/26)
 export function formatDateBR(input: string | Date | null | undefined): string {
   if (!input) return "—";
-  const d = typeof input === "string"
-    ? (input.length === 10 ? new Date(input + "T00:00:00") : new Date(input))
-    : input;
+  const d =
+    typeof input === "string"
+      ? input.length === 10
+        ? new Date(input + "T00:00:00")
+        : new Date(input)
+      : input;
   if (isNaN(d.getTime())) return "—";
   const day = d.getDate();
   const month = d.getMonth() + 1;

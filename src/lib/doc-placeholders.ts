@@ -3,25 +3,63 @@
 
 export const PLACEHOLDER_GROUPS = {
   Imóvel: [
-    "property.code", "property.title", "property.type", "property.status",
-    "property.address", "property.neighborhood", "property.city", "property.state",
-    "property.area_m2", "property.bedrooms", "property.bathrooms", "property.suites",
-    "property.parking_spaces", "property.price",
+    "property.code",
+    "property.title",
+    "property.type",
+    "property.status",
+    "property.address",
+    "property.neighborhood",
+    "property.city",
+    "property.state",
+    "property.area_m2",
+    "property.bedrooms",
+    "property.bathrooms",
+    "property.suites",
+    "property.parking_spaces",
+    "property.price",
   ],
   Cliente: [
-    "client.full_name", "client.cpf", "client.email", "client.phone", "client.address",
-    "client.zip_code", "client.street", "client.number", "client.complement",
-    "client.neighborhood", "client.city", "client.state", "client.birth_date",
+    "client.full_name",
+    "client.cpf",
+    "client.email",
+    "client.phone",
+    "client.address",
+    "client.zip_code",
+    "client.street",
+    "client.number",
+    "client.complement",
+    "client.neighborhood",
+    "client.city",
+    "client.state",
+    "client.birth_date",
   ],
   Corretor: [
-    "broker.full_name", "broker.cpf", "broker.creci", "broker.registration_status", "broker.email", "broker.phone", "broker.address", "broker.birth_date",
+    "broker.full_name",
+    "broker.cpf",
+    "broker.creci",
+    "broker.registration_status",
+    "broker.email",
+    "broker.phone",
+    "broker.address",
+    "broker.birth_date",
   ],
   Imobiliária: [
-    "company.legal_name", "company.trade_name", "company.cnpj", "company.creci", "company.address", "company.phone", "company.email",
+    "company.legal_name",
+    "company.trade_name",
+    "company.cnpj",
+    "company.creci",
+    "company.address",
+    "company.phone",
+    "company.email",
   ],
   Contratos: ["contract.rental_notes", "contract.sale_notes"],
   Datas: ["date.today", "date.today_long"],
-  Valores: ["values.amount", "values.amount_words", "values.deadline_days", "values.commission_pct"],
+  Valores: [
+    "values.amount",
+    "values.amount_words",
+    "values.deadline_days",
+    "values.commission_pct",
+  ],
 } as const;
 
 export const ALL_PLACEHOLDERS = Object.values(PLACEHOLDER_GROUPS).flat();
@@ -97,11 +135,29 @@ export function sanitizeRichTextHtml(body: string): string {
 
   const container = document.createElement("div");
   container.innerHTML = body;
-  const allowedTags = new Set(["P", "BR", "DIV", "SPAN", "STRONG", "B", "EM", "I", "U", "OL", "UL", "LI", "H1", "H2", "H3", "H4"]);
+  const allowedTags = new Set([
+    "P",
+    "BR",
+    "DIV",
+    "SPAN",
+    "STRONG",
+    "B",
+    "EM",
+    "I",
+    "U",
+    "OL",
+    "UL",
+    "LI",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+  ]);
 
   for (const element of Array.from(container.querySelectorAll("*"))) {
     if (!allowedTags.has(element.tagName)) {
-      if (["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED"].includes(element.tagName)) element.remove();
+      if (["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED"].includes(element.tagName))
+        element.remove();
       else element.replaceWith(...Array.from(element.childNodes));
       continue;
     }
@@ -111,7 +167,8 @@ export function sanitizeRichTextHtml(body: string): string {
     }
     const textAlign = (element as HTMLElement).style.textAlign;
     element.removeAttribute("style");
-    if (["left", "center", "right", "justify"].includes(textAlign)) (element as HTMLElement).style.textAlign = textAlign;
+    if (["left", "center", "right", "justify"].includes(textAlign))
+      (element as HTMLElement).style.textAlign = textAlign;
   }
   return container.innerHTML;
 }
@@ -121,17 +178,28 @@ export function buildPlaceholderContext(input: {
   client?: any;
   broker?: any;
   settings?: any;
-  values?: { amount?: number; amount_words?: string; deadline_days?: number; commission_pct?: number };
+  values?: {
+    amount?: number;
+    amount_words?: string;
+    deadline_days?: number;
+    commission_pct?: number;
+  };
 }) {
   const fmtMoney = (v: any) =>
-    v == null || v === "" ? "" : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    v == null || v === ""
+      ? ""
+      : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (v: any) => {
     if (!v) return "";
     const [year, month, day] = String(v).slice(0, 10).split("-");
     return day && month && year ? `${day}/${month}/${year}` : String(v);
   };
   const today = new Date();
-  const todayLong = today.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
+  const todayLong = today.toLocaleDateString("pt-BR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   return {
     property: {
@@ -169,7 +237,10 @@ export function buildPlaceholderContext(input: {
       full_name: input.broker?.full_name ?? "",
       cpf: input.broker?.cpf ?? "",
       creci: input.broker?.creci ?? "",
-      registration_status: input.broker?.registration_status === "irregular" ? "Corretor sem registro profissional (Autônomo)" : "Corretor regular com registro profissional",
+      registration_status:
+        input.broker?.registration_status === "irregular"
+          ? "Corretor sem registro profissional (Autônomo)"
+          : "Corretor regular com registro profissional",
       email: input.broker?.email ?? "",
       phone: input.broker?.phone ?? "",
       address: input.broker?.address ?? "",
@@ -221,10 +292,12 @@ export const DOCUMENT_KIND_LABEL: Record<string, string> = {
   custom: "Personalizado",
 };
 
-export const DEFAULT_DOCUMENT_KINDS = Object.entries(DOCUMENT_KIND_LABEL).map(([id, label], index) => ({
-  id,
-  label,
-  active: true,
-  system_kind: true,
-  sort_order: (index + 1) * 10,
-}));
+export const DEFAULT_DOCUMENT_KINDS = Object.entries(DOCUMENT_KIND_LABEL).map(
+  ([id, label], index) => ({
+    id,
+    label,
+    active: true,
+    system_kind: true,
+    sort_order: (index + 1) * 10,
+  }),
+);

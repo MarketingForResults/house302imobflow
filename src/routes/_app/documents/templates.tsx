@@ -4,11 +4,28 @@ import { ChangeEvent, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DEFAULT_DOCUMENT_KINDS, DOCUMENT_KIND_LABEL, PLACEHOLDER_GROUPS, PLACEHOLDER_LABELS, sanitizeRichTextHtml } from "@/lib/doc-placeholders";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DEFAULT_DOCUMENT_KINDS,
+  DOCUMENT_KIND_LABEL,
+  PLACEHOLDER_GROUPS,
+  PLACEHOLDER_LABELS,
+  sanitizeRichTextHtml,
+} from "@/lib/doc-placeholders";
 import { toast } from "sonner";
 import {
   AlignCenter,
@@ -55,11 +72,17 @@ function stripRtf(value: string) {
 
 function suggestPlaceholders(value: string) {
   return value
-    .replace(/(nome(?: completo)? do cliente|cliente)\s*:\s*[_\s.]{3,}/gi, "$1: {{client.full_name}}")
+    .replace(
+      /(nome(?: completo)? do cliente|cliente)\s*:\s*[_\s.]{3,}/gi,
+      "$1: {{client.full_name}}",
+    )
     .replace(/cpf(?: do cliente)?\s*:\s*[_\s.]{3,}/gi, "CPF: {{client.cpf}}")
     .replace(/(endere[cç]o do im[oó]vel|im[oó]vel)\s*:\s*[_\s.]{3,}/gi, "$1: {{property.address}}")
     .replace(/(c[oó]digo do im[oó]vel)\s*:\s*[_\s.]{3,}/gi, "$1: {{property.code}}")
-    .replace(/(nome(?: completo)? do corretor|corretor)\s*:\s*[_\s.]{3,}/gi, "$1: {{broker.full_name}}")
+    .replace(
+      /(nome(?: completo)? do corretor|corretor)\s*:\s*[_\s.]{3,}/gi,
+      "$1: {{broker.full_name}}",
+    )
     .replace(/creci\s*:\s*[_\s.]{3,}/gi, "CRECI: {{broker.creci}}")
     .replace(/(data|data atual)\s*:\s*[_\s./-]{3,}/gi, "$1: {{date.today}}");
 }
@@ -76,7 +99,13 @@ function TemplatesPage() {
 
   const { data: templates = [], refetch } = useQuery({
     queryKey: ["document_templates"],
-    queryFn: async () => (await supabase.from("document_templates").select("*").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("document_templates")
+          .select("*")
+          .order("created_at", { ascending: false })
+      ).data ?? [],
   });
   const { data: documentKinds = DEFAULT_DOCUMENT_KINDS } = useQuery({
     queryKey: ["document_kinds"],
@@ -120,7 +149,8 @@ function TemplatesPage() {
     if (!label) return toast.error("Informe o nome da modalidade");
     const id = slugifyKind(label);
     if (!id) return toast.error("Use letras ou numeros no nome da modalidade");
-    if (documentKinds.some((kind: any) => kind.id === id)) return toast.error("Esta modalidade ja existe");
+    if (documentKinds.some((kind: any) => kind.id === id))
+      return toast.error("Esta modalidade ja existe");
 
     const { error } = await supabase.from("document_kinds").insert({
       id,
@@ -131,7 +161,7 @@ function TemplatesPage() {
     });
     if (error) return toast.error(error.message);
     setNewKindName("");
-    setEditing((current: any) => current ? { ...current, kind: id } : current);
+    setEditing((current: any) => (current ? { ...current, kind: id } : current));
     qc.invalidateQueries({ queryKey: ["document_kinds"] });
     toast.success("Modalidade adicionada");
   }
@@ -153,10 +183,15 @@ function TemplatesPage() {
     if (!editing.name?.trim()) return toast.error("Informe um nome");
     const payload = {
       ...editing,
-      body: sanitizeRichTextHtml(editorRef.current?.innerHTML ?? bodyDraftRef.current ?? editing.body ?? ""),
+      body: sanitizeRichTextHtml(
+        editorRef.current?.innerHTML ?? bodyDraftRef.current ?? editing.body ?? "",
+      ),
     };
     if (payload.id) {
-      const { error } = await supabase.from("document_templates").update(payload).eq("id", payload.id);
+      const { error } = await supabase
+        .from("document_templates")
+        .update(payload)
+        .eq("id", payload.id);
       if (error) return toast.error(error.message);
     } else {
       const { error } = await supabase.from("document_templates").insert(payload);
@@ -222,7 +257,10 @@ function TemplatesPage() {
     if (!file) return;
     setImporting(true);
     try {
-      const extracted = (await extractText(file)).replace(/\r/g, "").replace(/[ \t]+/g, " ").trim();
+      const extracted = (await extractText(file))
+        .replace(/\r/g, "")
+        .replace(/[ \t]+/g, " ")
+        .trim();
       if (!extracted) throw new Error("Não foi possível reconhecer texto neste arquivo.");
       const body = textToEditorHtml(suggestPlaceholders(extracted));
       bodyDraftRef.current = body;
@@ -247,8 +285,16 @@ function TemplatesPage() {
         description="Crie modelos padronizados, importe documentos e insira campos automáticos"
         actions={
           <>
-            <Button variant="outline" asChild><Link to="/documents"><ArrowLeft className="mr-1.5 h-4 w-4" />Voltar</Link></Button>
-            <Button onClick={newTemplate}><Plus className="mr-1.5 h-4 w-4" />Novo modelo</Button>
+            <Button variant="outline" asChild>
+              <Link to="/documents">
+                <ArrowLeft className="mr-1.5 h-4 w-4" />
+                Voltar
+              </Link>
+            </Button>
+            <Button onClick={newTemplate}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Novo modelo
+            </Button>
           </>
         }
       />
@@ -260,14 +306,26 @@ function TemplatesPage() {
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
                   <Label className="mb-1.5 block text-xs">Nome do modelo</Label>
-                  <Input value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value })} />
+                  <Input
+                    value={editing.name}
+                    onChange={(event) => setEditing({ ...editing, name: event.target.value })}
+                  />
                 </div>
                 <div>
                   <Label className="mb-1.5 block text-xs">Tipo</Label>
-                  <Select value={editing.kind} onValueChange={(value) => setEditing({ ...editing, kind: value })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Select
+                    value={editing.kind}
+                    onValueChange={(value) => setEditing({ ...editing, kind: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {documentKinds.map((kind: any) => <SelectItem key={kind.id} value={kind.id}>{kind.label}</SelectItem>)}
+                      {documentKinds.map((kind: any) => (
+                        <SelectItem key={kind.id} value={kind.id}>
+                          {kind.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -279,16 +337,32 @@ function TemplatesPage() {
                     placeholder="Ex.: Carta proposta, Termo de vistoria..."
                     value={newKindName}
                     onChange={(event) => setNewKindName(event.target.value)}
-                    onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addDocumentKind(); } }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addDocumentKind();
+                      }
+                    }}
                   />
-                  <Button type="button" variant="outline" onClick={addDocumentKind}><Plus className="mr-1.5 h-4 w-4" />Adicionar</Button>
+                  <Button type="button" variant="outline" onClick={addDocumentKind}>
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Adicionar
+                  </Button>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {documentKinds.map((kind: any) => (
-                    <span key={kind.id} className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-1 text-xs">
+                    <span
+                      key={kind.id}
+                      className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-1 text-xs"
+                    >
                       {kind.label}
                       {!kind.system_kind && (
-                        <button type="button" className="text-muted-foreground hover:text-destructive" onClick={() => removeDocumentKind(kind)} title="Excluir modalidade">
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => removeDocumentKind(kind)}
+                          title="Excluir modalidade"
+                        >
                           <X className="h-3 w-3" />
                         </button>
                       )}
@@ -299,33 +373,142 @@ function TemplatesPage() {
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 p-2">
                 <div>
-                  <div className="flex items-center gap-1 text-sm font-medium"><Sparkles className="h-4 w-4 text-primary" />Importação inteligente</div>
-                  <p className="text-[11px] text-muted-foreground">Reconhece PDF, Word (.docx), WordPad (.rtf) e texto (.txt).</p>
+                  <div className="flex items-center gap-1 text-sm font-medium">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Importação inteligente
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Reconhece PDF, Word (.docx), WordPad (.rtf) e texto (.txt).
+                  </p>
                 </div>
-                <input ref={fileRef} type="file" accept=".pdf,.docx,.rtf,.txt" className="hidden" onChange={importDocument} />
-                <Button type="button" variant="outline" size="sm" disabled={importing} onClick={() => fileRef.current?.click()}>
-                  <FileUp className="mr-1.5 h-4 w-4" />{importing ? "Reconhecendo..." : "Importar documento"}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".pdf,.docx,.rtf,.txt"
+                  className="hidden"
+                  onChange={importDocument}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={importing}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <FileUp className="mr-1.5 h-4 w-4" />
+                  {importing ? "Reconhecendo..." : "Importar documento"}
                 </Button>
               </div>
 
               <div className="mt-4">
                 <Label className="mb-1.5 block text-xs">Corpo do modelo</Label>
                 <div className="overflow-hidden rounded-md border">
-                  <div className="flex flex-wrap gap-1 border-b bg-muted/30 p-1.5" onMouseDown={(event) => event.preventDefault()}>
-                    <Button type="button" variant="ghost" size="sm" title="Desfazer" onClick={() => runEditorCommand("undo")}><Undo2 className="h-4 w-4" /></Button>
-                    <Button type="button" variant="ghost" size="sm" title="Refazer" onClick={() => runEditorCommand("redo")}><Redo2 className="h-4 w-4" /></Button>
+                  <div
+                    className="flex flex-wrap gap-1 border-b bg-muted/30 p-1.5"
+                    onMouseDown={(event) => event.preventDefault()}
+                  >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Desfazer"
+                      onClick={() => runEditorCommand("undo")}
+                    >
+                      <Undo2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Refazer"
+                      onClick={() => runEditorCommand("redo")}
+                    >
+                      <Redo2 className="h-4 w-4" />
+                    </Button>
                     <span className="mx-1 border-l" />
-                    <Button type="button" variant="ghost" size="sm" title="Negrito" onClick={() => runEditorCommand("bold")}><Bold className="h-4 w-4" /></Button>
-                    <Button type="button" variant="ghost" size="sm" title="Itálico" onClick={() => runEditorCommand("italic")}><Italic className="h-4 w-4" /></Button>
-                    <Button type="button" variant="ghost" size="sm" title="Sublinhado" onClick={() => runEditorCommand("underline")}><Underline className="h-4 w-4" /></Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Negrito"
+                      onClick={() => runEditorCommand("bold")}
+                    >
+                      <Bold className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Itálico"
+                      onClick={() => runEditorCommand("italic")}
+                    >
+                      <Italic className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Sublinhado"
+                      onClick={() => runEditorCommand("underline")}
+                    >
+                      <Underline className="h-4 w-4" />
+                    </Button>
                     <span className="mx-1 border-l" />
-                    <Button type="button" variant="ghost" size="sm" title="Lista" onClick={() => runEditorCommand("insertUnorderedList")}><List className="h-4 w-4" /></Button>
-                    <Button type="button" variant="ghost" size="sm" title="Lista numerada" onClick={() => runEditorCommand("insertOrderedList")}><ListOrdered className="h-4 w-4" /></Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Lista"
+                      onClick={() => runEditorCommand("insertUnorderedList")}
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Lista numerada"
+                      onClick={() => runEditorCommand("insertOrderedList")}
+                    >
+                      <ListOrdered className="h-4 w-4" />
+                    </Button>
                     <span className="mx-1 border-l" />
-                    <Button type="button" variant="ghost" size="sm" title="Alinhar à esquerda" onClick={() => runEditorCommand("justifyLeft")}><AlignLeft className="h-4 w-4" /></Button>
-                    <Button type="button" variant="ghost" size="sm" title="Centralizar" onClick={() => runEditorCommand("justifyCenter")}><AlignCenter className="h-4 w-4" /></Button>
-                    <Button type="button" variant="ghost" size="sm" title="Alinhar à direita" onClick={() => runEditorCommand("justifyRight")}><AlignRight className="h-4 w-4" /></Button>
-                    <Button type="button" variant="ghost" size="sm" title="Justificar" onClick={() => runEditorCommand("justifyFull")}><AlignJustify className="h-4 w-4" /></Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Alinhar à esquerda"
+                      onClick={() => runEditorCommand("justifyLeft")}
+                    >
+                      <AlignLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Centralizar"
+                      onClick={() => runEditorCommand("justifyCenter")}
+                    >
+                      <AlignCenter className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Alinhar à direita"
+                      onClick={() => runEditorCommand("justifyRight")}
+                    >
+                      <AlignRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Justificar"
+                      onClick={() => runEditorCommand("justifyFull")}
+                    >
+                      <AlignJustify className="h-4 w-4" />
+                    </Button>
                   </div>
                   <div
                     key={editorVersion}
@@ -334,24 +517,37 @@ function TemplatesPage() {
                     suppressContentEditableWarning
                     className="min-h-[420px] bg-background p-4 text-sm leading-relaxed outline-none [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-bold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-2 [&_ul]:list-disc"
                     dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(bodyDraftRef.current) }}
-                    onInput={(event) => { bodyDraftRef.current = event.currentTarget.innerHTML; }}
+                    onInput={(event) => {
+                      bodyDraftRef.current = event.currentTarget.innerHTML;
+                    }}
                   />
                 </div>
-                <p className="mt-1.5 text-[11px] text-muted-foreground">Use os campos automáticos ao lado para preencher dados do imóvel, cliente e corretor ao gerar o documento.</p>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  Use os campos automáticos ao lado para preencher dados do imóvel, cliente e
+                  corretor ao gerar o documento.
+                </p>
               </div>
               <div className="mt-3 flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button>
+                <Button variant="ghost" onClick={() => setEditing(null)}>
+                  Cancelar
+                </Button>
                 <Button onClick={save}>Salvar modelo</Button>
               </div>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border bg-card">
               {templates.length === 0 ? (
-                <div className="p-4 text-center text-sm text-muted-foreground md:p-8">Nenhum modelo criado.</div>
+                <div className="p-4 text-center text-sm text-muted-foreground md:p-8">
+                  Nenhum modelo criado.
+                </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                    <tr><th className="px-4 py-2 text-left">Nome</th><th className="px-4 py-2 text-left">Tipo</th><th className="px-4 py-2"></th></tr>
+                    <tr>
+                      <th className="px-4 py-2 text-left">Nome</th>
+                      <th className="px-4 py-2 text-left">Tipo</th>
+                      <th className="px-4 py-2"></th>
+                    </tr>
                   </thead>
                   <tbody>
                     {templates.map((template: any) => (
@@ -359,8 +555,12 @@ function TemplatesPage() {
                         <td className="px-4 py-2">{template.name}</td>
                         <td className="px-4 py-2 text-xs">{kindLabel(template.kind)}</td>
                         <td className="px-4 py-2 text-right">
-                          <Button variant="ghost" size="sm" onClick={() => openEditor(template)}>Editar</Button>
-                          <Button variant="ghost" size="sm" onClick={() => remove(template.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="sm" onClick={() => openEditor(template)}>
+                            Editar
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => remove(template.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -373,11 +573,15 @@ function TemplatesPage() {
 
         <div className="rounded-lg border bg-card p-4">
           <h3 className="mb-1 text-sm font-semibold">Campos automáticos</h3>
-          <p className="mb-4 text-xs text-muted-foreground">Clique em um campo para inseri-lo na posição atual do texto.</p>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Clique em um campo para inseri-lo na posição atual do texto.
+          </p>
           <Accordion type="multiple" defaultValue={Object.keys(PLACEHOLDER_GROUPS)}>
             {Object.entries(PLACEHOLDER_GROUPS).map(([group, items]) => (
               <AccordionItem key={group} value={group}>
-                <AccordionTrigger className="py-2.5 text-xs font-semibold">{group}</AccordionTrigger>
+                <AccordionTrigger className="py-2.5 text-xs font-semibold">
+                  {group}
+                </AccordionTrigger>
                 <AccordionContent className="grid gap-1 pb-3">
                   {items.map((placeholder) => (
                     <button
@@ -388,7 +592,9 @@ function TemplatesPage() {
                       className="group rounded border bg-muted/20 px-2 py-1.5 text-left transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-50 disabled:hover:bg-muted/20 disabled:hover:text-foreground"
                       title={`Insere {{${placeholder}}}`}
                     >
-                      <span className="block text-xs font-medium">{PLACEHOLDER_LABELS[placeholder]}</span>
+                      <span className="block text-xs font-medium">
+                        {PLACEHOLDER_LABELS[placeholder]}
+                      </span>
                       <code className="block text-[10px] text-muted-foreground transition-colors group-hover:text-primary-foreground/85">{`{{${placeholder}}}`}</code>
                     </button>
                   ))}

@@ -57,7 +57,9 @@ export const syncPropertyToWordPress = createServerFn({ method: "POST" })
       video_url: prop.video_url,
       tour_url: prop.tour_url,
       broker_name: prop.brokers?.full_name ?? null,
-      images: (prop.property_images ?? []).sort((a: any, b: any) => Number(b.is_cover) - Number(a.is_cover)).map((i: any) => i.image_url),
+      images: (prop.property_images ?? [])
+        .sort((a: any, b: any) => Number(b.is_cover) - Number(a.is_cover))
+        .map((i: any) => i.image_url),
       wp_post_id: prop.wp_post_id ?? null,
     };
 
@@ -69,12 +71,20 @@ export const syncPropertyToWordPress = createServerFn({ method: "POST" })
     });
     const text = await res.text();
     let body: any = null;
-    try { body = JSON.parse(text); } catch { body = text; }
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = text;
+    }
 
     if (res.ok && body?.id) {
-      await supabaseAdmin.from("properties").update({
-        wp_post_id: body.id, wp_synced_at: new Date().toISOString(),
-      }).eq("id", prop.id);
+      await supabaseAdmin
+        .from("properties")
+        .update({
+          wp_post_id: body.id,
+          wp_synced_at: new Date().toISOString(),
+        })
+        .eq("id", prop.id);
     }
 
     await supabaseAdmin.from("wp_sync_logs").insert({
@@ -86,6 +96,9 @@ export const syncPropertyToWordPress = createServerFn({ method: "POST" })
       payload: payload as any,
     });
 
-    if (!res.ok) throw new Error(`WordPress retornou ${res.status}: ${typeof body === "string" ? body : JSON.stringify(body)}`);
+    if (!res.ok)
+      throw new Error(
+        `WordPress retornou ${res.status}: ${typeof body === "string" ? body : JSON.stringify(body)}`,
+      );
     return { ok: true, wpPostId: body.id };
   });

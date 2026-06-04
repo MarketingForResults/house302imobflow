@@ -6,8 +6,21 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DEFAULT_DOCUMENT_KINDS, DOCUMENT_KIND_LABEL, buildPlaceholderContext, renderTemplate, richTextToPlainText, sanitizeRichTextHtml } from "@/lib/doc-placeholders";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DEFAULT_DOCUMENT_KINDS,
+  DOCUMENT_KIND_LABEL,
+  buildPlaceholderContext,
+  renderTemplate,
+  richTextToPlainText,
+  sanitizeRichTextHtml,
+} from "@/lib/doc-placeholders";
 import { generateDocumentPdf } from "@/lib/pdf-utils";
 import { toast } from "sonner";
 import { ArrowLeft, Download } from "lucide-react";
@@ -26,19 +39,34 @@ function NewDocumentPage() {
 
   const { data: templates = [] } = useQuery({
     queryKey: ["templates-active"],
-    queryFn: async () => (await supabase.from("document_templates").select("*").eq("active", true).order("name")).data ?? [],
+    queryFn: async () =>
+      (await supabase.from("document_templates").select("*").eq("active", true).order("name"))
+        .data ?? [],
   });
   const { data: documentKinds = DEFAULT_DOCUMENT_KINDS } = useQuery({
     queryKey: ["document_kinds"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("document_kinds").select("*").eq("active", true).order("sort_order").order("label");
+      const { data, error } = await supabase
+        .from("document_kinds")
+        .select("*")
+        .eq("active", true)
+        .order("sort_order")
+        .order("label");
       if (error) return DEFAULT_DOCUMENT_KINDS;
       return data?.length ? data : DEFAULT_DOCUMENT_KINDS;
     },
   });
   const { data: properties = [] } = useQuery({
     queryKey: ["properties-min"],
-    queryFn: async () => (await supabase.from("properties").select("id, code, title, address, neighborhood, city, state, type, status, area_m2, bedrooms, bathrooms, suites, parking_spaces, price").order("code", { ascending: false })).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("properties")
+          .select(
+            "id, code, title, address, neighborhood, city, state, type, status, area_m2, bedrooms, bathrooms, suites, parking_spaces, price",
+          )
+          .order("code", { ascending: false })
+      ).data ?? [],
   });
   const { data: clients = [] } = useQuery({
     queryKey: ["clients-min"],
@@ -46,47 +74,78 @@ function NewDocumentPage() {
   });
   const { data: brokers = [] } = useQuery({
     queryKey: ["brokers-min"],
-    queryFn: async () => (await supabase.from("brokers").select("*").eq("active", true).order("full_name")).data ?? [],
+    queryFn: async () =>
+      (await supabase.from("brokers").select("*").eq("active", true).order("full_name")).data ?? [],
   });
   const { data: settings } = useQuery({
     queryKey: ["app-settings-documents"],
-    queryFn: async () => (await supabase.from("app_settings").select("*").eq("id", true).maybeSingle()).data,
+    queryFn: async () =>
+      (await supabase.from("app_settings").select("*").eq("id", true).maybeSingle()).data,
   });
 
-  const template = useMemo(() => templates.find((t: any) => t.id === templateId), [templates, templateId]);
-  const property = useMemo(() => properties.find((p: any) => p.id === propertyId), [properties, propertyId]);
+  const template = useMemo(
+    () => templates.find((t: any) => t.id === templateId),
+    [templates, templateId],
+  );
+  const property = useMemo(
+    () => properties.find((p: any) => p.id === propertyId),
+    [properties, propertyId],
+  );
   const client = useMemo(() => clients.find((c: any) => c.id === clientId), [clients, clientId]);
   const broker = useMemo(() => brokers.find((b: any) => b.id === brokerId), [brokers, brokerId]);
 
-  const ctx = useMemo(() =>
-    buildPlaceholderContext({
-      property, client, broker, settings,
-      values: { amount: amount ? Number(amount) : undefined, deadline_days: deadlineDays ? Number(deadlineDays) : undefined },
-    }),
-  [property, client, broker, settings, amount, deadlineDays]);
+  const ctx = useMemo(
+    () =>
+      buildPlaceholderContext({
+        property,
+        client,
+        broker,
+        settings,
+        values: {
+          amount: amount ? Number(amount) : undefined,
+          deadline_days: deadlineDays ? Number(deadlineDays) : undefined,
+        },
+      }),
+    [property, client, broker, settings, amount, deadlineDays],
+  );
 
-  const rendered = useMemo(() => template ? renderTemplate(template.body ?? "", ctx) : "", [template, ctx]);
-  const kindLabelById = useMemo(() => Object.fromEntries(documentKinds.map((kind: any) => [kind.id, kind.label])), [documentKinds]);
+  const rendered = useMemo(
+    () => (template ? renderTemplate(template.body ?? "", ctx) : ""),
+    [template, ctx],
+  );
+  const kindLabelById = useMemo(
+    () => Object.fromEntries(documentKinds.map((kind: any) => [kind.id, kind.label])),
+    [documentKinds],
+  );
   const kindLabel = (kind: string) => kindLabelById[kind] ?? DOCUMENT_KIND_LABEL[kind] ?? kind;
 
   async function generate() {
     if (!template) return toast.error("Selecione um modelo");
     setSaving(true);
     const title = `${kindLabel(template.kind)}${property ? ` — ${property.code}` : ""}`;
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: inserted, error } = await supabase.from("documents").insert({
-      template_id: template.id,
-      kind: template.kind,
-      title,
-      property_id: propertyId || null,
-      client_id: clientId || null,
-      broker_id: brokerId || null,
-      payload_snapshot: { ctx, amount, deadlineDays },
-      body_rendered: rendered,
-      created_by: user?.id,
-    }).select("*").single();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: inserted, error } = await supabase
+      .from("documents")
+      .insert({
+        template_id: template.id,
+        kind: template.kind,
+        title,
+        property_id: propertyId || null,
+        client_id: clientId || null,
+        broker_id: brokerId || null,
+        payload_snapshot: { ctx, amount, deadlineDays },
+        body_rendered: rendered,
+        created_by: user?.id,
+      })
+      .select("*")
+      .single();
 
-    if (error) { setSaving(false); return toast.error(error.message); }
+    if (error) {
+      setSaving(false);
+      return toast.error(error.message);
+    }
 
     const pdf = await generateDocumentPdf({
       code: inserted.code,
@@ -95,7 +154,11 @@ function NewDocumentPage() {
       bodyText: richTextToPlainText(rendered),
       parties: [
         client && { label: "CLIENTE", name: client.full_name, doc: client.cpf },
-        broker && { label: "CORRETOR", name: broker.full_name, doc: broker.creci ? `CRECI ${broker.creci}` : broker.cpf },
+        broker && {
+          label: "CORRETOR",
+          name: broker.full_name,
+          doc: broker.creci ? `CRECI ${broker.creci}` : broker.cpf,
+        },
       ].filter(Boolean) as any,
     });
     pdf.save(`${inserted.code}.pdf`);
@@ -111,8 +174,16 @@ function NewDocumentPage() {
         description="Selecione o modelo e os dados para gerar o PDF"
         actions={
           <>
-            <Button variant="outline" asChild><Link to="/documents"><ArrowLeft className="mr-1.5 h-4 w-4" />Voltar</Link></Button>
-            <Button onClick={generate} disabled={saving || !template}><Download className="mr-1.5 h-4 w-4" />{saving ? "Gerando…" : "Gerar e baixar PDF"}</Button>
+            <Button variant="outline" asChild>
+              <Link to="/documents">
+                <ArrowLeft className="mr-1.5 h-4 w-4" />
+                Voltar
+              </Link>
+            </Button>
+            <Button onClick={generate} disabled={saving || !template}>
+              <Download className="mr-1.5 h-4 w-4" />
+              {saving ? "Gerando…" : "Gerar e baixar PDF"}
+            </Button>
           </>
         }
       />
@@ -122,37 +193,65 @@ function NewDocumentPage() {
             <div>
               <Label className="mb-1.5 block text-xs">Modelo</Label>
               <Select value={templateId} onValueChange={setTemplateId}>
-                <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione…" />
+                </SelectTrigger>
                 <SelectContent>
-                  {templates.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  {templates.map((t: any) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {templates.length === 0 && <p className="mt-1 text-[11px] text-muted-foreground">Nenhum modelo ativo. Crie em Modelos.</p>}
+              {templates.length === 0 && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Nenhum modelo ativo. Crie em Modelos.
+                </p>
+              )}
             </div>
             <div>
               <Label className="mb-1.5 block text-xs">Imóvel</Label>
               <Select value={propertyId} onValueChange={setPropertyId}>
-                <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione…" />
+                </SelectTrigger>
                 <SelectContent>
-                  {properties.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.code} — {p.title ?? p.address}</SelectItem>)}
+                  {properties.map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.code} — {p.title ?? p.address}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label className="mb-1.5 block text-xs">Cliente</Label>
               <Select value={clientId} onValueChange={setClientId}>
-                <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione…" />
+                </SelectTrigger>
                 <SelectContent>
-                  {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
+                  {clients.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.full_name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label className="mb-1.5 block text-xs">Corretor</Label>
               <Select value={brokerId} onValueChange={setBrokerId}>
-                <SelectTrigger><SelectValue placeholder="Selecione…" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione…" />
+                </SelectTrigger>
                 <SelectContent>
-                  {brokers.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.full_name}</SelectItem>)}
+                  {brokers.map((b: any) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.full_name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -163,7 +262,11 @@ function NewDocumentPage() {
               </div>
               <div>
                 <Label className="mb-1.5 block text-xs">Prazo (dias)</Label>
-                <Input type="number" value={deadlineDays} onChange={(e) => setDeadlineDays(e.target.value)} />
+                <Input
+                  type="number"
+                  value={deadlineDays}
+                  onChange={(e) => setDeadlineDays(e.target.value)}
+                />
               </div>
             </div>
           </div>
@@ -171,9 +274,14 @@ function NewDocumentPage() {
         <div className="lg:col-span-2 rounded-lg border bg-card p-5">
           <h3 className="mb-3 text-sm font-semibold">Pré-visualização</h3>
           {rendered ? (
-            <div className="max-h-[60vh] overflow-auto rounded bg-muted/30 p-4 text-sm leading-relaxed [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-bold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-2 [&_ul]:list-disc" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(rendered) }} />
+            <div
+              className="max-h-[60vh] overflow-auto rounded bg-muted/30 p-4 text-sm leading-relaxed [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-bold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-2 [&_ul]:list-disc"
+              dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(rendered) }}
+            />
           ) : (
-            <div className="rounded bg-muted/30 p-4 text-sm text-muted-foreground">Selecione um modelo para ver o conteúdo.</div>
+            <div className="rounded bg-muted/30 p-4 text-sm text-muted-foreground">
+              Selecione um modelo para ver o conteúdo.
+            </div>
           )}
         </div>
       </div>

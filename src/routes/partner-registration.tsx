@@ -9,7 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Database } from "@/integrations/supabase/types";
-import { composeAddress, lookupCepAddress, maskCep, maskCnh, maskCpfCnpj, maskPhone, maskRg } from "@/lib/form-utils";
+import {
+  composeAddress,
+  lookupCepAddress,
+  maskCep,
+  maskCnh,
+  maskCpfCnpj,
+  maskPhone,
+  maskRg,
+} from "@/lib/form-utils";
 import logo from "@/assets/logo-house302.png";
 import logoIcon from "@/assets/logo-house302-icon.png";
 
@@ -49,7 +57,8 @@ const EMPTY_FORM = {
 
 function createPublicRegistrationClient() {
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
+  const SUPABASE_PUBLISHABLE_KEY =
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     throw new Error("Supabase nao configurado para o formulario publico.");
@@ -99,12 +108,20 @@ function buildPartnerNotes(form: typeof EMPTY_FORM) {
 }
 
 function getSupabaseErrorText(error: any) {
-  return [error?.code, error?.message, error?.details, error?.hint].filter(Boolean).join(" ").toLowerCase();
+  return [error?.code, error?.message, error?.details, error?.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 }
 
 function isMissingColumnError(error: any) {
   const text = getSupabaseErrorText(error);
-  return text.includes("pgrst204") || text.includes("schema cache") || text.includes("could not find") || text.includes("column");
+  return (
+    text.includes("pgrst204") ||
+    text.includes("schema cache") ||
+    text.includes("could not find") ||
+    text.includes("column")
+  );
 }
 
 function isMissingTableError(error: any) {
@@ -170,7 +187,7 @@ function PartnerRegistration() {
     }
 
     const canSubmit = window.confirm(
-      "Por seguranca, dados bancarios, Pix, TED, deposito ou pagamento em dinheiro nao serao solicitados neste formulario publico. Apos a analise e aprovacao do cadastro, a equipe House 302 liberara a area segura do parceiro ou fara contato para registrar a forma de recebimento da bonificacao. Deseja enviar o cadastro agora?"
+      "Por seguranca, dados bancarios, Pix, TED, deposito ou pagamento em dinheiro nao serao solicitados neste formulario publico. Apos a analise e aprovacao do cadastro, a equipe House 302 liberara a area segura do parceiro ou fara contato para registrar a forma de recebimento da bonificacao. Deseja enviar o cadastro agora?",
     );
     if (!canSubmit) return;
 
@@ -195,7 +212,9 @@ function PartnerRegistration() {
         active: false,
         registration_status: "pending",
       };
-      const { error: fallbackError } = await publicRegistrationSupabase.from("capture_partners").insert(fallbackPayload);
+      const { error: fallbackError } = await publicRegistrationSupabase
+        .from("capture_partners")
+        .insert(fallbackPayload);
       setSaving(false);
 
       if (fallbackError) {
@@ -203,11 +222,15 @@ function PartnerRegistration() {
           toast.error("O cadastro de parceiros ainda precisa ser liberado no banco de dados.");
           return;
         }
-        toast.error(fallbackError.message ?? "Nao foi possivel enviar seu cadastro. Tente novamente.");
+        toast.error(
+          fallbackError.message ?? "Nao foi possivel enviar seu cadastro. Tente novamente.",
+        );
         return;
       }
 
-      toast.success("Cadastro enviado. Os detalhes extras foram salvos nas observacoes ate o banco ser atualizado.");
+      toast.success(
+        "Cadastro enviado. Os detalhes extras foram salvos nas observacoes ate o banco ser atualizado.",
+      );
       setForm(EMPTY_FORM);
       setSent(true);
       return;
@@ -232,8 +255,16 @@ function PartnerRegistration() {
     <main className="min-h-screen bg-slate-50 px-4 py-10">
       <div className="mx-auto max-w-3xl">
         <div className="mb-6 flex items-center justify-center">
-          <img src={logoIcon} alt="HOUSE 302" className="h-14 w-14 rounded-2xl object-cover shadow-sm sm:hidden" />
-          <img src={logo} alt="HOUSE 302" className="hidden h-auto max-h-9 max-w-[230px] object-contain sm:block" />
+          <img
+            src={logoIcon}
+            alt="HOUSE 302"
+            className="h-14 w-14 rounded-2xl object-cover shadow-sm sm:hidden"
+          />
+          <img
+            src={logo}
+            alt="HOUSE 302"
+            className="hidden h-auto max-h-9 max-w-[230px] object-contain sm:block"
+          />
         </div>
 
         <Card>
@@ -242,8 +273,8 @@ function PartnerRegistration() {
               <CheckCircle2 className="h-14 w-14 text-emerald-600" />
               <CardTitle>Cadastro enviado</CardTitle>
               <CardDescription className="max-w-md">
-                Seus dados foram recebidos. Apos a analise, a equipe House 302 orientara os proximos passos e
-                liberara uma forma segura para registrar dados de pagamento da bonificacao.
+                Seus dados foram recebidos. Apos a analise, a equipe House 302 orientara os proximos
+                passos e liberara uma forma segura para registrar dados de pagamento da bonificacao.
               </CardDescription>
               <Button variant="outline" onClick={() => setSent(false)}>
                 Enviar outro cadastro
@@ -254,7 +285,8 @@ function PartnerRegistration() {
               <CardHeader>
                 <CardTitle>Quero indicar imoveis</CardTitle>
                 <CardDescription>
-                  Cadastre seus dados e, se ja possuir, informe tambem os dados basicos do imovel indicado.
+                  Cadastre seus dados e, se ja possuir, informe tambem os dados basicos do imovel
+                  indicado.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -262,34 +294,65 @@ function PartnerRegistration() {
                   <section className="space-y-4">
                     <div>
                       <h2 className="text-sm font-semibold">Dados do parceiro</h2>
-                      <p className="text-xs text-muted-foreground">Informacoes de quem esta indicando a oportunidade.</p>
+                      <p className="text-xs text-muted-foreground">
+                        Informacoes de quem esta indicando a oportunidade.
+                      </p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="full_name">Nome completo *</Label>
-                      <Input id="full_name" autoComplete="name" value={form.full_name} onChange={(e) => update("full_name", e.target.value)} />
+                      <Input
+                        id="full_name"
+                        autoComplete="name"
+                        value={form.full_name}
+                        onChange={(e) => update("full_name", e.target.value)}
+                      />
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="cpf_cnpj">CPF ou CNPJ</Label>
-                        <Input id="cpf_cnpj" value={form.cpf_cnpj} onChange={(e) => update("cpf_cnpj", maskCpfCnpj(e.target.value))} />
+                        <Input
+                          id="cpf_cnpj"
+                          value={form.cpf_cnpj}
+                          onChange={(e) => update("cpf_cnpj", maskCpfCnpj(e.target.value))}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="phone">Telefone / WhatsApp *</Label>
-                        <Input id="phone" autoComplete="tel" value={form.phone} onChange={(e) => update("phone", maskPhone(e.target.value))} />
+                        <Input
+                          id="phone"
+                          autoComplete="tel"
+                          value={form.phone}
+                          onChange={(e) => update("phone", maskPhone(e.target.value))}
+                        />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email">E-mail</Label>
-                      <Input id="email" type="email" autoComplete="email" value={form.email} onChange={(e) => update("email", e.target.value)} />
+                      <Input
+                        id="email"
+                        type="email"
+                        autoComplete="email"
+                        value={form.email}
+                        onChange={(e) => update("email", e.target.value)}
+                      />
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="rg">RG</Label>
-                        <Input id="rg" value={form.rg} onChange={(e) => update("rg", maskRg(e.target.value))} />
+                        <Input
+                          id="rg"
+                          value={form.rg}
+                          onChange={(e) => update("rg", maskRg(e.target.value))}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="cnh">CNH</Label>
-                        <Input id="cnh" inputMode="numeric" value={form.cnh} onChange={(e) => update("cnh", maskCnh(e.target.value))} />
+                        <Input
+                          id="cnh"
+                          inputMode="numeric"
+                          value={form.cnh}
+                          onChange={(e) => update("cnh", maskCnh(e.target.value))}
+                        />
                       </div>
                     </div>
                     <AddressSection
@@ -312,21 +375,42 @@ function PartnerRegistration() {
                   <section className="space-y-4 border-t pt-5">
                     <div>
                       <h2 className="text-sm font-semibold">Imovel indicado</h2>
-                      <p className="text-xs text-muted-foreground">Preencha o que souber. A equipe validara os dados antes de abrir a captacao.</p>
+                      <p className="text-xs text-muted-foreground">
+                        Preencha o que souber. A equipe validara os dados antes de abrir a captacao.
+                      </p>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="property_owner_name">Nome do proprietario ou responsavel</Label>
-                        <Input id="property_owner_name" value={form.property_owner_name} onChange={(e) => update("property_owner_name", e.target.value)} />
+                        <Label htmlFor="property_owner_name">
+                          Nome do proprietario ou responsavel
+                        </Label>
+                        <Input
+                          id="property_owner_name"
+                          value={form.property_owner_name}
+                          onChange={(e) => update("property_owner_name", e.target.value)}
+                        />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="property_owner_phone">Telefone / WhatsApp do proprietario</Label>
-                        <Input id="property_owner_phone" value={form.property_owner_phone} onChange={(e) => update("property_owner_phone", maskPhone(e.target.value))} />
+                        <Label htmlFor="property_owner_phone">
+                          Telefone / WhatsApp do proprietario
+                        </Label>
+                        <Input
+                          id="property_owner_phone"
+                          value={form.property_owner_phone}
+                          onChange={(e) =>
+                            update("property_owner_phone", maskPhone(e.target.value))
+                          }
+                        />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="property_owner_email">E-mail do proprietario</Label>
-                      <Input id="property_owner_email" type="email" value={form.property_owner_email} onChange={(e) => update("property_owner_email", e.target.value)} />
+                      <Input
+                        id="property_owner_email"
+                        type="email"
+                        value={form.property_owner_email}
+                        onChange={(e) => update("property_owner_email", e.target.value)}
+                      />
                     </div>
                     <AddressSection
                       title="Localizacao do imovel indicado"
@@ -340,7 +424,9 @@ function PartnerRegistration() {
                       address={form.property_address || composePrefixedAddress(form, "property_")}
                       searching={searchingPropertyCep}
                       onLookup={lookupPropertyCep}
-                      onChange={(field, value) => update(`property_${field}` as keyof typeof EMPTY_FORM, value)}
+                      onChange={(field, value) =>
+                        update(`property_${field}` as keyof typeof EMPTY_FORM, value)
+                      }
                       fieldPrefix="property_"
                     />
                     <div className="space-y-2">
@@ -357,7 +443,9 @@ function PartnerRegistration() {
 
                   <section className="space-y-2 rounded-md border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
                     <strong className="block text-foreground">Sobre bonificacao e pagamento</strong>
-                    Dados bancarios, Pix, TED, deposito ou pagamento em dinheiro serao tratados somente apos a aprovacao do cadastro, em area segura ou contato direto da equipe House 302.
+                    Dados bancarios, Pix, TED, deposito ou pagamento em dinheiro serao tratados
+                    somente apos a aprovacao do cadastro, em area segura ou contato direto da equipe
+                    House 302.
                   </section>
 
                   <div className="space-y-2">
@@ -407,7 +495,10 @@ type AddressSectionProps = {
 function AddressSection(props: AddressSectionProps) {
   return (
     <div className="rounded-md border bg-muted/10 p-3">
-      <div className="mb-2 flex items-center gap-1.5 text-sm font-medium"><MapPin className="h-4 w-4 text-primary" />{props.title}</div>
+      <div className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+        <MapPin className="h-4 w-4 text-primary" />
+        {props.title}
+      </div>
       <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
         <div className="space-y-2">
           <Label htmlFor={`${props.fieldPrefix}zip_code`}>CEP</Label>
@@ -418,23 +509,64 @@ function AddressSection(props: AddressSectionProps) {
               placeholder="00000-000"
               value={props.zipCode}
               onChange={(e) => props.onChange("zip_code", maskCep(e.target.value))}
-              onBlur={() => { if (props.zipCode.replace(/\D/g, "").length === 8) props.onLookup(); }}
+              onBlur={() => {
+                if (props.zipCode.replace(/\D/g, "").length === 8) props.onLookup();
+              }}
             />
-            <Button type="button" variant="outline" onClick={props.onLookup} disabled={props.searching}>{props.searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Buscar"}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={props.onLookup}
+              disabled={props.searching}
+            >
+              {props.searching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Buscar"}
+            </Button>
           </div>
         </div>
-        <div className="space-y-2"><Label>Rua / Logradouro</Label><Input value={props.street} onChange={(e) => props.onChange("street", e.target.value)} /></div>
-        <div className="space-y-2"><Label>Numero</Label><Input value={props.number} onChange={(e) => props.onChange("number", e.target.value)} /></div>
-        <div className="space-y-2"><Label>Complemento</Label><Input value={props.complement} onChange={(e) => props.onChange("complement", e.target.value)} /></div>
-        <div className="space-y-2"><Label>Bairro</Label><Input value={props.neighborhood} onChange={(e) => props.onChange("neighborhood", e.target.value)} /></div>
+        <div className="space-y-2">
+          <Label>Rua / Logradouro</Label>
+          <Input value={props.street} onChange={(e) => props.onChange("street", e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Numero</Label>
+          <Input value={props.number} onChange={(e) => props.onChange("number", e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Complemento</Label>
+          <Input
+            value={props.complement}
+            onChange={(e) => props.onChange("complement", e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Bairro</Label>
+          <Input
+            value={props.neighborhood}
+            onChange={(e) => props.onChange("neighborhood", e.target.value)}
+          />
+        </div>
         <div className="grid grid-cols-[1fr_90px] gap-3">
-          <div className="space-y-2"><Label>Cidade</Label><Input value={props.city} onChange={(e) => props.onChange("city", e.target.value)} /></div>
-          <div className="space-y-2"><Label>UF</Label><Input maxLength={2} value={props.state} onChange={(e) => props.onChange("state", e.target.value.toUpperCase())} /></div>
+          <div className="space-y-2">
+            <Label>Cidade</Label>
+            <Input value={props.city} onChange={(e) => props.onChange("city", e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label>UF</Label>
+            <Input
+              maxLength={2}
+              value={props.state}
+              onChange={(e) => props.onChange("state", e.target.value.toUpperCase())}
+            />
+          </div>
         </div>
       </div>
       <div className="mt-3 space-y-2">
         <Label htmlFor={`${props.fieldPrefix}address`}>Endereco completo</Label>
-        <Input id={`${props.fieldPrefix}address`} value={props.address} onChange={(e) => props.onChange("address", e.target.value)} />
+        <Input
+          id={`${props.fieldPrefix}address`}
+          value={props.address}
+          onChange={(e) => props.onChange("address", e.target.value)}
+        />
       </div>
     </div>
   );

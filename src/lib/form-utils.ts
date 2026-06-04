@@ -3,7 +3,9 @@ export function onlyDigits(value: string) {
 }
 
 export function maskCep(value: string) {
-  return onlyDigits(value).slice(0, 8).replace(/(\d{5})(\d{0,3})/, (_m, a, b) => b ? `${a}-${b}` : a);
+  return onlyDigits(value)
+    .slice(0, 8)
+    .replace(/(\d{5})(\d{0,3})/, (_m, a, b) => (b ? `${a}-${b}` : a));
 }
 
 export function maskCpf(value: string) {
@@ -30,17 +32,16 @@ export function maskCpfCnpj(value: string) {
 export function maskPhone(value: string) {
   const digits = onlyDigits(value).slice(0, 11);
   if (digits.length <= 10) {
-    return digits
-      .replace(/(\d{2})(\d)/, "($1) $2")
-      .replace(/(\d{4})(\d)/, "$1-$2");
+    return digits.replace(/(\d{2})(\d)/, "($1) $2").replace(/(\d{4})(\d)/, "$1-$2");
   }
-  return digits
-    .replace(/(\d{2})(\d)/, "($1) $2")
-    .replace(/(\d{5})(\d)/, "$1-$2");
+  return digits.replace(/(\d{2})(\d)/, "($1) $2").replace(/(\d{5})(\d)/, "$1-$2");
 }
 
 export function maskRg(value: string) {
-  return value.toUpperCase().replace(/[^0-9A-Z.-]/g, "").slice(0, 14);
+  return value
+    .toUpperCase()
+    .replace(/[^0-9A-Z.-]/g, "")
+    .slice(0, 14);
 }
 
 export function maskCnh(value: string) {
@@ -49,13 +50,19 @@ export function maskCnh(value: string) {
 
 export function composeAddress(form: any) {
   const main = [form.street, form.number].filter(Boolean).join(", ");
-  return [
-    main,
-    form.complement,
-    form.neighborhood,
-    [form.city, form.state].filter(Boolean).join(" / "),
-    form.zip_code ? `CEP ${form.zip_code}` : "",
-  ].filter(Boolean).join(" - ") || form.address || "";
+  return (
+    [
+      main,
+      form.complement,
+      form.neighborhood,
+      [form.city, form.state].filter(Boolean).join(" / "),
+      form.zip_code ? `CEP ${form.zip_code}` : "",
+    ]
+      .filter(Boolean)
+      .join(" - ") ||
+    form.address ||
+    ""
+  );
 }
 
 export async function lookupCepAddress(zipCode: string) {

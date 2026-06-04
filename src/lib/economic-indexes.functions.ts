@@ -4,7 +4,12 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // BCB SGS series codes
 const SERIES = [
-  { code: "IPCA", sgs: 433, name: "IPCA (IBGE)", source: "https://www.ibge.gov.br/explica/inflacao.php" },
+  {
+    code: "IPCA",
+    sgs: 433,
+    name: "IPCA (IBGE)",
+    source: "https://www.ibge.gov.br/explica/inflacao.php",
+  },
   { code: "IGPM", sgs: 189, name: "IGP-M (FGV)", source: "https://portalibre.fgv.br/igp" },
   { code: "INCC", sgs: 192, name: "INCC-M (FGV)", source: "https://portalibre.fgv.br/incc" },
   { code: "IVAR", sgs: 27865, name: "IVAR (FGV)", source: "https://portalibre.fgv.br/ivar" },
@@ -44,7 +49,13 @@ export const refreshEconomicIndexes = createServerFn({ method: "POST" })
           source_url: s.source,
           fetched_at: new Date().toISOString(),
         });
-        results.push({ code: s.code, ok: true, refMonth, monthly: Number(last.valor), acc12: Number((acc * 100).toFixed(2)) });
+        results.push({
+          code: s.code,
+          ok: true,
+          refMonth,
+          monthly: Number(last.valor),
+          acc12: Number((acc * 100).toFixed(2)),
+        });
       } catch (e: any) {
         results.push({ code: s.code, ok: false, error: e.message });
       }

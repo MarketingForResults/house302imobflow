@@ -21,7 +21,9 @@ function Landing() {
             </div>
             <span className="font-semibold">ImobiFlow</span>
           </div>
-          <Link to="/login" className="text-sm font-medium hover:text-accent">Entrar →</Link>
+          <Link to="/login" className="text-sm font-medium hover:text-accent">
+            Entrar →
+          </Link>
         </div>
       </header>
 
@@ -34,10 +36,14 @@ function Landing() {
             Gestão de imóveis sem fricção.
           </h1>
           <p className="mt-6 text-lg text-muted-foreground">
-            Centralize imóveis, corretores e clientes. Publique automaticamente no seu site WordPress com Elementor + JetEngine.
+            Centralize imóveis, corretores e clientes. Publique automaticamente no seu site
+            WordPress com Elementor + JetEngine.
           </p>
           <div className="mt-8 flex gap-3">
-            <Link to="/login" className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
               Começar agora <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -45,9 +51,21 @@ function Landing() {
 
         <div className="mt-24 grid gap-8 md:grid-cols-3">
           {[
-            { icon: Layers, title: "Cadastro completo", desc: "Características, fotos, localização e status — tudo num lugar." },
-            { icon: Zap, title: "Sync automático", desc: "Envia ao WordPress em tempo real via plugin oficial." },
-            { icon: Shield, title: "Permissões claras", desc: "Admin, gestor e corretor com acessos isolados." },
+            {
+              icon: Layers,
+              title: "Cadastro completo",
+              desc: "Características, fotos, localização e status — tudo num lugar.",
+            },
+            {
+              icon: Zap,
+              title: "Sync automático",
+              desc: "Envia ao WordPress em tempo real via plugin oficial.",
+            },
+            {
+              icon: Shield,
+              title: "Permissões claras",
+              desc: "Admin, gestor e corretor com acessos isolados.",
+            },
           ].map((f) => (
             <div key={f.title} className="rounded-lg border bg-card p-6">
               <f.icon className="h-5 w-5 text-accent" />

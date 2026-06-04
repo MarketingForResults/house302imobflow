@@ -28,8 +28,8 @@ function barcodeDataUrl(text: string): string {
 }
 
 export interface DocPdfOptions {
-  code: string;            // contract code (DOC-2026-00001)
-  locator: string;         // property code (IMB-00001) — used in barcode
+  code: string; // contract code (DOC-2026-00001)
+  locator: string; // property code (IMB-00001) — used in barcode
   title: string;
   bodyText: string;
   parties?: { label: string; name: string; doc?: string }[];
@@ -79,14 +79,20 @@ export async function generateDocumentPdf(opts: DocPdfOptions): Promise<jsPDF> {
 
   // ===== PARTIES / SIGNATURE =====
   if (opts.parties && opts.parties.length) {
-    if (y > pageH - 70) { doc.addPage(); y = 25; }
+    if (y > pageH - 70) {
+      doc.addPage();
+      y = 25;
+    }
     y += 10;
     doc.setFont("helvetica", "bold");
     doc.text("PARTES E ASSINATURAS", margin, y);
     y += 8;
     doc.setFont("helvetica", "normal");
     for (const p of opts.parties) {
-      if (y > pageH - 30) { doc.addPage(); y = 25; }
+      if (y > pageH - 30) {
+        doc.addPage();
+        y = 25;
+      }
       doc.line(margin, y + 8, margin + 80, y + 8);
       doc.setFontSize(8);
       doc.text(`${p.label}: ${p.name}${p.doc ? `  •  ${p.doc}` : ""}`, margin, y + 12);
@@ -105,7 +111,7 @@ export async function generateDocumentPdf(opts: DocPdfOptions): Promise<jsPDF> {
       `${opts.footerNote ?? "Documento gerado por House302 ImobiFlow"} • ${new Date().toLocaleString("pt-BR")} • Página ${i}/${total}`,
       pageW / 2,
       pageH - 8,
-      { align: "center" }
+      { align: "center" },
     );
     doc.setTextColor(0);
   }

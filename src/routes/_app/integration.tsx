@@ -131,11 +131,24 @@ function IntegrationPage() {
 
   const { data: props = [] } = useQuery({
     queryKey: ["properties-sync"],
-    queryFn: async () => (await supabase.from("properties").select("id, code, title, status, wp_post_id, wp_synced_at").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("properties")
+          .select("id, code, title, status, wp_post_id, wp_synced_at")
+          .order("created_at", { ascending: false })
+      ).data ?? [],
   });
   const { data: logs = [] } = useQuery({
     queryKey: ["wp-logs"],
-    queryFn: async () => (await supabase.from("wp_sync_logs").select("*").order("created_at", { ascending: false }).limit(20)).data ?? [],
+    queryFn: async () =>
+      (
+        await supabase
+          .from("wp_sync_logs")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(20)
+      ).data ?? [],
     refetchInterval: 5000,
   });
 
@@ -163,21 +176,44 @@ function IntegrationPage() {
       <div className="space-y-6 p-4 md:p-8">
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-lg border bg-card p-5">
-            <div className="mb-4 flex items-center gap-2 text-sm font-semibold"><Plug className="h-4 w-4" /> Configuração</div>
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
+              <Plug className="h-4 w-4" /> Configuração
+            </div>
             <div className="space-y-3">
-              <div><Label>URL do site WordPress</Label><Input placeholder="https://seusite.com.br" value={wpUrl} onChange={(e) => setWpUrl(e.target.value)} /></div>
-              <div><Label>API Key</Label><Input type="password" placeholder="Cole aqui a chave gerada" value={apiKey} onChange={(e) => setApiKey(e.target.value)} /></div>
+              <div>
+                <Label>URL do site WordPress</Label>
+                <Input
+                  placeholder="https://seusite.com.br"
+                  value={wpUrl}
+                  onChange={(e) => setWpUrl(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>API Key</Label>
+                <Input
+                  type="password"
+                  placeholder="Cole aqui a chave gerada"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                />
+              </div>
               <Button onClick={save}>Salvar configuração</Button>
             </div>
           </div>
 
           <div className="rounded-lg border bg-card p-5">
-            <div className="mb-4 flex items-center gap-2 text-sm font-semibold"><Download className="h-4 w-4" /> Plugin WordPress</div>
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
+              <Download className="h-4 w-4" /> Plugin WordPress
+            </div>
             <p className="text-sm text-muted-foreground">
-              Baixe e instale o plugin <code className="rounded bg-muted px-1.5 py-0.5 text-xs">imobiflow-sync.php</code> no seu WordPress.
-              Após ativar, vá em <strong>Configurações → ImobiFlow Sync</strong> e cole a mesma API Key.
+              Baixe e instale o plugin{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 text-xs">imobiflow-sync.php</code> no
+              seu WordPress. Após ativar, vá em <strong>Configurações → ImobiFlow Sync</strong> e
+              cole a mesma API Key.
             </p>
-            <Button variant="outline" onClick={downloadPlugin} className="mt-4"><Download className="mr-1.5 h-4 w-4" /> Baixar plugin</Button>
+            <Button variant="outline" onClick={downloadPlugin} className="mt-4">
+              <Download className="mr-1.5 h-4 w-4" /> Baixar plugin
+            </Button>
           </div>
         </div>
 
@@ -185,19 +221,44 @@ function IntegrationPage() {
           <div className="border-b px-5 py-3 text-sm font-semibold">Imóveis</div>
           <table className="w-full text-sm">
             <thead className="bg-muted/30 text-left text-xs uppercase text-muted-foreground">
-              <tr><th className="px-4 py-2">Código</th><th className="px-4 py-2">Título</th><th className="px-4 py-2">WP Post</th><th className="px-4 py-2">Última sync</th><th /></tr>
+              <tr>
+                <th className="px-4 py-2">Código</th>
+                <th className="px-4 py-2">Título</th>
+                <th className="px-4 py-2">WP Post</th>
+                <th className="px-4 py-2">Última sync</th>
+                <th />
+              </tr>
             </thead>
             <tbody>
               {props.map((p: any) => (
                 <tr key={p.id} className="border-t">
                   <td className="px-4 py-2 font-mono text-xs">{p.code}</td>
                   <td className="px-4 py-2">{p.title || "—"}</td>
-                  <td className="px-4 py-2">{p.wp_post_id ? <Badge variant="outline">#{p.wp_post_id}</Badge> : <Badge variant="outline">não publicado</Badge>}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{p.wp_synced_at ? formatDateTimeBR(p.wp_synced_at) : "—"}</td>
-                  <td className="px-4 py-2 text-right"><Button size="sm" variant="outline" onClick={() => syncOne(p.id)}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Sincronizar</Button></td>
+                  <td className="px-4 py-2">
+                    {p.wp_post_id ? (
+                      <Badge variant="outline">#{p.wp_post_id}</Badge>
+                    ) : (
+                      <Badge variant="outline">não publicado</Badge>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-muted-foreground">
+                    {p.wp_synced_at ? formatDateTimeBR(p.wp_synced_at) : "—"}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <Button size="sm" variant="outline" onClick={() => syncOne(p.id)}>
+                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                      Sincronizar
+                    </Button>
+                  </td>
                 </tr>
               ))}
-              {props.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Nenhum imóvel.</td></tr>}
+              {props.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                    Nenhum imóvel.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -205,15 +266,28 @@ function IntegrationPage() {
         <div className="rounded-lg border bg-card">
           <div className="border-b px-5 py-3 text-sm font-semibold">Logs de sincronização</div>
           <div className="divide-y">
-            {logs.length === 0 && <div className="px-5 py-8 text-center text-sm text-muted-foreground">Nenhuma sincronização ainda.</div>}
+            {logs.length === 0 && (
+              <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+                Nenhuma sincronização ainda.
+              </div>
+            )}
             {logs.map((l: any) => (
               <div key={l.id} className="flex items-start gap-3 px-5 py-3 text-sm">
-                {l.success ? <Check className="mt-0.5 h-4 w-4 text-success" /> : <X className="mt-0.5 h-4 w-4 text-destructive" />}
+                {l.success ? (
+                  <Check className="mt-0.5 h-4 w-4 text-success" />
+                ) : (
+                  <X className="mt-0.5 h-4 w-4 text-destructive" />
+                )}
                 <div className="flex-1">
-                  <div className="font-medium">{l.action} <span className="text-muted-foreground">· status {l.status_code ?? "?"}</span></div>
+                  <div className="font-medium">
+                    {l.action}{" "}
+                    <span className="text-muted-foreground">· status {l.status_code ?? "?"}</span>
+                  </div>
                   <div className="text-xs text-muted-foreground">{l.message}</div>
                 </div>
-                <div className="text-xs text-muted-foreground">{formatDateTimeBR(l.created_at)}</div>
+                <div className="text-xs text-muted-foreground">
+                  {formatDateTimeBR(l.created_at)}
+                </div>
               </div>
             ))}
           </div>
