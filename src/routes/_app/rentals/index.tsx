@@ -43,6 +43,14 @@ import { uploadEntityDocument } from "@/lib/entity-documents";
 
 export const Route = createFileRoute("/_app/rentals/")({ component: RentalsPage });
 
+type RentalContractDeposit = {
+  id: string;
+  code?: string | null;
+  deposit_amount?: number | string | null;
+  deposit_paid_at?: string | null;
+  properties?: { code?: string | null; title?: string | null } | null;
+};
+
 function RentalsPage() {
   const qc = useQueryClient();
   const [openContract, setOpenContract] = useState(false);
@@ -57,6 +65,8 @@ function RentalsPage() {
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
   const [addingFor, setAddingFor] = useState<any | null>(null); // contract object
   const [newPayment, setNewPayment] = useState<any>({});
+  const [editingDeposit, setEditingDeposit] = useState<RentalContractDeposit | null>(null);
+  const [depositForm, setDepositForm] = useState({ deposit_amount: "", deposit_paid_at: "" });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all"); // all | with_late | with_open | all_paid
@@ -320,6 +330,39 @@ function RentalsPage() {
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success(`Pagamento registrado em ${formatDateBR(payDate)} (R$ ${total.toFixed(2)})`);
     setPayingPayment(null);
+  }
+
+  function openEditDeposit(contract: RentalContractDeposit) {
+    setEditingDeposit(contract);
+    setDepositForm({
+      deposit_amount:
+        contract.deposit_amount != null && Number(contract.deposit_amount) > 0
+          ? String(contract.deposit_amount)
+          : "",
+      deposit_paid_at: contract.deposit_paid_at ?? "",
+    });
+  }
+
+  async function saveDeposit() {
+    if (!editingDeposit) return;
+    const rawAmount = depositForm.deposit_amount.trim();
+    const amount = rawAmount ? Number(rawAmount) : null;
+    if (amount != null && (!Number.isFinite(amount) || amount < 0)) {
+      return toast.error("Informe um valor de caução válido");
+    }
+    const normalizedAmount = amount && amount > 0 ? amount : null;
+    const { error } = await supabase
+      .from("rental_contracts")
+      .update({
+        deposit_amount: normalizedAmount,
+        deposit_paid_at: normalizedAmount ? depositForm.deposit_paid_at || null : null,
+      })
+      .eq("id", editingDeposit.id);
+    if (error) return toast.error(error.message);
+    setEditingDeposit(null);
+    refetch();
+    qc.invalidateQueries({ queryKey: ["rental_contracts"] });
+    toast.success("Caução atualizada");
   }
 
   async function revertPaid(id: string) {
@@ -965,6 +1008,15 @@ function RentalsPage() {
                             </strong>
                             <Button
                               size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-[11px]"
+                              onClick={() => openEditDeposit(c)}
+                              title="Editar caução"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
                               variant="outline"
                               className="h-6 px-2 text-[11px]"
                               onClick={async () => {
@@ -1004,6 +1056,15 @@ function RentalsPage() {
                           <strong className="tabular-nums text-emerald-600">
                             R$ {dy.updated.toFixed(2)}
                           </strong>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="ml-1 h-6 px-2 text-[11px]"
+                            onClick={() => openEditDeposit(c)}
+                            title="Editar caução"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
                           <span className="ml-1 text-[11px] text-muted-foreground">
                             (+R$ {dy.gain.toFixed(2)} • {dy.months}m)
                           </span>
@@ -1382,6 +1443,50 @@ function RentalsPage() {
       </Dialog>
 
       {/* Confirmar pagamento — escolher data */}
+      <Dialog open={!!editingDeposit} onOpenChange={(open) => !open && setEditingDeposit(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar caução</DialogTitle>
+          </DialogHeader>
+          {editingDeposit && (
+            <div className="grid gap-3 text-sm">
+              <div className="text-xs text-muted-foreground">
+                Contrato <strong>{editingDeposit.code}</strong> â€¢{" "}
+                {editingDeposit.properties?.code} â€” {editingDeposit.properties?.title}
+              </div>
+              <div>
+                <Label className="text-xs">Valor da caução</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={depositForm.deposit_amount}
+                  onChange={(event) =>
+                    setDepositForm({ ...depositForm, deposit_amount: event.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Data de pagamento</Label>
+                <Input
+                  type="date"
+                  value={depositForm.deposit_paid_at}
+                  onChange={(event) =>
+                    setDepositForm({ ...depositForm, deposit_paid_at: event.target.value })
+                  }
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingDeposit(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={saveDeposit}>Salvar caução</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!payingPayment} onOpenChange={(o) => !o && setPayingPayment(null)}>
         <DialogContent>
           <DialogHeader>
