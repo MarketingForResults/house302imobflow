@@ -637,6 +637,9 @@ export type Database = {
           notes: string | null
           paid_at: string | null
           reference_month: string
+          receipt_file_name: string | null
+          receipt_file_path: string | null
+          receipt_uploaded_at: string | null
           status: Database["public"]["Enums"]["rental_payment_status"]
           updated_at: string
         }
@@ -650,6 +653,9 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           reference_month: string
+          receipt_file_name?: string | null
+          receipt_file_path?: string | null
+          receipt_uploaded_at?: string | null
           status?: Database["public"]["Enums"]["rental_payment_status"]
           updated_at?: string
         }
@@ -663,6 +669,9 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           reference_month?: string
+          receipt_file_name?: string | null
+          receipt_file_path?: string | null
+          receipt_uploaded_at?: string | null
           status?: Database["public"]["Enums"]["rental_payment_status"]
           updated_at?: string
         }

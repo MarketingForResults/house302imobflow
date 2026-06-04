@@ -36,6 +36,7 @@ import {
   ChevronDown,
   ChevronRight,
   Receipt,
+  Paperclip,
 } from "lucide-react";
 import { formatDateBR } from "@/lib/format-date";
 import { EntityDocuments } from "@/components/entity-documents";
@@ -75,6 +76,7 @@ function RentalsPage() {
   // Pagamento — confirmar com data
   const [payingPayment, setPayingPayment] = useState<{ p: any; c: any } | null>(null);
   const [payDate, setPayDate] = useState<string>("");
+  const [payReceiptFile, setPayReceiptFile] = useState<File | null>(null);
   // Recibo — enviar PDF por e-mail/WhatsApp
   const [receiptFor, setReceiptFor] = useState<{ p: any; c: any } | null>(null);
 
@@ -128,17 +130,30 @@ function RentalsPage() {
   const grace = Number(settings?.rental_grace_days ?? 0);
   const savingsMonthlyPct = Number(settings?.savings_monthly_rate_pct ?? 0.5);
 
-  function recalc(p: any) {
-    const due = new Date(p.due_date);
-    const now = new Date();
-    const daysLate = Math.max(0, Math.floor((+now - +due) / 86400000) - grace);
+  function dateOnly(input: string | Date) {
+    const raw = typeof input === "string" ? input.slice(0, 10) : input.toISOString().slice(0, 10);
+    const [year, month, day] = raw.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  function diffDays(startIso: string, endIso: string) {
+    const start = dateOnly(startIso);
+    const end = dateOnly(endIso);
+    return Math.floor((+end - +start) / 86400000);
+  }
+
+  function recalc(p: any, asOf?: string) {
+    const baseDate = asOf ?? (p.status === "paid" && p.paid_at ? p.paid_at.slice(0, 10) : today);
+    const daysLate = Math.max(0, diffDays(p.due_date, baseDate) - grace);
     const base = Number(p.amount_due ?? 0);
-    if (p.status === "paid" || daysLate <= 0) {
+    if (daysLate <= 0) {
       return { base, fee: 0, interest: 0, total: base, daysLate: 0 };
     }
     const fee = base * (lateFeePct / 100);
     const interest = base * (dailyPct / 100) * daysLate;
-    return { base, fee, interest, total: base + fee + interest, daysLate };
+    const calculatedTotal = base + fee + interest;
+    const total = p.status === "paid" && p.amount_paid != null ? Number(p.amount_paid) : calculatedTotal;
+    return { base, fee, interest, total, daysLate };
   }
 
   // Compound monthly savings yield from deposit_paid_at until min(today, end_date)
@@ -242,6 +257,30 @@ function RentalsPage() {
     return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   }
 
+  const monthOptions = useMemo(() => {
+    const names = [
+      "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+      "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+    ];
+    const currentYear = new Date().getFullYear();
+    const options: Array<{ value: string; label: string }> = [];
+    for (let year = currentYear - 3; year <= currentYear + 5; year++) {
+      for (let month = 1; month <= 12; month++) {
+        options.push({
+          value: `${year}-${String(month).padStart(2, "0")}-01`,
+          label: `${names[month - 1]}/${year}`,
+        });
+      }
+    }
+    return options;
+  }, []);
+
+  function referenceLabel(value: string | null | undefined) {
+    if (!value) return "—";
+    const option = monthOptions.find((item) => item.value === value.slice(0, 7) + "-01");
+    return option?.label ?? formatDateBR(value);
+  }
+
   const computedEndDate = useMemo(() => {
     const months = Number(form.term_months);
     if (!form.start_date || !months || months <= 0) return "";
@@ -310,26 +349,62 @@ function RentalsPage() {
   function openMarkPaid(c: any, p: any) {
     setPayingPayment({ p, c });
     setPayDate(new Date().toISOString().slice(0, 10));
+    setPayReceiptFile(null);
+  }
+
+  function closeMarkPaid() {
+    setPayingPayment(null);
+    setPayReceiptFile(null);
+  }
+
+  function safeFileName(name: string) {
+    return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-");
+  }
+
+  async function uploadPaymentReceipt(paymentId: string, file: File) {
+    const path = `${paymentId}/${Date.now()}-${safeFileName(file.name)}`;
+    const { error: uploadError } = await supabase.storage
+      .from("rental-payment-receipts")
+      .upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
+    if (uploadError) throw uploadError;
+    return path;
+  }
+
+  async function openAttachedReceipt(p: any) {
+    if (!p.receipt_file_path) return toast.error("Esta parcela não possui recibo anexado.");
+    const { data, error } = await supabase.storage
+      .from("rental-payment-receipts")
+      .createSignedUrl(p.receipt_file_path, 60 * 10);
+    if (error || !data?.signedUrl) return toast.error(error?.message ?? "Não foi possível abrir o recibo anexado.");
+    window.open(data.signedUrl, "_blank");
   }
 
   async function confirmMarkPaid() {
     if (!payingPayment) return;
     const { p } = payingPayment;
-    const total = recalc(p).total;
     if (!payDate) return toast.error("Informe a data do pagamento");
+    const total = recalc(p, payDate).total;
     const paidAtIso = new Date(payDate + "T12:00:00").toISOString();
-    const { error } = await supabase
-      .from("rental_payments")
-      .update({
-        status: "paid",
-        paid_at: paidAtIso,
-        amount_paid: total,
-      })
-      .eq("id", p.id);
+    const patch: any = {
+      status: "paid",
+      paid_at: paidAtIso,
+      amount_paid: total,
+    };
+    try {
+      if (payReceiptFile) {
+        const receiptPath = await uploadPaymentReceipt(p.id, payReceiptFile);
+        patch.receipt_file_path = receiptPath;
+        patch.receipt_file_name = payReceiptFile.name;
+        patch.receipt_uploaded_at = new Date().toISOString();
+      }
+    } catch (err: any) {
+      return toast.error(`Não foi possível anexar o recibo: ${err.message}`);
+    }
+    const { error } = await supabase.from("rental_payments").update(patch).eq("id", p.id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success(`Pagamento registrado em ${formatDateBR(payDate)} (R$ ${total.toFixed(2)})`);
-    setPayingPayment(null);
+    closeMarkPaid();
   }
 
   function openEditDeposit(contract: RentalContractDeposit) {
@@ -372,6 +447,9 @@ function RentalsPage() {
         status: "pending",
         paid_at: null,
         amount_paid: null,
+        receipt_file_path: null,
+        receipt_file_name: null,
+        receipt_uploaded_at: null,
       })
       .eq("id", id);
     if (error) return toast.error(error.message);
@@ -462,7 +540,7 @@ function RentalsPage() {
 
       const paidAtIso = new Date(dateStr + "T12:00:00").toISOString();
       const promises = listToPay.map((p) => {
-        const total = recalc(p).total;
+        const total = recalc(p, dateStr).total;
         return supabase
           .from("rental_payments")
           .update({
@@ -531,7 +609,7 @@ function RentalsPage() {
       r.daysLate > 0
         ? ` Com multa e juros (${r.daysLate} dia(s) de atraso): R$ ${r.total.toFixed(2)}.`
         : "";
-    const msg = `Olá ${c.tenant?.full_name ?? ""}, lembrete da House302: o aluguel do imóvel ${c.properties?.code} (ref. ${formatDateBR(p.reference_month)}) no valor de R$ ${r.base.toFixed(2)} vence em ${formatDateBR(p.due_date)}.${extra} Contrato ${c.code}.`;
+    const msg = `Olá ${c.tenant?.full_name ?? ""}, lembrete da House302: o aluguel do imóvel ${c.properties?.code} (ref. ${referenceLabel(p.reference_month)}) no valor de R$ ${r.base.toFixed(2)} vence em ${formatDateBR(p.due_date)}.${extra} Contrato ${c.code}.`;
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   }
 
@@ -550,7 +628,7 @@ function RentalsPage() {
           c.code,
           c.properties?.code ?? "—",
           c.tenant?.full_name ?? "—",
-          formatDateBR(p.reference_month),
+          referenceLabel(p.reference_month),
           formatDateBR(p.due_date),
           `R$ ${r.base.toFixed(2)}`,
           `R$ ${r.total.toFixed(2)}`,
@@ -589,7 +667,7 @@ function RentalsPage() {
           Contrato: c?.code,
           Imóvel: c?.properties?.code,
           Inquilino: c?.tenant?.full_name,
-          Referência: formatDateBR(p.reference_month),
+          Referência: referenceLabel(p.reference_month),
           Vencimento: formatDateBR(p.due_date),
           Valor: r.base,
           Multa: r.fee,
@@ -612,7 +690,7 @@ function RentalsPage() {
       `RECIBO DE PAGAMENTO DE ALUGUEL\n\n` +
       `Recebemos de ${c.tenant?.full_name ?? "—"} a quantia de R$ ${amount.toFixed(2)}, ` +
       `referente ao aluguel do imóvel ${c.properties?.code ?? ""} — ${c.properties?.title ?? ""}, ` +
-      `competência ${formatDateBR(p.reference_month)}, vencimento em ${formatDateBR(p.due_date)}, ` +
+      `competência ${referenceLabel(p.reference_month)}, vencimento em ${formatDateBR(p.due_date)}, ` +
       `pago em ${formatDateBR(paidIso)}.\n\n` +
       `Contrato: ${c.code}\n` +
       `Forma de pagamento: conforme ajuste entre as partes.\n\n` +
@@ -620,7 +698,7 @@ function RentalsPage() {
     const doc = await generateDocumentPdf({
       code: c.code,
       locator: c.properties?.code ?? c.code,
-      title: `Recibo de aluguel — ${formatDateBR(p.reference_month)}`,
+      title: `Recibo de aluguel — ${referenceLabel(p.reference_month)}`,
       bodyText: body,
       parties: [{ label: "Locador / Imobiliária", name: "House302 ImobiFlow" }],
       footerNote: "Recibo de aluguel — House302 ImobiFlow",
@@ -641,11 +719,11 @@ function RentalsPage() {
     const { doc, fileName, amount, paidIso } = await buildReceiptPdf(c, p);
     doc.save(fileName);
     const email = (c.tenant?.email ?? "").trim();
-    const subject = `Recibo de aluguel ${c.code} — ${formatDateBR(p.reference_month)}`;
+    const subject = `Recibo de aluguel ${c.code} — ${referenceLabel(p.reference_month)}`;
     const bodyMsg =
       `Olá ${c.tenant?.full_name ?? ""},\n\n` +
       `Segue o recibo do aluguel do imóvel ${c.properties?.code ?? ""} ` +
-      `referente a ${formatDateBR(p.reference_month)}, no valor de R$ ${amount.toFixed(2)}, pago em ${formatDateBR(paidIso)}.\n\n` +
+      `referente a ${referenceLabel(p.reference_month)}, no valor de R$ ${amount.toFixed(2)}, pago em ${formatDateBR(paidIso)}.\n\n` +
       `O arquivo "${fileName}" foi baixado neste dispositivo — por favor, anexe-o a este e-mail antes de enviar.\n\n` +
       `House302 ImobiFlow`;
     window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyMsg)}`;
@@ -664,7 +742,7 @@ function RentalsPage() {
     }
     const msg =
       `Olá ${c.tenant?.full_name ?? ""}! Segue o recibo do aluguel do imóvel ${c.properties?.code ?? ""} ` +
-      `(ref. ${formatDateBR(p.reference_month)}) no valor de R$ ${amount.toFixed(2)}, pago em ${formatDateBR(paidIso)}. ` +
+      `(ref. ${referenceLabel(p.reference_month)}) no valor de R$ ${amount.toFixed(2)}, pago em ${formatDateBR(paidIso)}. ` +
       `O arquivo "${fileName}" foi baixado — anexe na conversa antes de enviar. — House302`;
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
     toast.success("Recibo baixado — anexe no WhatsApp");
@@ -1221,7 +1299,7 @@ function RentalsPage() {
                                 />
                               </td>
                               <td className="px-4 py-2 text-xs">
-                                {formatDateBR(p.reference_month)}
+                                {referenceLabel(p.reference_month)}
                               </td>
                               <td
                                 className={`px-4 py-2 text-xs ${overdue ? "text-destructive font-medium" : ""}`}
@@ -1293,6 +1371,16 @@ function RentalsPage() {
                                   </>
                                 ) : (
                                   <>
+                                    {p.receipt_file_path && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => openAttachedReceipt(p)}
+                                        title={p.receipt_file_name ?? "Abrir recibo anexado"}
+                                      >
+                                        <Paperclip className="h-3.5 w-3.5" />
+                                      </Button>
+                                    )}
                                     <Button
                                       size="sm"
                                       variant="outline"
@@ -1352,13 +1440,17 @@ function RentalsPage() {
             <div className="grid gap-3">
               <div>
                 <Label className="text-xs">Mês de referência</Label>
-                <Input
-                  type="date"
-                  value={editingPayment.reference_month}
-                  onChange={(e) =>
-                    setEditingPayment({ ...editingPayment, reference_month: e.target.value })
-                  }
-                />
+                <Select
+                  value={editingPayment.reference_month ? `${editingPayment.reference_month.slice(0, 7)}-01` : ""}
+                  onValueChange={(value) => setEditingPayment({ ...editingPayment, reference_month: value })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione o mês" /></SelectTrigger>
+                  <SelectContent>
+                    {monthOptions.map((month) => (
+                      <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label className="text-xs">Vencimento</Label>
@@ -1405,11 +1497,17 @@ function RentalsPage() {
           <div className="grid gap-3">
             <div>
               <Label className="text-xs">Mês de referência</Label>
-              <Input
-                type="date"
-                value={newPayment.reference_month ?? ""}
-                onChange={(e) => setNewPayment({ ...newPayment, reference_month: e.target.value })}
-              />
+              <Select
+                value={newPayment.reference_month ? `${newPayment.reference_month.slice(0, 7)}-01` : ""}
+                onValueChange={(value) => setNewPayment({ ...newPayment, reference_month: value })}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione o mês" /></SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map((month) => (
+                    <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="text-xs">Vencimento</Label>
@@ -1487,7 +1585,7 @@ function RentalsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!payingPayment} onOpenChange={(o) => !o && setPayingPayment(null)}>
+      <Dialog open={!!payingPayment} onOpenChange={(o) => !o && closeMarkPaid()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirmar pagamento</DialogTitle>
@@ -1495,31 +1593,41 @@ function RentalsPage() {
           {payingPayment && (
             <div className="grid gap-3 text-sm">
               <div className="text-xs text-muted-foreground">
-                Contrato <strong>{payingPayment.c.code}</strong> • Ref.{" "}
-                {formatDateBR(payingPayment.p.reference_month)} • Vencimento{" "}
-                {formatDateBR(payingPayment.p.due_date)}
+                Contrato <strong>{payingPayment.c.code}</strong> • Ref. {referenceLabel(payingPayment.p.reference_month)} •
+                Vencimento {formatDateBR(payingPayment.p.due_date)}
               </div>
               <div>
                 <Label className="text-xs">Data do pagamento</Label>
                 <Input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
               </div>
-              <div className="rounded-md border bg-muted/30 p-2 text-xs">
-                Total a registrar:{" "}
-                <strong className="tabular-nums">
-                  R$ {recalc(payingPayment.p).total.toFixed(2)}
-                </strong>
-                {recalc(payingPayment.p).daysLate > 0 && (
-                  <span className="ml-1 text-muted-foreground">
-                    (inclui multa/juros por {recalc(payingPayment.p).daysLate} dia(s) de atraso)
-                  </span>
+              {(() => {
+                const preview = recalc(payingPayment.p, payDate);
+                return (
+                  <div className="rounded-md border bg-muted/30 p-2 text-xs">
+                    Total a registrar: <strong className="tabular-nums">R$ {preview.total.toFixed(2)}</strong>
+                    {preview.daysLate > 0 && (
+                      <span className="ml-1 text-muted-foreground">
+                        (inclui multa/juros por {preview.daysLate} dia(s) de atraso)
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
+              <div>
+                <Label className="text-xs">Anexar recibo/comprovante</Label>
+                <Input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  onChange={(e) => setPayReceiptFile(e.target.files?.[0] ?? null)}
+                />
+                {payReceiptFile && (
+                  <p className="mt-1 text-xs text-muted-foreground">{payReceiptFile.name}</p>
                 )}
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPayingPayment(null)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={closeMarkPaid}>Cancelar</Button>
             <Button onClick={confirmMarkPaid}>Registrar pagamento</Button>
           </DialogFooter>
         </DialogContent>
@@ -1534,9 +1642,8 @@ function RentalsPage() {
           {receiptFor && (
             <div className="grid gap-3 text-sm">
               <div className="text-xs text-muted-foreground">
-                Contrato <strong>{receiptFor.c.code}</strong> • Ref.{" "}
-                {formatDateBR(receiptFor.p.reference_month)} • Pago em{" "}
-                {receiptFor.p.paid_at ? formatDateBR(receiptFor.p.paid_at.slice(0, 10)) : "—"}
+                Contrato <strong>{receiptFor.c.code}</strong> • Ref. {referenceLabel(receiptFor.p.reference_month)} •
+                Pago em {receiptFor.p.paid_at ? formatDateBR(receiptFor.p.paid_at.slice(0, 10)) : "—"}
               </div>
               <div className="text-xs">
                 Inquilino: <strong>{receiptFor.c.tenant?.full_name ?? "—"}</strong>
@@ -1555,6 +1662,11 @@ function RentalsPage() {
                 O recibo em PDF será baixado neste dispositivo. Em seguida, abriremos o e-mail ou o
                 WhatsApp já com a mensagem pronta — basta anexar o arquivo baixado antes de enviar.
               </p>
+              {receiptFor.p.receipt_file_path && (
+                <Button variant="outline" size="sm" className="w-fit" onClick={() => openAttachedReceipt(receiptFor.p)}>
+                  <Paperclip className="mr-1.5 h-4 w-4" />Abrir comprovante anexado
+                </Button>
+              )}
             </div>
           )}
           <DialogFooter className="flex flex-col gap-2 sm:flex-row">
