@@ -107,7 +107,7 @@ function TemplatesPage() {
           .order("created_at", { ascending: false })
       ).data ?? [],
   });
-  const { data: documentKinds = DEFAULT_DOCUMENT_KINDS } = useQuery({
+  const { data: documentKinds = DEFAULT_DOCUMENT_KINDS, refetch: refetchDocumentKinds } = useQuery({
     queryKey: ["document_kinds"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -146,6 +146,14 @@ function TemplatesPage() {
       .slice(0, 60);
   }
 
+  function sortDocumentKinds(kinds: any[]) {
+    return [...kinds].sort(
+      (a, b) =>
+        Number(a.sort_order ?? 100) - Number(b.sort_order ?? 100) ||
+        String(a.label ?? "").localeCompare(String(b.label ?? ""), "pt-BR"),
+    );
+  }
+
   async function addDocumentKind() {
     const label = newKindName.trim();
     if (!label) return toast.error("Informe o nome da modalidade");
@@ -154,17 +162,22 @@ function TemplatesPage() {
     if (documentKinds.some((kind: any) => kind.id === id))
       return toast.error("Esta modalidade ja existe");
 
-    const { error } = await supabase.from("document_kinds").insert({
+    const payload = {
       id,
       label,
       active: true,
       system_kind: false,
       sort_order: documentKinds.length * 10 + 100,
-    });
+    };
+    const { data, error } = await supabase.from("document_kinds").insert(payload).select("*").single();
     if (error) return toast.error(error.message);
+    const createdKind = data ?? payload;
+    qc.setQueryData(["document_kinds"], (current: any[] | undefined) =>
+      sortDocumentKinds([...(current ?? documentKinds).filter((kind: any) => kind.id !== id), createdKind]),
+    );
     setNewKindName("");
     setEditing((current: any) => (current ? { ...current, kind: id } : current));
-    qc.invalidateQueries({ queryKey: ["document_kinds"] });
+    await refetchDocumentKinds();
     toast.success("Modalidade adicionada");
   }
 
@@ -180,11 +193,14 @@ function TemplatesPage() {
     if (!confirm(`Excluir a modalidade ${kind.label}?`)) return;
     const { error } = await supabase.from("document_kinds").delete().eq("id", kind.id);
     if (error) return toast.error(error.message);
+    qc.setQueryData(["document_kinds"], (current: any[] | undefined) =>
+      (current ?? documentKinds).filter((candidate: any) => candidate.id !== kind.id),
+    );
     if (editing?.kind === kind.id) {
       const fallbackKind = documentKinds.find((candidate: any) => candidate.id !== kind.id);
       setEditing({ ...editing, kind: fallbackKind?.id ?? "custom" });
     }
-    qc.invalidateQueries({ queryKey: ["document_kinds"] });
+    await refetchDocumentKinds();
     toast.success("Modalidade excluida");
   }
 
