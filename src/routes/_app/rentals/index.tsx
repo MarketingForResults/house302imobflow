@@ -1342,6 +1342,7 @@ function RentalsPage() {
                           </th>
                           <th className="px-4 py-2 text-left">Ref.</th>
                           <th className="px-4 py-2 text-left">Vencimento</th>
+                          <th className="px-4 py-2 text-left">Data de pagamento</th>
                           <th className="px-4 py-2 text-right">Valor</th>
                           <th className="px-4 py-2 text-right">Multa</th>
                           <th className="px-4 py-2 text-right">Juros</th>
@@ -1376,6 +1377,9 @@ function RentalsPage() {
                               >
                                 {formatDateBR(p.due_date)}
                                 {overdue && ` • ${r.daysLate}d atraso`}
+                              </td>
+                              <td className="px-4 py-2 text-xs">
+                                {p.paid_at ? formatDateBR(p.paid_at.slice(0, 10)) : "—"}
                               </td>
                               <td className="px-4 py-2 text-right tabular-nums">
                                 R$ {r.base.toFixed(2)}
