@@ -1,3 +1,7 @@
+-- Re-ensure receipt metadata columns and storage bucket for rental payment receipts.
+-- This is idempotent and refreshes PostgREST's schema cache for environments
+-- that missed the original receipts migration.
+
 ALTER TABLE public.rental_payments
   ADD COLUMN IF NOT EXISTS receipt_file_path text,
   ADD COLUMN IF NOT EXISTS receipt_file_name text,
