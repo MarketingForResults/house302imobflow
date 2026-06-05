@@ -1008,55 +1008,55 @@ function RentalsPage() {
                   Novo contrato
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-full sm:max-w-[650px] max-h-[90vh] overflow-y-auto overflow-x-hidden">
-                <DialogHeader>
+              <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-y-auto overflow-x-hidden sm:max-w-2xl">
+                <DialogHeader className="min-w-0">
                   <DialogTitle>Novo contrato de aluguel</DialogTitle>
                 </DialogHeader>
-                <div className="grid gap-3">
-                  <div>
+                <div className="grid min-w-0 gap-3">
+                  <div className="min-w-0">
                     <Label className="text-xs">Imóvel</Label>
                     <Select
                       value={form.property_id ?? ""}
                       onValueChange={(v) => setForm({ ...form, property_id: v })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full min-w-0 [&>span]:truncate">
                         <SelectValue placeholder="Selecione…" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-w-[calc(100vw-2rem)]">
                         {properties.map((p: any) => (
-                          <SelectItem key={p.id} value={p.id}>
+                          <SelectItem key={p.id} value={p.id} className="max-w-[calc(100vw-3rem)] truncate">
                             {p.code} — {p.title}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <Label className="text-xs">Inquilino</Label>
                     <Select
                       value={form.tenant_client_id ?? ""}
                       onValueChange={(v) => setForm({ ...form, tenant_client_id: v })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full min-w-0 [&>span]:truncate">
                         <SelectValue placeholder="Selecione…" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-w-[calc(100vw-2rem)]">
                         {clients.map((c: any) => (
-                          <SelectItem key={c.id} value={c.id}>
+                          <SelectItem key={c.id} value={c.id} className="max-w-[calc(100vw-3rem)] truncate">
                             {c.full_name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
+                  <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="min-w-0">
                       <Label className="text-xs">Tipo</Label>
                       <Select
                         value={form.kind}
                         onValueChange={(v) => setForm({ ...form, kind: v })}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full min-w-0 [&>span]:truncate">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1065,18 +1065,20 @@ function RentalsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <Label className="text-xs">Aluguel mensal</Label>
                       <Input
+                        className="w-full min-w-0"
                         type="number"
                         step="0.01"
                         value={form.monthly_rent}
                         onChange={(e) => setForm({ ...form, monthly_rent: e.target.value })}
                       />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <Label className="text-xs">Caução (depósito)</Label>
                       <Input
+                        className="w-full min-w-0"
                         type="number"
                         step="0.01"
                         placeholder="Opcional"
@@ -1084,17 +1086,19 @@ function RentalsPage() {
                         onChange={(e) => setForm({ ...form, deposit_amount: e.target.value })}
                       />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <Label className="text-xs">Início do contrato</Label>
                       <Input
+                        className="w-full min-w-0"
                         type="date"
                         value={form.start_date ?? ""}
                         onChange={(e) => setForm({ ...form, start_date: e.target.value })}
                       />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <Label className="text-xs">Prazo (meses)</Label>
                       <Input
+                        className="w-full min-w-0"
                         type="number"
                         min={1}
                         step="1"
@@ -1102,9 +1106,10 @@ function RentalsPage() {
                         onChange={(e) => setForm({ ...form, term_months: e.target.value })}
                       />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <Label className="text-xs">Dia vencimento</Label>
                       <Input
+                        className="w-full min-w-0"
                         type="number"
                         min={1}
                         max={31}
@@ -1113,18 +1118,19 @@ function RentalsPage() {
                         onChange={(e) => setForm({ ...form, due_day: e.target.value })}
                       />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <Label className="text-xs">Fim do contrato (calculado)</Label>
                       <Input
                         type="text"
                         readOnly
                         value={computedEndDate ? formatDateBR(computedEndDate) : "—"}
-                        className="bg-muted/40"
+                        className="w-full min-w-0 bg-muted/40"
                       />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <Label className="text-xs">Contrato digitalizado (PDF)</Label>
                       <Input
+                        className="w-full min-w-0 max-w-full text-xs"
                         type="file"
                         accept="application/pdf,.pdf"
                         onChange={(event) => setContractFile(event.target.files?.[0] ?? null)}
@@ -1132,8 +1138,8 @@ function RentalsPage() {
                     </div>
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button onClick={createContract}>Criar e gerar parcelas</Button>
+                <DialogFooter className="gap-2 sm:justify-end">
+                  <Button className="w-full sm:w-auto" onClick={createContract}>Criar e gerar parcelas</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
