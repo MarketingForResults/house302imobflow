@@ -123,6 +123,8 @@ function TemplatesPage() {
 
   const kindLabelById = Object.fromEntries(documentKinds.map((kind: any) => [kind.id, kind.label]));
   const kindLabel = (kind: string) => kindLabelById[kind] ?? DOCUMENT_KIND_LABEL[kind] ?? kind;
+  const isDocumentKindInUse = (kindId: string) =>
+    templates.some((template: any) => template.kind === kindId);
 
   function openEditor(template: any) {
     bodyDraftRef.current = template.body ?? "";
@@ -167,8 +169,13 @@ function TemplatesPage() {
   }
 
   async function removeDocumentKind(kind: any) {
-    if (templates.some((template: any) => template.kind === kind.id)) {
-      return toast.error("Esta modalidade esta em uso por um modelo");
+    if (kind.system_kind) {
+      return toast.error("Modalidades do sistema não podem ser excluídas");
+    }
+    if (isDocumentKindInUse(kind.id)) {
+      return toast.error(
+        "Esta modalidade está em uso por um modelo. Altere ou exclua o modelo antes de remover a modalidade.",
+      );
     }
     if (!confirm(`Excluir a modalidade ${kind.label}?`)) return;
     const { error } = await supabase.from("document_kinds").delete().eq("id", kind.id);
@@ -352,22 +359,32 @@ function TemplatesPage() {
                   </Button>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {documentKinds.map((kind: any) => (
-                    <span
-                      key={kind.id}
-                      className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-1 text-xs"
-                    >
-                      {kind.label}
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => removeDocumentKind(kind)}
-                        title="Excluir modalidade"
+                  {documentKinds.map((kind: any) => {
+                    const inUse = isDocumentKindInUse(kind.id);
+                    const canDelete = !kind.system_kind && !inUse;
+                    const title = kind.system_kind
+                      ? "Modalidade do sistema"
+                      : inUse
+                        ? "Modalidade em uso por um modelo"
+                        : "Excluir modalidade";
+                    return (
+                      <span
+                        key={kind.id}
+                        className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-1 text-xs"
                       >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
+                        {kind.label}
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted-foreground"
+                          onClick={() => removeDocumentKind(kind)}
+                          disabled={!canDelete}
+                          title={title}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
 
