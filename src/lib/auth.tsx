@@ -15,6 +15,7 @@ interface AuthState {
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
+const OWNER_EMAILS = new Set(["house302imob@gmail.com"]);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -22,30 +23,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+    let sessionRequest = 0;
+
+    async function applySession(nextSession: Session | null) {
+      const request = ++sessionRequest;
+      const nextRoles = nextSession?.user ? await fetchRoles(nextSession.user) : [];
+      if (!active || request !== sessionRequest) return;
+
+      setSession(nextSession);
+      setRoles(nextRoles);
+      setLoading(false);
+    }
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-      if (s?.user) {
-        setTimeout(() => loadRoles(s.user.id), 0);
-      } else {
-        setRoles([]);
-      }
-      setLoading(false);
+      setLoading(true);
+      setTimeout(() => {
+        void applySession(s);
+      }, 0);
     });
 
     supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      if (s?.user) loadRoles(s.user.id);
-      setLoading(false);
+      void applySession(s);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  async function loadRoles(userId: string) {
-    const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
-    setRoles((data ?? []).map((r) => r.role as AppRole));
+  async function fetchRoles(user: User): Promise<AppRole[]> {
+    const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+    if (error) console.error("Failed to load user roles", error);
+
+    const fetchedRoles = error ? [] : (data ?? []).map((r) => r.role as AppRole);
+    if (fetchedRoles.length > 0) return fetchedRoles;
+
+    if (OWNER_EMAILS.has((user.email ?? "").toLowerCase())) return ["admin"];
+    return [];
   }
 
   const value: AuthState = {
