@@ -165,10 +165,24 @@ export function sanitizeRichTextHtml(body: string): string {
     for (const attribute of Array.from(element.attributes)) {
       if (attribute.name !== "style") element.removeAttribute(attribute.name);
     }
-    const textAlign = (element as HTMLElement).style.textAlign;
+    const style = (element as HTMLElement).style;
+    const textAlign = style.textAlign;
+    const fontWeight = style.fontWeight;
+    const fontStyle = style.fontStyle;
+    const textDecoration = style.textDecorationLine || style.textDecoration;
     element.removeAttribute("style");
     if (["left", "center", "right", "justify"].includes(textAlign))
       (element as HTMLElement).style.textAlign = textAlign;
+    if (
+      fontWeight === "bold" ||
+      fontWeight === "bolder" ||
+      Number.parseInt(fontWeight, 10) >= 600
+    ) {
+      (element as HTMLElement).style.fontWeight = "700";
+    }
+    if (fontStyle === "italic") (element as HTMLElement).style.fontStyle = "italic";
+    if (textDecoration.includes("underline"))
+      (element as HTMLElement).style.textDecoration = "underline";
   }
   return container.innerHTML;
 }

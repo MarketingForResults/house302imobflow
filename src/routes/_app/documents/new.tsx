@@ -151,6 +151,7 @@ function NewDocumentPage() {
       code: inserted.code,
       locator: property?.code ?? inserted.code,
       title,
+      bodyHtml: rendered,
       bodyText: richTextToPlainText(rendered),
       parties: [
         client && { label: "CLIENTE", name: client.full_name, doc: client.cpf },
