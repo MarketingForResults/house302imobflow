@@ -43,7 +43,7 @@ export async function uploadEntityDocument(input: {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Sessao expirada. Entre novamente.");
 
-  const storagePath = `${input.entityType}/${input.entityId}/${crypto.randomUUID()}-${safeFileName(input.file.name)}`;
+  const storagePath = `${user.id}/${input.entityType}/${input.entityId}/${crypto.randomUUID()}-${safeFileName(input.file.name)}`;
   const { error: uploadError } = await supabase.storage
     .from(ENTITY_DOCUMENT_BUCKET)
     .upload(storagePath, input.file, { contentType: input.file.type, upsert: false });
