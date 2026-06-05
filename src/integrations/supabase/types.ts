@@ -632,6 +632,13 @@ export type Database = {
           amount_paid: number | null
           contract_id: string
           created_at: string
+          deposit_refund_amount: number | null
+          deposit_refund_due_date: string | null
+          deposit_refund_notes: string | null
+          deposit_refund_receipt_file_name: string | null
+          deposit_refund_receipt_file_path: string | null
+          deposit_refund_uploaded_at: string | null
+          deposit_refunded_at: string | null
           due_date: string
           id: string
           notes: string | null
@@ -649,6 +656,13 @@ export type Database = {
           amount_paid?: number | null
           contract_id: string
           created_at?: string
+          deposit_refund_amount?: number | null
+          deposit_refund_due_date?: string | null
+          deposit_refund_notes?: string | null
+          deposit_refund_receipt_file_name?: string | null
+          deposit_refund_receipt_file_path?: string | null
+          deposit_refund_uploaded_at?: string | null
+          deposit_refunded_at?: string | null
           due_date: string
           id?: string
           notes?: string | null
@@ -666,6 +680,13 @@ export type Database = {
           amount_paid?: number | null
           contract_id?: string
           created_at?: string
+          deposit_refund_amount?: number | null
+          deposit_refund_due_date?: string | null
+          deposit_refund_notes?: string | null
+          deposit_refund_receipt_file_name?: string | null
+          deposit_refund_receipt_file_path?: string | null
+          deposit_refund_uploaded_at?: string | null
+          deposit_refunded_at?: string | null
           due_date?: string
           id?: string
           notes?: string | null

@@ -70,6 +70,14 @@ function RentalsPage() {
   const [payReceiptFile, setPayReceiptFile] = useState<File | null>(null);
   // Recibo — enviar PDF por e-mail/WhatsApp
   const [receiptFor, setReceiptFor] = useState<{ p: any; c: any } | null>(null);
+  const [depositRefundFor, setDepositRefundFor] = useState<{ p: any; c: any } | null>(null);
+  const [depositRefundForm, setDepositRefundForm] = useState({
+    refund_due_date: "",
+    refunded_at: "",
+    refund_amount: "",
+    notes: "",
+  });
+  const [depositRefundReceiptFile, setDepositRefundReceiptFile] = useState<File | null>(null);
 
   const { data: settings } = useQuery({
     queryKey: ["app_settings"],
@@ -155,13 +163,41 @@ function RentalsPage() {
     return { principal, months: m, updated, gain: updated - principal };
   }
 
+  function depositRefundDueDate(c: any, p: any) {
+    return p.deposit_refund_due_date ?? c?.end_date ?? today;
+  }
+
+  function depositRefundInfo(c: any, p: any, refundedAt?: string, dueDate?: string) {
+    const principal = Number(p.amount_paid ?? p.amount_due ?? 0);
+    const start = p.paid_at?.slice(0, 10) ?? p.due_date;
+    const expectedDate = dueDate ?? depositRefundDueDate(c, p);
+    const realDate = refundedAt || p.deposit_refunded_at?.slice(0, 10) || today;
+    const expected = savingsYield(principal, start, expectedDate);
+    const actual = savingsYield(principal, start, realDate);
+    return {
+      principal,
+      start,
+      expectedDate,
+      realDate,
+      expectedAmount: expected.updated,
+      actualAmount: actual.updated,
+      expectedGain: expected.gain,
+      actualGain: actual.gain,
+      additionalGain: Math.max(0, actual.updated - expected.updated),
+      expectedMonths: expected.months,
+      actualMonths: actual.months,
+      daysAfterDue: Math.max(0, diffDays(expectedDate, realDate)),
+    };
+  }
+
   function recalc(p: any, asOf?: string) {
     const baseDate = asOf ?? (p.status === "paid" && p.paid_at ? p.paid_at.slice(0, 10) : today);
     const base = Number(p.amount_due ?? 0);
     if (paymentKind(p) === "deposit") {
       const paidPrincipal = Number(p.amount_paid ?? p.amount_due ?? 0);
+      const capDate = p.deposit_refunded_at?.slice(0, 10) ?? today;
       const correction = p.status === "paid"
-        ? savingsYield(paidPrincipal, p.paid_at?.slice(0, 10), today)
+        ? savingsYield(paidPrincipal, p.paid_at?.slice(0, 10), capDate)
         : savingsYield(base, p.due_date, baseDate);
       return {
         base,
@@ -433,6 +469,25 @@ function RentalsPage() {
     setPayReceiptFile(null);
   }
 
+  function openDepositRefund(c: any, p: any) {
+    const refundedAt = p.deposit_refunded_at?.slice(0, 10) ?? today;
+    const dueDate = depositRefundDueDate(c, p);
+    const info = depositRefundInfo(c, p, refundedAt, dueDate);
+    setDepositRefundFor({ c, p });
+    setDepositRefundForm({
+      refund_due_date: dueDate,
+      refunded_at: refundedAt,
+      refund_amount: String(Number(p.deposit_refund_amount ?? info.actualAmount).toFixed(2)),
+      notes: p.deposit_refund_notes ?? "",
+    });
+    setDepositRefundReceiptFile(null);
+  }
+
+  function closeDepositRefund() {
+    setDepositRefundFor(null);
+    setDepositRefundReceiptFile(null);
+  }
+
   function safeFileName(name: string) {
     return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-");
   }
@@ -452,6 +507,17 @@ function RentalsPage() {
       .from("rental-payment-receipts")
       .createSignedUrl(p.receipt_file_path, 60 * 10);
     if (error || !data?.signedUrl) return toast.error(error?.message ?? "Não foi possível abrir o recibo anexado.");
+    window.open(data.signedUrl, "_blank");
+  }
+
+  async function openDepositRefundReceipt(p: any) {
+    if (!p.deposit_refund_receipt_file_path) {
+      return toast.error("Esta devolução não possui comprovante anexado.");
+    }
+    const { data, error } = await supabase.storage
+      .from("rental-payment-receipts")
+      .createSignedUrl(p.deposit_refund_receipt_file_path, 60 * 10);
+    if (error || !data?.signedUrl) return toast.error(error?.message ?? "Não foi possível abrir o comprovante da devolução.");
     window.open(data.signedUrl, "_blank");
   }
 
@@ -476,6 +542,42 @@ function RentalsPage() {
       return { error: retry.error, usedFallback: true };
     }
     return { error, usedFallback: false };
+  }
+
+  async function saveDepositRefund() {
+    if (!depositRefundFor) return;
+    const { p } = depositRefundFor;
+    if (!depositRefundForm.refund_due_date || !depositRefundForm.refunded_at) {
+      return toast.error("Informe a data prevista e a data real da devolução");
+    }
+    const amount = Number(String(depositRefundForm.refund_amount).replace(",", "."));
+    if (!Number.isFinite(amount) || amount < 0) {
+      return toast.error("Informe um valor devolvido válido");
+    }
+
+    const patch: any = {
+      deposit_refund_due_date: depositRefundForm.refund_due_date,
+      deposit_refunded_at: new Date(depositRefundForm.refunded_at + "T12:00:00").toISOString(),
+      deposit_refund_amount: amount,
+      deposit_refund_notes: depositRefundForm.notes || null,
+    };
+
+    try {
+      if (depositRefundReceiptFile) {
+        const receiptPath = await uploadPaymentReceipt(p.id, depositRefundReceiptFile);
+        patch.deposit_refund_receipt_file_path = receiptPath;
+        patch.deposit_refund_receipt_file_name = depositRefundReceiptFile.name;
+        patch.deposit_refund_uploaded_at = new Date().toISOString();
+      }
+    } catch (err: any) {
+      return toast.error(`Não foi possível anexar o comprovante: ${err.message}`);
+    }
+
+    const { error } = await updateRentalPayment(p.id, patch);
+    if (error) return toast.error(error.message);
+    qc.invalidateQueries({ queryKey: ["rental_payments"] });
+    toast.success("Devolução do caução registrada");
+    closeDepositRefund();
   }
 
   async function confirmMarkPaid() {
@@ -532,6 +634,13 @@ function RentalsPage() {
         receipt_file_path: null,
         receipt_file_name: null,
         receipt_uploaded_at: null,
+        deposit_refund_due_date: null,
+        deposit_refunded_at: null,
+        deposit_refund_amount: null,
+        deposit_refund_notes: null,
+        deposit_refund_receipt_file_path: null,
+        deposit_refund_receipt_file_name: null,
+        deposit_refund_uploaded_at: null,
       },
       basePatch,
     );
@@ -1395,9 +1504,18 @@ function RentalsPage() {
                               </td>
                               <td className="px-4 py-2 text-right tabular-nums font-semibold">
                                 R$ {r.total.toFixed(2)}
+                                {isDeposit && p.deposit_refunded_at && p.deposit_refund_amount != null && (
+                                  <div className="text-[11px] font-normal text-sky-700">
+                                    devolvido R$ {Number(p.deposit_refund_amount).toFixed(2)}
+                                  </div>
+                                )}
                               </td>
                               <td className="px-4 py-2 text-xs">
-                                {p.status === "paid" ? (
+                                {isDeposit && p.deposit_refunded_at ? (
+                                  <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">
+                                    devolvido
+                                  </span>
+                                ) : p.status === "paid" ? (
                                   <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
                                     pago
                                   </span>
@@ -1458,6 +1576,16 @@ function RentalsPage() {
                                         <Paperclip className="h-3.5 w-3.5" />
                                       </Button>
                                     )}
+                                    {isDeposit && p.deposit_refund_receipt_file_path && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => openDepositRefundReceipt(p)}
+                                        title={p.deposit_refund_receipt_file_name ?? "Abrir comprovante da devolução"}
+                                      >
+                                        <Paperclip className="h-3.5 w-3.5 text-sky-700" />
+                                      </Button>
+                                    )}
                                     <Button
                                       size="sm"
                                       variant="outline"
@@ -1467,6 +1595,17 @@ function RentalsPage() {
                                       <Receipt className="mr-1 h-3.5 w-3.5" />
                                       Recibo
                                     </Button>
+                                    {isDeposit && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => openDepositRefund(c, p)}
+                                        title={p.deposit_refunded_at ? "Editar devolução do caução" : "Registrar devolução do caução"}
+                                      >
+                                        <BadgeDollarSign className="mr-1 h-3.5 w-3.5" />
+                                        {p.deposit_refunded_at ? "Devolução" : "Devolver"}
+                                      </Button>
+                                    )}
                                     <Button
                                       size="sm"
                                       variant="ghost"
@@ -1675,6 +1814,122 @@ function RentalsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={closeMarkPaid}>Cancelar</Button>
             <Button onClick={confirmMarkPaid}>Registrar pagamento</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!depositRefundFor} onOpenChange={(o) => !o && closeDepositRefund()}>
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Registrar devolução do caução</DialogTitle>
+          </DialogHeader>
+          {depositRefundFor && (
+            <div className="grid gap-3 text-sm">
+              <div className="text-xs text-muted-foreground">
+                Contrato <strong>{depositRefundFor.c.code}</strong> • Ref. {referenceLabel(depositRefundFor.p.reference_month)} •
+                Caução recebido em {depositRefundFor.p.paid_at ? formatDateBR(depositRefundFor.p.paid_at.slice(0, 10)) : "—"}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label className="text-xs">Data prevista de devolução</Label>
+                  <Input
+                    type="date"
+                    value={depositRefundForm.refund_due_date}
+                    onChange={(e) =>
+                      setDepositRefundForm({ ...depositRefundForm, refund_due_date: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Data real da devolução</Label>
+                  <Input
+                    type="date"
+                    value={depositRefundForm.refunded_at}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      const info = depositRefundInfo(
+                        depositRefundFor.c,
+                        depositRefundFor.p,
+                        next,
+                        depositRefundForm.refund_due_date,
+                      );
+                      setDepositRefundForm({
+                        ...depositRefundForm,
+                        refunded_at: next,
+                        refund_amount: info.actualAmount.toFixed(2),
+                      });
+                    }}
+                  />
+                </div>
+              </div>
+              {(() => {
+                const info = depositRefundInfo(
+                  depositRefundFor.c,
+                  depositRefundFor.p,
+                  depositRefundForm.refunded_at,
+                  depositRefundForm.refund_due_date,
+                );
+                return (
+                  <div className="grid gap-2 rounded-md border bg-muted/30 p-3 text-xs">
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <span>Caução recebido</span>
+                      <strong className="tabular-nums">R$ {info.principal.toFixed(2)}</strong>
+                    </div>
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <span>Corrigido até a data prevista</span>
+                      <strong className="tabular-nums">R$ {info.expectedAmount.toFixed(2)}</strong>
+                    </div>
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <span>Corrigido até a data real</span>
+                      <strong className="tabular-nums text-sky-700">R$ {info.actualAmount.toFixed(2)}</strong>
+                    </div>
+                    {info.daysAfterDue > 0 && (
+                      <div className="text-muted-foreground">
+                        Devolvido {info.daysAfterDue} dia(s) após a data prevista, sem multa contratual, com correção pela poupança até a data real.
+                        {info.additionalGain > 0 && (
+                          <span className="ml-1">
+                            Correção adicional: R$ {info.additionalGain.toFixed(2)}.
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+              <div>
+                <Label className="text-xs">Valor devolvido</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={depositRefundForm.refund_amount}
+                  onChange={(e) =>
+                    setDepositRefundForm({ ...depositRefundForm, refund_amount: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Observações</Label>
+                <Input
+                  value={depositRefundForm.notes}
+                  onChange={(e) => setDepositRefundForm({ ...depositRefundForm, notes: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Anexar comprovante da devolução</Label>
+                <Input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  onChange={(e) => setDepositRefundReceiptFile(e.target.files?.[0] ?? null)}
+                />
+                {depositRefundReceiptFile && (
+                  <p className="mt-1 text-xs text-muted-foreground">{depositRefundReceiptFile.name}</p>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDepositRefund}>Cancelar</Button>
+            <Button onClick={saveDepositRefund}>Salvar devolução</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
