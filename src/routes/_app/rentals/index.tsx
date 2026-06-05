@@ -455,6 +455,29 @@ function RentalsPage() {
     window.open(data.signedUrl, "_blank");
   }
 
+  function isSchemaCacheColumnError(error: any) {
+    const message = String(error?.message ?? "").toLowerCase();
+    return (
+      error?.code === "42703" ||
+      error?.code === "PGRST204" ||
+      message.includes("schema cache") ||
+      (message.includes("could not find") && message.includes("column"))
+    );
+  }
+
+  async function updateRentalPayment(
+    paymentId: string,
+    patch: Record<string, any>,
+    fallbackPatch?: Record<string, any>,
+  ) {
+    const { error } = await supabase.from("rental_payments").update(patch).eq("id", paymentId);
+    if (error && fallbackPatch && isSchemaCacheColumnError(error)) {
+      const retry = await supabase.from("rental_payments").update(fallbackPatch).eq("id", paymentId);
+      return { error: retry.error, usedFallback: true };
+    }
+    return { error, usedFallback: false };
+  }
+
   async function confirmMarkPaid() {
     if (!payingPayment) return;
     const { p } = payingPayment;
@@ -476,25 +499,42 @@ function RentalsPage() {
     } catch (err: any) {
       return toast.error(`Não foi possível anexar o recibo: ${err.message}`);
     }
-    const { error } = await supabase.from("rental_payments").update(patch).eq("id", p.id);
+    const { error, usedFallback } = await updateRentalPayment(
+      p.id,
+      patch,
+      payReceiptFile
+        ? {
+            status: "paid",
+            paid_at: paidAtIso,
+            amount_paid: total,
+          }
+        : undefined,
+    );
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
+    if (usedFallback) {
+      toast.warning("Pagamento registrado, mas o recibo não foi vinculado porque o schema do Supabase ainda não expõe os campos de recibo.");
+    }
     toast.success(`Pagamento registrado em ${formatDateBR(payDate)} (R$ ${total.toFixed(2)})`);
     closeMarkPaid();
   }
 
   async function revertPaid(id: string) {
-    const { error } = await supabase
-      .from("rental_payments")
-      .update({
-        status: "pending",
-        paid_at: null,
-        amount_paid: null,
+    const basePatch = {
+      status: "pending",
+      paid_at: null,
+      amount_paid: null,
+    };
+    const { error } = await updateRentalPayment(
+      id,
+      {
+        ...basePatch,
         receipt_file_path: null,
         receipt_file_name: null,
         receipt_uploaded_at: null,
-      })
-      .eq("id", id);
+      },
+      basePatch,
+    );
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success("Lançamento revertido para pendente");
