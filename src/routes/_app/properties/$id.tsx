@@ -291,7 +291,11 @@ function PropertyEdit() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      payload.created_by = user?.id;
+      if (!user?.id) {
+        setSaving(false);
+        return toast.error("Sessão expirada. Entre novamente para cadastrar o imóvel.");
+      }
+      payload.created_by = user.id;
       const { data, error } = await supabase
         .from("properties")
         .insert(payload)
