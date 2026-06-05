@@ -1709,7 +1709,7 @@ function RentalsPage() {
 
       {/* Enviar recibo (PDF) */}
       <Dialog open={!!receiptFor} onOpenChange={(o) => !o && setReceiptFor(null)}>
-        <DialogContent>
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Enviar recibo do pagamento</DialogTitle>
           </DialogHeader>
@@ -1743,23 +1743,28 @@ function RentalsPage() {
               )}
             </div>
           )}
-          <DialogFooter className="flex flex-col gap-2 sm:flex-row">
-            <Button variant="outline" onClick={downloadReceipt}>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Button variant="outline" className="min-w-0 justify-center whitespace-nowrap" onClick={downloadReceipt}>
               <FileDown className="mr-1.5 h-4 w-4" />
               Apenas baixar PDF
             </Button>
             <Button
               variant="outline"
+              className="min-w-0 justify-center whitespace-nowrap"
               onClick={sendReceiptEmail}
               disabled={!receiptFor?.c?.tenant?.email}
             >
               Enviar por e-mail
             </Button>
-            <Button onClick={sendReceiptWhatsapp} disabled={!receiptFor?.c?.tenant?.phone}>
+            <Button
+              className="min-w-0 justify-center whitespace-nowrap"
+              onClick={sendReceiptWhatsapp}
+              disabled={!receiptFor?.c?.tenant?.phone}
+            >
               <MessageCircle className="mr-1.5 h-4 w-4" />
               Enviar por WhatsApp
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
