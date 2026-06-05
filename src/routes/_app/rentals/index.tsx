@@ -277,8 +277,57 @@ function RentalsPage() {
 
   function referenceLabel(value: string | null | undefined) {
     if (!value) return "—";
-    const option = monthOptions.find((item) => item.value === value.slice(0, 7) + "-01");
+    const option = monthOptions.find((item) => item.value === normalizeReferenceMonth(value));
     return option?.label ?? formatDateBR(value);
+  }
+
+  function normalizeReferenceMonth(value: string | null | undefined) {
+    return value ? `${value.slice(0, 7)}-01` : "";
+  }
+
+  function referenceMonthExists(contractId: string, referenceMonth: string, ignoredPaymentId?: string) {
+    const normalized = normalizeReferenceMonth(referenceMonth);
+    return (paymentsByContract[contractId] ?? []).some(
+      (payment: any) =>
+        payment.id !== ignoredPaymentId &&
+        normalizeReferenceMonth(payment.reference_month) === normalized,
+    );
+  }
+
+  function availableMonthOptionsForAdd(contractId: string) {
+    const used = new Set(
+      (paymentsByContract[contractId] ?? []).map((payment: any) =>
+        normalizeReferenceMonth(payment.reference_month),
+      ),
+    );
+    return monthOptions.filter((month) => !used.has(month.value));
+  }
+
+  function nextAvailableReferenceMonth(contractId: string) {
+    const existing = (paymentsByContract[contractId] ?? [])
+      .map((payment: any) => normalizeReferenceMonth(payment.reference_month))
+      .filter(Boolean)
+      .sort();
+
+    let candidate = existing.length
+      ? addMonths(existing[existing.length - 1], 1)
+      : normalizeReferenceMonth(today);
+    candidate = normalizeReferenceMonth(candidate);
+
+    for (let attempt = 0; attempt < 120; attempt++) {
+      if (!referenceMonthExists(contractId, candidate)) return candidate;
+      candidate = normalizeReferenceMonth(addMonths(candidate, 1));
+    }
+
+    return availableMonthOptionsForAdd(contractId)[0]?.value ?? "";
+  }
+
+  function openAddPayment(contract: any) {
+    setAddingFor(contract);
+    setNewPayment({
+      amount_due: contract.monthly_rent,
+      reference_month: nextAvailableReferenceMonth(contract.id),
+    });
   }
 
   const computedEndDate = useMemo(() => {
@@ -468,16 +517,28 @@ function RentalsPage() {
   async function saveEdit() {
     if (!editingPayment) return;
     const { id, due_date, amount_due, reference_month, notes } = editingPayment;
+    const normalizedReferenceMonth = normalizeReferenceMonth(reference_month);
+    if (referenceMonthExists(editingPayment.contract_id, normalizedReferenceMonth, id)) {
+      return toast.error(`Já existe uma parcela de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
+    }
     const { error } = await supabase
       .from("rental_payments")
       .update({
         due_date,
         amount_due: Number(amount_due),
-        reference_month,
+        reference_month: normalizedReferenceMonth,
         notes,
       })
       .eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      if (
+        error.code === "23505" ||
+        error.message.includes("rental_payments_contract_id_reference_month_key")
+      ) {
+        return toast.error(`Já existe uma parcela de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
+      }
+      return toast.error(error.message);
+    }
     setEditingPayment(null);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success("Parcela atualizada");
@@ -492,14 +553,26 @@ function RentalsPage() {
     ) {
       return toast.error("Preencha referência, vencimento e valor");
     }
+    const normalizedReferenceMonth = normalizeReferenceMonth(newPayment.reference_month);
+    if (referenceMonthExists(addingFor.id, normalizedReferenceMonth)) {
+      return toast.error(`Já existe uma parcela de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
+    }
     const { error } = await supabase.from("rental_payments").insert({
       contract_id: addingFor.id,
-      reference_month: newPayment.reference_month,
+      reference_month: normalizedReferenceMonth,
       due_date: newPayment.due_date,
       amount_due: Number(newPayment.amount_due),
       notes: newPayment.notes ?? null,
     });
-    if (error) return toast.error(error.message);
+    if (error) {
+      if (
+        error.code === "23505" ||
+        error.message.includes("rental_payments_contract_id_reference_month_key")
+      ) {
+        return toast.error(`Já existe uma parcela de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
+      }
+      return toast.error(error.message);
+    }
     setAddingFor(null);
     setNewPayment({});
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
@@ -1235,10 +1308,7 @@ function RentalsPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          setAddingFor(c);
-                          setNewPayment({ amount_due: c.monthly_rent });
-                        }}
+                        onClick={() => openAddPayment(c)}
                       >
                         <Plus className="mr-1 h-3.5 w-3.5" />
                         Adicionar parcela
@@ -1503,9 +1573,13 @@ function RentalsPage() {
               >
                 <SelectTrigger><SelectValue placeholder="Selecione o mês" /></SelectTrigger>
                 <SelectContent>
-                  {monthOptions.map((month) => (
-                    <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
-                  ))}
+                  {addingFor && availableMonthOptionsForAdd(addingFor.id).length > 0 ? (
+                    availableMonthOptionsForAdd(addingFor.id).map((month) => (
+                      <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>Nenhuma competência livre</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
