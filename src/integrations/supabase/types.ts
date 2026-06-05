@@ -636,6 +636,7 @@ export type Database = {
           id: string
           notes: string | null
           paid_at: string | null
+          payment_kind: string
           reference_month: string
           receipt_file_name: string | null
           receipt_file_path: string | null
@@ -652,6 +653,7 @@ export type Database = {
           id?: string
           notes?: string | null
           paid_at?: string | null
+          payment_kind?: string
           reference_month: string
           receipt_file_name?: string | null
           receipt_file_path?: string | null
@@ -668,6 +670,7 @@ export type Database = {
           id?: string
           notes?: string | null
           paid_at?: string | null
+          payment_kind?: string
           reference_month?: string
           receipt_file_name?: string | null
           receipt_file_path?: string | null

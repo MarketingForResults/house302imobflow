@@ -37,20 +37,13 @@ import {
   ChevronRight,
   Receipt,
   Paperclip,
+  BadgeDollarSign,
 } from "lucide-react";
 import { formatDateBR } from "@/lib/format-date";
 import { EntityDocuments } from "@/components/entity-documents";
 import { uploadEntityDocument } from "@/lib/entity-documents";
 
 export const Route = createFileRoute("/_app/rentals/")({ component: RentalsPage });
-
-type RentalContractDeposit = {
-  id: string;
-  code?: string | null;
-  deposit_amount?: number | string | null;
-  deposit_paid_at?: string | null;
-  properties?: { code?: string | null; title?: string | null } | null;
-};
 
 function RentalsPage() {
   const qc = useQueryClient();
@@ -66,8 +59,6 @@ function RentalsPage() {
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
   const [addingFor, setAddingFor] = useState<any | null>(null); // contract object
   const [newPayment, setNewPayment] = useState<any>({});
-  const [editingDeposit, setEditingDeposit] = useState<RentalContractDeposit | null>(null);
-  const [depositForm, setDepositForm] = useState({ deposit_amount: "", deposit_paid_at: "" });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all"); // all | with_late | with_open | all_paid
@@ -142,28 +133,18 @@ function RentalsPage() {
     return Math.floor((+end - +start) / 86400000);
   }
 
-  function recalc(p: any, asOf?: string) {
-    const baseDate = asOf ?? (p.status === "paid" && p.paid_at ? p.paid_at.slice(0, 10) : today);
-    const daysLate = Math.max(0, diffDays(p.due_date, baseDate) - grace);
-    const base = Number(p.amount_due ?? 0);
-    if (daysLate <= 0) {
-      return { base, fee: 0, interest: 0, total: base, daysLate: 0 };
-    }
-    const fee = base * (lateFeePct / 100);
-    const interest = base * (dailyPct / 100) * daysLate;
-    const calculatedTotal = base + fee + interest;
-    const total = p.status === "paid" && p.amount_paid != null ? Number(p.amount_paid) : calculatedTotal;
-    return { base, fee, interest, total, daysLate };
+  function paymentKind(p: any) {
+    return p.payment_kind ?? "rent";
   }
 
-  // Compound monthly savings yield from deposit_paid_at until min(today, end_date)
-  function depositYield(c: any) {
-    const principal = Number(c.deposit_amount ?? 0);
-    if (!principal || !c.deposit_paid_at) return null;
-    const start = new Date(c.deposit_paid_at);
-    const today = new Date();
-    const end = c.end_date ? new Date(c.end_date) : today;
-    const cap = today < end ? today : end;
+  function paymentKindLabel(kind: string) {
+    return kind === "deposit" ? "caucao" : "parcela";
+  }
+
+  function savingsYield(principal: number, startIso?: string | null, capIso?: string | null) {
+    if (!principal || !startIso) return { principal, months: 0, updated: principal, gain: 0 };
+    const start = dateOnly(startIso);
+    const cap = capIso ? dateOnly(capIso) : dateOnly(today);
     if (cap <= start) return { principal, months: 0, updated: principal, gain: 0 };
     const months =
       (cap.getFullYear() - start.getFullYear()) * 12 +
@@ -172,6 +153,35 @@ function RentalsPage() {
     const m = Math.max(0, months);
     const updated = principal * Math.pow(1 + savingsMonthlyPct / 100, m);
     return { principal, months: m, updated, gain: updated - principal };
+  }
+
+  function recalc(p: any, asOf?: string) {
+    const baseDate = asOf ?? (p.status === "paid" && p.paid_at ? p.paid_at.slice(0, 10) : today);
+    const base = Number(p.amount_due ?? 0);
+    if (paymentKind(p) === "deposit") {
+      const paidPrincipal = Number(p.amount_paid ?? p.amount_due ?? 0);
+      const correction = p.status === "paid"
+        ? savingsYield(paidPrincipal, p.paid_at?.slice(0, 10), today)
+        : savingsYield(base, p.due_date, baseDate);
+      return {
+        base,
+        fee: 0,
+        interest: correction.gain,
+        total: correction.updated,
+        daysLate: 0,
+        savingsMonths: correction.months,
+        isDeposit: true,
+      };
+    }
+    const daysLate = Math.max(0, diffDays(p.due_date, baseDate) - grace);
+    if (daysLate <= 0) {
+      return { base, fee: 0, interest: 0, total: base, daysLate: 0, savingsMonths: 0, isDeposit: false };
+    }
+    const fee = base * (lateFeePct / 100);
+    const interest = base * (dailyPct / 100) * daysLate;
+    const calculatedTotal = base + fee + interest;
+    const total = p.status === "paid" && p.amount_paid != null ? Number(p.amount_paid) : calculatedTotal;
+    return { base, fee, interest, total, daysLate, savingsMonths: 0, isDeposit: false };
   }
 
   const paymentsByContract = useMemo(() => {
@@ -221,7 +231,7 @@ function RentalsPage() {
     for (const p of payments) {
       if (!filteredContractIds.has(p.contract_id)) continue;
       if (p.status === "paid" && p.paid_at && p.paid_at.slice(0, 10) >= monthStartIso)
-        monthPaid += Number(p.amount_paid ?? p.amount_due ?? 0);
+        monthPaid += recalc(p).total;
       if (p.status !== "paid" && p.due_date >= monthStartIso) monthDue += recalc(p).total;
       if (p.status !== "paid" && p.due_date < today) late++;
     }
@@ -231,7 +241,7 @@ function RentalsPage() {
       monthPaid,
       late,
     };
-  }, [payments, filteredContracts, filteredContractIds, lateFeePct, dailyPct, grace]);
+  }, [payments, filteredContracts, filteredContractIds, lateFeePct, dailyPct, grace, savingsMonthlyPct]);
 
   function addMonths(iso: string, months: number): string {
     const d = new Date(iso + "T00:00:00");
@@ -239,22 +249,6 @@ function RentalsPage() {
     d.setMonth(d.getMonth() + months);
     if (d.getDate() < day) d.setDate(0); // último dia do mês anterior se overflow
     return d.toISOString().slice(0, 10);
-  }
-
-  function formatDateInputBR(date = new Date()) {
-    return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
-  }
-
-  function parseDateInputBR(value: string) {
-    const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (!match) return null;
-
-    const [, day, month, year] = match.map(Number);
-    const date = new Date(year, month - 1, day);
-    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day)
-      return null;
-
-    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   }
 
   const monthOptions = useMemo(() => {
@@ -285,26 +279,33 @@ function RentalsPage() {
     return value ? `${value.slice(0, 7)}-01` : "";
   }
 
-  function referenceMonthExists(contractId: string, referenceMonth: string, ignoredPaymentId?: string) {
+  function referenceMonthExists(
+    contractId: string,
+    referenceMonth: string,
+    ignoredPaymentId?: string,
+    kind = "rent",
+  ) {
     const normalized = normalizeReferenceMonth(referenceMonth);
     return (paymentsByContract[contractId] ?? []).some(
       (payment: any) =>
         payment.id !== ignoredPaymentId &&
+        paymentKind(payment) === kind &&
         normalizeReferenceMonth(payment.reference_month) === normalized,
     );
   }
 
-  function availableMonthOptionsForAdd(contractId: string) {
+  function availableMonthOptionsForAdd(contractId: string, kind = "rent") {
     const used = new Set(
-      (paymentsByContract[contractId] ?? []).map((payment: any) =>
-        normalizeReferenceMonth(payment.reference_month),
-      ),
+      (paymentsByContract[contractId] ?? [])
+        .filter((payment: any) => paymentKind(payment) === kind)
+        .map((payment: any) => normalizeReferenceMonth(payment.reference_month)),
     );
     return monthOptions.filter((month) => !used.has(month.value));
   }
 
-  function nextAvailableReferenceMonth(contractId: string) {
+  function nextAvailableReferenceMonth(contractId: string, kind = "rent") {
     const existing = (paymentsByContract[contractId] ?? [])
+      .filter((payment: any) => paymentKind(payment) === kind)
       .map((payment: any) => normalizeReferenceMonth(payment.reference_month))
       .filter(Boolean)
       .sort();
@@ -315,18 +316,30 @@ function RentalsPage() {
     candidate = normalizeReferenceMonth(candidate);
 
     for (let attempt = 0; attempt < 120; attempt++) {
-      if (!referenceMonthExists(contractId, candidate)) return candidate;
+      if (!referenceMonthExists(contractId, candidate, undefined, kind)) return candidate;
       candidate = normalizeReferenceMonth(addMonths(candidate, 1));
     }
 
-    return availableMonthOptionsForAdd(contractId)[0]?.value ?? "";
+    return availableMonthOptionsForAdd(contractId, kind)[0]?.value ?? "";
   }
 
   function openAddPayment(contract: any) {
     setAddingFor(contract);
     setNewPayment({
       amount_due: contract.monthly_rent,
-      reference_month: nextAvailableReferenceMonth(contract.id),
+      reference_month: nextAvailableReferenceMonth(contract.id, "rent"),
+      payment_kind: "rent",
+    });
+  }
+
+  function openAddDeposit(contract: any) {
+    setAddingFor(contract);
+    setNewPayment({
+      amount_due: contract.deposit_amount ?? "",
+      due_date: contract.start_date ?? today,
+      reference_month: nextAvailableReferenceMonth(contract.id, "deposit"),
+      payment_kind: "deposit",
+      notes: "Caucao",
     });
   }
 
@@ -374,6 +387,20 @@ function RentalsPage() {
         `Contrato criado, mas não foi possível gerar as parcelas: ${paymentsError.message}`,
       );
     }
+    const depositAmount = Number(form.deposit_amount ?? 0);
+    if (depositAmount > 0) {
+      const { error: depositPaymentError } = await supabase.from("rental_payments").insert({
+        contract_id: created.id,
+        reference_month: normalizeReferenceMonth(form.start_date),
+        due_date: form.start_date,
+        amount_due: depositAmount,
+        notes: "Caucao",
+        payment_kind: "deposit",
+      });
+      if (depositPaymentError) {
+        toast.error(`Contrato criado, mas nao foi possivel gerar o caucao: ${depositPaymentError.message}`);
+      }
+    }
     if (contractFile) {
       try {
         await uploadEntityDocument({
@@ -387,7 +414,7 @@ function RentalsPage() {
         toast.error(`Contrato criado, mas não foi possível anexar o PDF: ${uploadError.message}`);
       }
     }
-    toast.success("Contrato criado e parcelas geradas");
+    toast.success("Contrato criado e lancamentos gerados");
     setOpenContract(false);
     setForm({ kind: "residential", due_day: 5, monthly_rent: "", term_months: 12 });
     setContractFile(null);
@@ -456,39 +483,6 @@ function RentalsPage() {
     closeMarkPaid();
   }
 
-  function openEditDeposit(contract: RentalContractDeposit) {
-    setEditingDeposit(contract);
-    setDepositForm({
-      deposit_amount:
-        contract.deposit_amount != null && Number(contract.deposit_amount) > 0
-          ? String(contract.deposit_amount)
-          : "",
-      deposit_paid_at: contract.deposit_paid_at ?? "",
-    });
-  }
-
-  async function saveDeposit() {
-    if (!editingDeposit) return;
-    const rawAmount = depositForm.deposit_amount.trim();
-    const amount = rawAmount ? Number(rawAmount) : null;
-    if (amount != null && (!Number.isFinite(amount) || amount < 0)) {
-      return toast.error("Informe um valor de caução válido");
-    }
-    const normalizedAmount = amount && amount > 0 ? amount : null;
-    const { error } = await supabase
-      .from("rental_contracts")
-      .update({
-        deposit_amount: normalizedAmount,
-        deposit_paid_at: normalizedAmount ? depositForm.deposit_paid_at || null : null,
-      })
-      .eq("id", editingDeposit.id);
-    if (error) return toast.error(error.message);
-    setEditingDeposit(null);
-    refetch();
-    qc.invalidateQueries({ queryKey: ["rental_contracts"] });
-    toast.success("Caução atualizada");
-  }
-
   async function revertPaid(id: string) {
     const { error } = await supabase
       .from("rental_payments")
@@ -503,23 +497,25 @@ function RentalsPage() {
       .eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
-    toast.success("Parcela revertida para pendente");
+    toast.success("Lançamento revertido para pendente");
   }
 
   async function deletePayment(id: string) {
-    if (!confirm("Excluir esta parcela?")) return;
+    if (!confirm("Excluir este lançamento?")) return;
     const { error } = await supabase.from("rental_payments").delete().eq("id", id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
-    toast.success("Parcela excluída");
+    toast.success("Lançamento excluído");
   }
 
   async function saveEdit() {
     if (!editingPayment) return;
     const { id, due_date, amount_due, reference_month, notes } = editingPayment;
     const normalizedReferenceMonth = normalizeReferenceMonth(reference_month);
-    if (referenceMonthExists(editingPayment.contract_id, normalizedReferenceMonth, id)) {
-      return toast.error(`Já existe uma parcela de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
+    const kind = paymentKind(editingPayment);
+    const label = paymentKindLabel(kind);
+    if (referenceMonthExists(editingPayment.contract_id, normalizedReferenceMonth, id, kind)) {
+      return toast.error(`Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
     }
     const { error } = await supabase
       .from("rental_payments")
@@ -533,15 +529,16 @@ function RentalsPage() {
     if (error) {
       if (
         error.code === "23505" ||
-        error.message.includes("rental_payments_contract_id_reference_month_key")
+        error.message.includes("rental_payments_contract_id_reference_month_key") ||
+        error.message.includes("rental_payments_contract_id_reference_month_payment_kind_key")
       ) {
-        return toast.error(`Já existe uma parcela de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
+        return toast.error(`Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
       }
       return toast.error(error.message);
     }
     setEditingPayment(null);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
-    toast.success("Parcela atualizada");
+    toast.success(kind === "deposit" ? "Caucao atualizado" : "Parcela atualizada");
   }
 
   async function addPayment() {
@@ -554,8 +551,10 @@ function RentalsPage() {
       return toast.error("Preencha referência, vencimento e valor");
     }
     const normalizedReferenceMonth = normalizeReferenceMonth(newPayment.reference_month);
-    if (referenceMonthExists(addingFor.id, normalizedReferenceMonth)) {
-      return toast.error(`Já existe uma parcela de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
+    const kind = newPayment.payment_kind ?? "rent";
+    const label = paymentKindLabel(kind);
+    if (referenceMonthExists(addingFor.id, normalizedReferenceMonth, undefined, kind)) {
+      return toast.error(`Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
     }
     const { error } = await supabase.from("rental_payments").insert({
       contract_id: addingFor.id,
@@ -563,25 +562,27 @@ function RentalsPage() {
       due_date: newPayment.due_date,
       amount_due: Number(newPayment.amount_due),
       notes: newPayment.notes ?? null,
+      payment_kind: kind,
     });
     if (error) {
       if (
         error.code === "23505" ||
-        error.message.includes("rental_payments_contract_id_reference_month_key")
+        error.message.includes("rental_payments_contract_id_reference_month_key") ||
+        error.message.includes("rental_payments_contract_id_reference_month_payment_kind_key")
       ) {
-        return toast.error(`Já existe uma parcela de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
+        return toast.error(`Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
       }
       return toast.error(error.message);
     }
     setAddingFor(null);
     setNewPayment({});
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
-    toast.success("Parcela adicionada");
+    toast.success(kind === "deposit" ? "Caucao adicionado" : "Parcela adicionada");
   }
 
   async function bulkDeletePayments(ids: string[]) {
     if (ids.length === 0) return;
-    if (!confirm(`Tem certeza que deseja excluir ${ids.length} parcela(s) selecionada(s)?`)) return;
+    if (!confirm(`Tem certeza que deseja excluir ${ids.length} lançamento(s) selecionado(s)?`)) return;
     try {
       const { error } = await supabase.from("rental_payments").delete().in("id", ids);
       if (error) throw error;
@@ -591,7 +592,7 @@ function RentalsPage() {
         return next;
       });
       qc.invalidateQueries({ queryKey: ["rental_payments"] });
-      toast.success(`${ids.length} parcela(s) excluída(s) com sucesso!`);
+      toast.success(`${ids.length} lançamento(s) excluído(s) com sucesso!`);
     } catch (err: any) {
       toast.error(`Erro ao excluir parcelas: ${err.message}`);
     }
@@ -601,7 +602,7 @@ function RentalsPage() {
     if (ids.length === 0) return;
     const defaultDate = new Date().toISOString().slice(0, 10);
     const dateStr = prompt(
-      "Data do pagamento para as parcelas selecionadas (AAAA-MM-DD):",
+      "Data do pagamento para os lançamentos selecionados (AAAA-MM-DD):",
       defaultDate,
     );
     if (dateStr === null) return;
@@ -633,7 +634,7 @@ function RentalsPage() {
       });
 
       qc.invalidateQueries({ queryKey: ["rental_payments"] });
-      toast.success(`${ids.length} parcela(s) marcada(s) como pagas!`);
+      toast.success(`${ids.length} lançamento(s) marcado(s) como pago(s)!`);
     } catch (err: any) {
       toast.error(`Erro ao registrar pagamentos: ${err.message}`);
     }
@@ -678,11 +679,17 @@ function RentalsPage() {
     const phone = (c.tenant?.phone ?? "").replace(/\D/g, "");
     if (!phone) return toast.error("Inquilino sem telefone cadastrado");
     const r = recalc(p);
+    const isDeposit = paymentKind(p) === "deposit";
+    const label = isDeposit ? "caução" : "aluguel";
     const extra =
-      r.daysLate > 0
+      !isDeposit && r.daysLate > 0
         ? ` Com multa e juros (${r.daysLate} dia(s) de atraso): R$ ${r.total.toFixed(2)}.`
         : "";
-    const msg = `Olá ${c.tenant?.full_name ?? ""}, lembrete da House302: o aluguel do imóvel ${c.properties?.code} (ref. ${referenceLabel(p.reference_month)}) no valor de R$ ${r.base.toFixed(2)} vence em ${formatDateBR(p.due_date)}.${extra} Contrato ${c.code}.`;
+    const correction =
+      isDeposit && r.interest > 0
+        ? ` Valor atualizado pela poupança: R$ ${r.total.toFixed(2)}.`
+        : "";
+    const msg = `Olá ${c.tenant?.full_name ?? ""}, lembrete da House302: ${label} do imóvel ${c.properties?.code} (ref. ${referenceLabel(p.reference_month)}) no valor de R$ ${r.base.toFixed(2)} vence em ${formatDateBR(p.due_date)}.${extra}${correction} Contrato ${c.code}.`;
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
   }
 
@@ -701,6 +708,7 @@ function RentalsPage() {
           c.code,
           c.properties?.code ?? "—",
           c.tenant?.full_name ?? "—",
+          paymentKind(p) === "deposit" ? "Caução" : "Aluguel",
           referenceLabel(p.reference_month),
           formatDateBR(p.due_date),
           `R$ ${r.base.toFixed(2)}`,
@@ -716,6 +724,7 @@ function RentalsPage() {
           "Contrato",
           "Imóvel",
           "Inquilino",
+          "Tipo",
           "Ref.",
           "Vencimento",
           "Valor",
@@ -740,6 +749,7 @@ function RentalsPage() {
           Contrato: c?.code,
           Imóvel: c?.properties?.code,
           Inquilino: c?.tenant?.full_name,
+          Tipo: paymentKind(p) === "deposit" ? "Caução" : "Aluguel",
           Referência: referenceLabel(p.reference_month),
           Vencimento: formatDateBR(p.due_date),
           Valor: r.base,
@@ -759,10 +769,13 @@ function RentalsPage() {
   async function buildReceiptPdf(c: any, p: any) {
     const amount = Number(p.amount_paid ?? p.amount_due ?? 0);
     const paidIso = p.paid_at ? p.paid_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const isDeposit = paymentKind(p) === "deposit";
+    const receiptLabel = isDeposit ? "caução" : "aluguel";
+    const titleLabel = isDeposit ? "RECIBO DE PAGAMENTO DE CAUÇÃO" : "RECIBO DE PAGAMENTO DE ALUGUEL";
     const body =
-      `RECIBO DE PAGAMENTO DE ALUGUEL\n\n` +
+      `${titleLabel}\n\n` +
       `Recebemos de ${c.tenant?.full_name ?? "—"} a quantia de R$ ${amount.toFixed(2)}, ` +
-      `referente ao aluguel do imóvel ${c.properties?.code ?? ""} — ${c.properties?.title ?? ""}, ` +
+      `referente ${isDeposit ? "a caução" : "ao aluguel"} do imóvel ${c.properties?.code ?? ""} — ${c.properties?.title ?? ""}, ` +
       `competência ${referenceLabel(p.reference_month)}, vencimento em ${formatDateBR(p.due_date)}, ` +
       `pago em ${formatDateBR(paidIso)}.\n\n` +
       `Contrato: ${c.code}\n` +
@@ -771,13 +784,13 @@ function RentalsPage() {
     const doc = await generateDocumentPdf({
       code: c.code,
       locator: c.properties?.code ?? c.code,
-      title: `Recibo de aluguel — ${referenceLabel(p.reference_month)}`,
+      title: `Recibo de ${receiptLabel} — ${referenceLabel(p.reference_month)}`,
       bodyText: body,
       parties: [{ label: "Locador / Imobiliária", name: "House302 ImobiFlow" }],
-      footerNote: "Recibo de aluguel — House302 ImobiFlow",
+      footerNote: `Recibo de ${receiptLabel} — House302 ImobiFlow`,
     });
-    const fileName = `recibo-${c.code}-${(p.reference_month ?? "").slice(0, 7)}.pdf`;
-    return { doc, fileName, amount, paidIso };
+    const fileName = `recibo-${receiptLabel}-${c.code}-${(p.reference_month ?? "").slice(0, 7)}.pdf`;
+    return { doc, fileName, amount, paidIso, receiptLabel };
   }
 
   async function downloadReceipt() {
@@ -789,13 +802,13 @@ function RentalsPage() {
   async function sendReceiptEmail() {
     if (!receiptFor) return;
     const { c, p } = receiptFor;
-    const { doc, fileName, amount, paidIso } = await buildReceiptPdf(c, p);
+    const { doc, fileName, amount, paidIso, receiptLabel } = await buildReceiptPdf(c, p);
     doc.save(fileName);
     const email = (c.tenant?.email ?? "").trim();
-    const subject = `Recibo de aluguel ${c.code} — ${referenceLabel(p.reference_month)}`;
+    const subject = `Recibo de ${receiptLabel} ${c.code} — ${referenceLabel(p.reference_month)}`;
     const bodyMsg =
       `Olá ${c.tenant?.full_name ?? ""},\n\n` +
-      `Segue o recibo do aluguel do imóvel ${c.properties?.code ?? ""} ` +
+      `Segue o recibo de ${receiptLabel} do imóvel ${c.properties?.code ?? ""} ` +
       `referente a ${referenceLabel(p.reference_month)}, no valor de R$ ${amount.toFixed(2)}, pago em ${formatDateBR(paidIso)}.\n\n` +
       `O arquivo "${fileName}" foi baixado neste dispositivo — por favor, anexe-o a este e-mail antes de enviar.\n\n` +
       `House302 ImobiFlow`;
@@ -806,7 +819,7 @@ function RentalsPage() {
   async function sendReceiptWhatsapp() {
     if (!receiptFor) return;
     const { c, p } = receiptFor;
-    const { doc, fileName, amount, paidIso } = await buildReceiptPdf(c, p);
+    const { doc, fileName, amount, paidIso, receiptLabel } = await buildReceiptPdf(c, p);
     doc.save(fileName);
     const phone = (c.tenant?.phone ?? "").replace(/\D/g, "");
     if (!phone) {
@@ -814,7 +827,7 @@ function RentalsPage() {
       return;
     }
     const msg =
-      `Olá ${c.tenant?.full_name ?? ""}! Segue o recibo do aluguel do imóvel ${c.properties?.code ?? ""} ` +
+      `Olá ${c.tenant?.full_name ?? ""}! Segue o recibo de ${receiptLabel} do imóvel ${c.properties?.code ?? ""} ` +
       `(ref. ${referenceLabel(p.reference_month)}) no valor de R$ ${amount.toFixed(2)}, pago em ${formatDateBR(paidIso)}. ` +
       `O arquivo "${fileName}" foi baixado — anexe na conversa antes de enviar. — House302`;
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
@@ -1102,10 +1115,11 @@ function RentalsPage() {
         {filteredContracts.map((c: any) => {
           const list = paymentsByContract[c.id] ?? [];
           const isOpen = expanded[c.id] ?? true;
+          const hasDepositPayment = list.some((p: any) => paymentKind(p) === "deposit");
           const totals = list.reduce(
             (acc, p) => {
               const r = recalc(p);
-              if (p.status === "paid") acc.paid += Number(p.amount_paid ?? p.amount_due ?? 0);
+              if (p.status === "paid") acc.paid += r.total;
               else acc.openTotal += r.total;
               return acc;
             },
@@ -1146,82 +1160,6 @@ function RentalsPage() {
                     Aluguel{" "}
                     <strong className="tabular-nums">R$ {Number(c.monthly_rent).toFixed(2)}</strong>
                   </span>
-                  {c.deposit_amount != null &&
-                    Number(c.deposit_amount) > 0 &&
-                    (() => {
-                      const dy = depositYield(c);
-                      if (!dy) {
-                        return (
-                          <span className="flex items-center gap-1">
-                            Caução{" "}
-                            <strong className="tabular-nums text-blue-600">
-                              R$ {Number(c.deposit_amount).toFixed(2)}
-                            </strong>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 px-2 text-[11px]"
-                              onClick={() => openEditDeposit(c)}
-                              title="Editar caução"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-[11px]"
-                              onClick={async () => {
-                                const input = prompt(
-                                  "Data de confirmação do pagamento da caução (DD/MM/AAAA):",
-                                  formatDateInputBR(),
-                                );
-                                if (!input) return;
-                                const depositPaidAt = parseDateInputBR(input);
-                                if (!depositPaidAt)
-                                  return toast.error(
-                                    "Informe uma data válida no formato DD/MM/AAAA",
-                                  );
-                                const { error } = await supabase
-                                  .from("rental_contracts")
-                                  .update({ deposit_paid_at: depositPaidAt })
-                                  .eq("id", c.id);
-                                if (error) return toast.error(error.message);
-                                toast.success("Caução confirmada");
-                                refetch();
-                              }}
-                            >
-                              Confirmar pagamento
-                            </Button>
-                          </span>
-                        );
-                      }
-                      return (
-                        <span
-                          title={`Rendimento poupança ${savingsMonthlyPct}% a.m. — ${dy.months} mês(es) desde ${formatDateBR(c.deposit_paid_at)}`}
-                        >
-                          Caução{" "}
-                          <strong className="tabular-nums text-blue-600">
-                            R$ {dy.principal.toFixed(2)}
-                          </strong>
-                          {" → "}
-                          <strong className="tabular-nums text-emerald-600">
-                            R$ {dy.updated.toFixed(2)}
-                          </strong>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="ml-1 h-6 px-2 text-[11px]"
-                            onClick={() => openEditDeposit(c)}
-                            title="Editar caução"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <span className="ml-1 text-[11px] text-muted-foreground">
-                            (+R$ {dy.gain.toFixed(2)} • {dy.months}m)
-                          </span>
-                        </span>
-                      );
-                    })()}
                   <span>
                     Aberto{" "}
                     <strong className="tabular-nums text-amber-600">
@@ -1258,7 +1196,7 @@ function RentalsPage() {
                   </div>
                   <div className="flex items-center justify-between border-b bg-muted/10 px-4 py-2 text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">{list.length} parcela(s)</span>
+                      <span className="text-muted-foreground">{list.length} lançamento(s)</span>
                       {(() => {
                         const contractSelectedCount = list.filter(
                           (p: any) => selectedPayments[p.id],
@@ -1305,6 +1243,16 @@ function RentalsPage() {
                       <Button size="sm" variant="ghost" onClick={() => generateMore(c.id)}>
                         +12 meses
                       </Button>
+                      {!hasDepositPayment && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openAddDeposit(c)}
+                        >
+                          <BadgeDollarSign className="mr-1 h-3.5 w-3.5" />
+                          Adicionar caução
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
@@ -1318,7 +1266,7 @@ function RentalsPage() {
 
                   {list.length === 0 ? (
                     <div className="p-4 text-center text-xs text-muted-foreground">
-                      Nenhuma parcela.
+                      Nenhum lançamento.
                     </div>
                   ) : (
                     <table className="w-full text-sm">
@@ -1345,7 +1293,7 @@ function RentalsPage() {
                           <th className="px-4 py-2 text-left">Data de pagamento</th>
                           <th className="px-4 py-2 text-right">Valor</th>
                           <th className="px-4 py-2 text-right">Multa</th>
-                          <th className="px-4 py-2 text-right">Juros</th>
+                          <th className="px-4 py-2 text-right">Juros/Correção</th>
                           <th className="px-4 py-2 text-right">Total</th>
                           <th className="px-4 py-2 text-left">Status</th>
                           <th className="px-4 py-2"></th>
@@ -1354,9 +1302,12 @@ function RentalsPage() {
                       <tbody>
                         {list.map((p: any) => {
                           const r = recalc(p);
-                          const overdue = r.daysLate > 0;
+                          const isDeposit = paymentKind(p) === "deposit";
+                          const overdue = isDeposit
+                            ? p.status !== "paid" && p.due_date < today
+                            : r.daysLate > 0;
                           return (
-                            <tr key={p.id} className="border-t">
+                            <tr key={p.id} className={`border-t ${isDeposit ? "bg-sky-50/50" : ""}`}>
                               <td className="px-4 py-2 text-left w-10">
                                 <input
                                   type="checkbox"
@@ -1370,13 +1321,20 @@ function RentalsPage() {
                                 />
                               </td>
                               <td className="px-4 py-2 text-xs">
-                                {referenceLabel(p.reference_month)}
+                                {isDeposit ? (
+                                  <span className="inline-flex items-center gap-1.5 font-medium text-sky-700">
+                                    <BadgeDollarSign className="h-3.5 w-3.5" />
+                                    Caução · {referenceLabel(p.reference_month)}
+                                  </span>
+                                ) : (
+                                  referenceLabel(p.reference_month)
+                                )}
                               </td>
                               <td
                                 className={`px-4 py-2 text-xs ${overdue ? "text-destructive font-medium" : ""}`}
                               >
                                 {formatDateBR(p.due_date)}
-                                {overdue && ` • ${r.daysLate}d atraso`}
+                                {overdue && (isDeposit ? " • vencido" : ` • ${r.daysLate}d atraso`)}
                               </td>
                               <td className="px-4 py-2 text-xs">
                                 {p.paid_at ? formatDateBR(p.paid_at.slice(0, 10)) : "—"}
@@ -1389,6 +1347,11 @@ function RentalsPage() {
                               </td>
                               <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">
                                 {r.interest ? `R$ ${r.interest.toFixed(2)}` : "—"}
+                                {isDeposit && r.savingsMonths > 0 && (
+                                  <span className="ml-1 text-[11px] text-sky-700">
+                                    ({r.savingsMonths}m)
+                                  </span>
+                                )}
                               </td>
                               <td className="px-4 py-2 text-right tabular-nums font-semibold">
                                 R$ {r.total.toFixed(2)}
@@ -1400,7 +1363,7 @@ function RentalsPage() {
                                   </span>
                                 ) : overdue ? (
                                   <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-700">
-                                    atrasado
+                                    {isDeposit ? "vencido" : "atrasado"}
                                   </span>
                                 ) : (
                                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">
@@ -1508,7 +1471,9 @@ function RentalsPage() {
       <Dialog open={!!editingPayment} onOpenChange={(o) => !o && setEditingPayment(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar parcela</DialogTitle>
+            <DialogTitle>
+              Editar {editingPayment && paymentKind(editingPayment) === "deposit" ? "caução" : "parcela"}
+            </DialogTitle>
           </DialogHeader>
           {editingPayment && (
             <div className="grid gap-3">
@@ -1566,7 +1531,9 @@ function RentalsPage() {
       <Dialog open={!!addingFor} onOpenChange={(o) => !o && setAddingFor(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Adicionar parcela {addingFor?.code}</DialogTitle>
+            <DialogTitle>
+              Adicionar {newPayment.payment_kind === "deposit" ? "caução" : "parcela"} {addingFor?.code}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid gap-3">
             <div>
@@ -1577,8 +1544,8 @@ function RentalsPage() {
               >
                 <SelectTrigger><SelectValue placeholder="Selecione o mês" /></SelectTrigger>
                 <SelectContent>
-                  {addingFor && availableMonthOptionsForAdd(addingFor.id).length > 0 ? (
-                    availableMonthOptionsForAdd(addingFor.id).map((month) => (
+                  {addingFor && availableMonthOptionsForAdd(addingFor.id, newPayment.payment_kind ?? "rent").length > 0 ? (
+                    availableMonthOptionsForAdd(addingFor.id, newPayment.payment_kind ?? "rent").map((month) => (
                       <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
                     ))
                   ) : (
@@ -1618,51 +1585,6 @@ function RentalsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmar pagamento — escolher data */}
-      <Dialog open={!!editingDeposit} onOpenChange={(open) => !open && setEditingDeposit(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar caução</DialogTitle>
-          </DialogHeader>
-          {editingDeposit && (
-            <div className="grid gap-3 text-sm">
-              <div className="text-xs text-muted-foreground">
-                Contrato <strong>{editingDeposit.code}</strong> â€¢{" "}
-                {editingDeposit.properties?.code} â€” {editingDeposit.properties?.title}
-              </div>
-              <div>
-                <Label className="text-xs">Valor da caução</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={depositForm.deposit_amount}
-                  onChange={(event) =>
-                    setDepositForm({ ...depositForm, deposit_amount: event.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Data de pagamento</Label>
-                <Input
-                  type="date"
-                  value={depositForm.deposit_paid_at}
-                  onChange={(event) =>
-                    setDepositForm({ ...depositForm, deposit_paid_at: event.target.value })
-                  }
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingDeposit(null)}>
-              Cancelar
-            </Button>
-            <Button onClick={saveDeposit}>Salvar caução</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={!!payingPayment} onOpenChange={(o) => !o && closeMarkPaid()}>
         <DialogContent>
           <DialogHeader>
@@ -1680,10 +1602,16 @@ function RentalsPage() {
               </div>
               {(() => {
                 const preview = recalc(payingPayment.p, payDate);
+                const isDeposit = paymentKind(payingPayment.p) === "deposit";
                 return (
                   <div className="rounded-md border bg-muted/30 p-2 text-xs">
                     Total a registrar: <strong className="tabular-nums">R$ {preview.total.toFixed(2)}</strong>
-                    {preview.daysLate > 0 && (
+                    {isDeposit && preview.savingsMonths > 0 && (
+                      <span className="ml-1 text-muted-foreground">
+                        (inclui correção pela poupança por {preview.savingsMonths} mês(es))
+                      </span>
+                    )}
+                    {!isDeposit && preview.daysLate > 0 && (
                       <span className="ml-1 text-muted-foreground">
                         (inclui multa/juros por {preview.daysLate} dia(s) de atraso)
                       </span>
