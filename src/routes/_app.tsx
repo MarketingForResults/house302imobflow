@@ -19,6 +19,7 @@ import {
   BadgeDollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { canAccessPath, formatRoles, hasAnyRole, ROUTE_ROLES } from "@/lib/permissions";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import logo from "@/assets/logo-house302.png";
 import logoIcon from "@/assets/logo-house302-icon.png";
@@ -40,6 +41,8 @@ const nav = [
   { to: "/settings", label: "Configurações", icon: Settings },
 ] as const;
 
+const routeRoleMap = new Map(ROUTE_ROLES.map((route) => [route.prefix, route.roles]));
+
 function AppLayout() {
   const { user, loading, signOut, roles } = useAuth();
   const navigate = useNavigate();
@@ -50,6 +53,12 @@ function AppLayout() {
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login" });
   }, [user, loading, navigate]);
+
+  useEffect(() => {
+    if (!loading && user && !canAccessPath(location.pathname, roles)) {
+      navigate({ to: "/dashboard" });
+    }
+  }, [location.pathname, loading, navigate, roles, user]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -115,32 +124,37 @@ function AppLayout() {
           collapsed ? "space-y-2 px-2 py-3" : "space-y-0.5 p-3",
         )}
       >
-        {nav.map((item) => {
-          const active = location.pathname.startsWith(item.to);
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                "flex items-center rounded-xl text-sm font-medium transition",
-                collapsed ? "h-10 justify-center px-0" : "gap-2.5 px-3 py-2",
-                active
-                  ? "bg-secondary text-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <item.icon className={cn("h-4 w-4", collapsed && "h-[18px] w-[18px]")} />
-              {!collapsed && item.label}
-            </Link>
-          );
-        })}
+        {nav
+          .filter((item) => {
+            const allowedRoles = routeRoleMap.get(item.to);
+            return !allowedRoles || hasAnyRole(roles, allowedRoles);
+          })
+          .map((item) => {
+            const active = location.pathname.startsWith(item.to);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                title={collapsed ? item.label : undefined}
+                className={cn(
+                  "flex items-center rounded-xl text-sm font-medium transition",
+                  collapsed ? "h-10 justify-center px-0" : "gap-2.5 px-3 py-2",
+                  active
+                    ? "bg-secondary text-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                <item.icon className={cn("h-4 w-4", collapsed && "h-[18px] w-[18px]")} />
+                {!collapsed && item.label}
+              </Link>
+            );
+          })}
       </nav>
       <div className={cn("border-t", collapsed ? "p-2" : "p-3")}>
         {!collapsed && (
           <div className="mb-2 px-2 text-xs">
             <div className="truncate font-medium">{user.email}</div>
-            <div className="text-muted-foreground">{roles.join(", ") || "sem papel"}</div>
+            <div className="text-muted-foreground">{formatRoles(roles)}</div>
           </div>
         )}
         <button

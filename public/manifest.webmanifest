@@ -1,0 +1,42 @@
+{
+  "name": "ImobiFlow CRM",
+  "short_name": "ImobiFlow",
+  "description": "CRM imobiliario House302 para imoveis, contratos, documentos e financeiro.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#0017d7",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Imoveis",
+      "short_name": "Imoveis",
+      "url": "/properties"
+    },
+    {
+      "name": "Alugueis",
+      "short_name": "Alugueis",
+      "url": "/rentals"
+    },
+    {
+      "name": "Financeiro",
+      "short_name": "Financeiro",
+      "url": "/finance"
+    }
+  ]
+}

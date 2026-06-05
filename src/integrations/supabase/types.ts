@@ -791,7 +791,7 @@ export type Database = {
       mark_late_rental_payments: { Args: never; Returns: number }
     }
     Enums: {
-      app_role: "admin" | "manager" | "broker"
+      app_role: "admin" | "manager" | "financial" | "broker"
       document_kind:
         | "visit_form"
         | "sale_contract"
@@ -940,7 +940,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "manager", "broker"],
+      app_role: ["admin", "manager", "financial", "broker"],
       document_kind: [
         "visit_form",
         "sale_contract",
