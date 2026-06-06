@@ -344,6 +344,7 @@ function ClientsPage() {
                     entityId={form.id}
                     email={form.email}
                     fullName={form.full_name}
+                    phone={form.phone}
                     roles={["owner", "tenant"]}
                   />
                 )}

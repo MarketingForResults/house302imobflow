@@ -20,6 +20,14 @@ const RevokeAccessSchema = z.object({
   accessId: z.string().uuid(),
 });
 
+type PortalAccessPayload = {
+  email: string;
+  fullName?: string | null;
+  role: "owner" | "tenant" | "broker";
+  clientId?: string | null;
+  brokerId?: string | null;
+};
+
 async function assertAdmin(userId: string) {
   const { data, error } = await admin.rpc("has_role", {
     _user_id: userId,
@@ -38,46 +46,113 @@ function getActionLink(data: any) {
   return data?.properties?.action_link ?? data?.properties?.actionLink ?? null;
 }
 
+function buildAccessPayload(data: PortalAccessPayload, invitedBy: string) {
+  return {
+    email: data.email.trim().toLowerCase(),
+    full_name: data.fullName?.trim() || null,
+    role: data.role,
+    client_id: data.role === "broker" ? null : data.clientId,
+    broker_id: data.role === "broker" ? data.brokerId : null,
+    invited_by: invitedBy,
+    revoked_at: null,
+  };
+}
+
+async function ensurePortalAccessLink(data: PortalAccessPayload, invitedBy: string) {
+  if (data.role === "broker" && !data.brokerId) {
+    throw new Error("Selecione um corretor para gerar o acesso");
+  }
+  if ((data.role === "owner" || data.role === "tenant") && !data.clientId) {
+    throw new Error("Selecione um cliente para gerar o acesso");
+  }
+
+  const payload = buildAccessPayload(data, invitedBy);
+
+  const existingQuery = admin
+    .from("portal_access_links")
+    .select("*")
+    .eq("email", payload.email)
+    .eq("role", payload.role)
+    .is("revoked_at", null);
+  const { data: existing, error: existingError } =
+    data.role === "broker"
+      ? await existingQuery.eq("broker_id", data.brokerId).maybeSingle()
+      : await existingQuery.eq("client_id", data.clientId).maybeSingle();
+  if (existingError) throw new Error(existingError.message);
+
+  const { data: link, error: linkError } = existing
+    ? { data: existing, error: null }
+    : await admin.from("portal_access_links").insert(payload).select("*").single();
+  if (linkError) throw new Error(linkError.message);
+
+  return { payload, link };
+}
+
+async function generateManualAuthLink(email: string, metadata: any, redirectTo?: string) {
+  const attempts = [
+    { type: "invite", label: "convite" },
+    { type: "magiclink", label: "link magico" },
+    { type: "recovery", label: "recuperacao de senha" },
+  ];
+  const errors: string[] = [];
+
+  for (const attempt of attempts) {
+    const { data, error } = await admin.auth.admin.generateLink({
+      type: attempt.type,
+      email,
+      options: {
+        redirectTo,
+        data: metadata,
+      },
+    });
+
+    const actionLink = getActionLink(data);
+    if (!error && actionLink) {
+      return {
+        actionLink,
+        userId: data?.user?.id ?? null,
+        linkType: attempt.type,
+        linkLabel: attempt.label,
+        error: null,
+      };
+    }
+
+    errors.push(`${attempt.label}: ${error?.message ?? "link nao retornado"}`);
+  }
+
+  return {
+    actionLink: null,
+    userId: null,
+    linkType: null,
+    linkLabel: null,
+    error: errors.join(" | "),
+  };
+}
+
+async function attachPortalUser(
+  link: any,
+  userId: string | null,
+  role: string,
+  brokerId?: string | null,
+) {
+  if (!userId) return;
+
+  await admin.from("portal_access_links").update({ user_id: userId }).eq("id", link.id);
+
+  await admin.from("user_roles").upsert({ user_id: userId, role }, { onConflict: "user_id,role" });
+
+  if (role === "broker" && brokerId) {
+    await admin.from("brokers").update({ user_id: userId }).eq("id", brokerId);
+  }
+}
+
 export const invitePortalAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => InviteAccessSchema.parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
 
-    if (data.role === "broker" && !data.brokerId) {
-      throw new Error("Selecione um corretor para gerar o acesso");
-    }
-    if ((data.role === "owner" || data.role === "tenant") && !data.clientId) {
-      throw new Error("Selecione um cliente para gerar o acesso");
-    }
-
-    const payload = {
-      email: data.email.trim().toLowerCase(),
-      full_name: data.fullName?.trim() || null,
-      role: data.role,
-      client_id: data.role === "broker" ? null : data.clientId,
-      broker_id: data.role === "broker" ? data.brokerId : null,
-      invited_by: context.userId,
-      revoked_at: null,
-    };
-
-    const existingQuery = admin
-      .from("portal_access_links")
-      .select("*")
-      .eq("email", payload.email)
-      .eq("role", payload.role)
-      .is("revoked_at", null);
-    const { data: existing, error: existingError } =
-      data.role === "broker"
-        ? await existingQuery.eq("broker_id", data.brokerId).maybeSingle()
-        : await existingQuery.eq("client_id", data.clientId).maybeSingle();
-    if (existingError) throw new Error(existingError.message);
-
-    const { data: link, error: linkError } = existing
-      ? { data: existing, error: null }
-      : await admin.from("portal_access_links").insert(payload).select("*").single();
-    if (linkError) throw new Error(linkError.message);
-
+    const { payload, link } = await ensurePortalAccessLink(data, context.userId);
     const redirectTo = getRedirectUrl();
     const inviteMetadata = {
       full_name: payload.full_name,
@@ -92,64 +167,56 @@ export const invitePortalAccess = createServerFn({ method: "POST" })
       },
     );
 
-    const { data: generatedInvite, error: generateInviteError } =
-      await admin.auth.admin.generateLink({
-        type: "invite",
-        email: payload.email,
-        options: {
-          redirectTo,
-          data: inviteMetadata,
-        },
-      });
-    let generated = generatedInvite;
-    let generateError = generateInviteError;
-
-    if (generateError) {
-      const { data: recoveryLink, error: recoveryError } = await admin.auth.admin.generateLink({
-        type: "recovery",
-        email: payload.email,
-        options: {
-          redirectTo,
-          data: inviteMetadata,
-        },
-      });
-      if (!recoveryError) {
-        generateError = null;
-        generated = recoveryLink;
-      }
-    }
-
-    const actionLink = getActionLink(generated);
+    const generated = await generateManualAuthLink(payload.email, inviteMetadata, redirectTo);
+    const actionLink = generated.actionLink;
 
     if (inviteError && !actionLink) {
       throw new Error(inviteError.message);
     }
 
-    const userId = invite?.user?.id ?? generated?.user?.id ?? null;
-
-    if (userId) {
-      await admin
-        .from("portal_access_links")
-        .update({ user_id: userId, accepted_at: new Date().toISOString() })
-        .eq("id", link.id);
-
-      await admin
-        .from("user_roles")
-        .upsert({ user_id: userId, role: data.role }, { onConflict: "user_id,role" });
-
-      if (data.role === "broker" && data.brokerId) {
-        await admin.from("brokers").update({ user_id: userId }).eq("id", data.brokerId);
-      }
-    }
+    const userId = invite?.user?.id ?? generated.userId ?? null;
+    await attachPortalUser(link, userId, data.role, data.brokerId);
 
     return {
       ok: true,
       accessId: link.id,
       userId,
       actionLink,
+      linkType: generated.linkType,
       emailSent: !inviteError,
       emailError: inviteError?.message ?? null,
-      linkError: generateError?.message ?? null,
+      linkError: generated.error,
+    };
+  });
+
+export const generateManualPortalAccessLink = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => InviteAccessSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+
+    const { payload, link } = await ensurePortalAccessLink(data, context.userId);
+    const redirectTo = getRedirectUrl();
+    const metadata = {
+      full_name: payload.full_name,
+      portal_role: payload.role,
+      portal_access_id: link.id,
+    };
+    const generated = await generateManualAuthLink(payload.email, metadata, redirectTo);
+
+    if (!generated.actionLink) {
+      throw new Error(generated.error ?? "Nao foi possivel gerar o link manual");
+    }
+
+    await attachPortalUser(link, generated.userId, data.role, data.brokerId);
+
+    return {
+      ok: true,
+      accessId: link.id,
+      userId: generated.userId,
+      actionLink: generated.actionLink,
+      linkType: generated.linkType,
+      linkLabel: generated.linkLabel,
     };
   });
 

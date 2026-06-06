@@ -1,10 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase types are regenerated after the new portal_access_links migration is applied. */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, KeyRound, MailPlus, ShieldOff } from "lucide-react";
+import { Copy, KeyRound, MailPlus, MessageCircle, ShieldOff } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { invitePortalAccess, revokePortalAccess } from "@/lib/access-management.functions";
+import {
+  generateManualPortalAccessLink,
+  invitePortalAccess,
+  revokePortalAccess,
+} from "@/lib/access-management.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +21,7 @@ interface PortalAccessManagerProps {
   entityId: string;
   email?: string | null;
   fullName?: string | null;
+  phone?: string | null;
   roles: AccessRole[];
 }
 
@@ -32,6 +37,7 @@ interface ManualInvite {
   actionLink: string;
   emailSent: boolean;
   emailError?: string | null;
+  message?: string;
 }
 
 export function PortalAccessManager({
@@ -39,13 +45,16 @@ export function PortalAccessManager({
   entityId,
   email,
   fullName,
+  phone,
   roles,
 }: PortalAccessManagerProps) {
   const qc = useQueryClient();
   const inviteAccess = useServerFn(invitePortalAccess);
+  const generateManualAccessLink = useServerFn(generateManualPortalAccessLink);
   const revokeAccess = useServerFn(revokePortalAccess);
   const queryKey = ["portal_access_links", entity, entityId];
   const [manualInvite, setManualInvite] = useState<ManualInvite | null>(null);
+  const [generatingRole, setGeneratingRole] = useState<AccessRole | null>(null);
 
   const { data: links = [], isLoading } = useQuery({
     queryKey,
@@ -83,10 +92,11 @@ export function PortalAccessManager({
       })) as ManualInvite | null;
 
       if (result?.actionLink) {
-        setManualInvite({ ...result, role });
+        const invite = withMessage({ ...result, role });
+        setManualInvite(invite);
         navigator.clipboard
-          ?.writeText(result.actionLink)
-          .then(() => toast.success("Link de acesso gerado e copiado"))
+          ?.writeText(invite.message ?? invite.actionLink)
+          .then(() => toast.success("Texto de acesso gerado e copiado"))
           .catch(() => toast.success("Link de acesso gerado"));
       } else {
         setManualInvite(null);
@@ -100,6 +110,66 @@ export function PortalAccessManager({
       qc.invalidateQueries({ queryKey });
     } catch (error: any) {
       toast.error(error.message ?? "Nao foi possivel gerar o acesso");
+      qc.invalidateQueries({ queryKey });
+    }
+  }
+
+  function buildInviteMessage(role: AccessRole, actionLink: string) {
+    const name = fullName?.trim() || "tudo bem";
+    const roleLabel = ROLE_LABEL[role].toLowerCase();
+    return [
+      `Olá, ${name}!`,
+      "",
+      `Seu acesso de ${roleLabel} ao ImobFlow/House302 foi gerado.`,
+      `Acesse pelo link: ${actionLink}`,
+      "",
+      "Ao abrir, confirme seus dados e cadastre sua senha de acesso.",
+    ].join("\n");
+  }
+
+  function withMessage(invite: ManualInvite): ManualInvite {
+    return {
+      ...invite,
+      message: buildInviteMessage(invite.role, invite.actionLink),
+    };
+  }
+
+  async function generateManual(role: AccessRole) {
+    if (!email?.trim()) {
+      toast.error("Cadastre um e-mail antes de gerar o link manual");
+      return;
+    }
+
+    setGeneratingRole(role);
+    try {
+      const result = (await generateManualAccessLink({
+        data: {
+          email,
+          fullName,
+          role,
+          clientId: entity === "client" ? entityId : null,
+          brokerId: entity === "broker" ? entityId : null,
+        },
+      })) as ManualInvite | null;
+
+      if (!result?.actionLink) {
+        toast.error("Nao foi possivel gerar o link manual");
+        return;
+      }
+
+      const invite = withMessage({ ...result, role, emailSent: false });
+      setManualInvite(invite);
+      try {
+        await navigator.clipboard.writeText(invite.message ?? invite.actionLink);
+        toast.success("Texto para WhatsApp copiado");
+      } catch {
+        toast.success("Texto para WhatsApp gerado");
+      }
+      qc.invalidateQueries({ queryKey });
+    } catch (error: any) {
+      toast.error(error.message ?? "Nao foi possivel gerar o link manual");
+    } finally {
+      setGeneratingRole(null);
     }
   }
 
@@ -111,6 +181,30 @@ export function PortalAccessManager({
     } catch {
       toast.error("Nao foi possivel copiar o link");
     }
+  }
+
+  async function copyManualMessage() {
+    if (!manualInvite?.message) return;
+    try {
+      await navigator.clipboard.writeText(manualInvite.message);
+      toast.success("Texto copiado");
+    } catch {
+      toast.error("Nao foi possivel copiar o texto");
+    }
+  }
+
+  function openWhatsapp() {
+    if (!manualInvite?.message) return;
+    const cleanPhone = phone?.replace(/\D/g, "") ?? "";
+    if (!cleanPhone) {
+      toast.error("Cadastre um telefone/WhatsApp antes de abrir o app");
+      return;
+    }
+    const targetPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+    window.open(
+      `https://wa.me/${targetPhone}?text=${encodeURIComponent(manualInvite.message)}`,
+      "_blank",
+    );
   }
 
   async function revoke(accessId: string) {
@@ -136,14 +230,27 @@ export function PortalAccessManager({
         {roles.map((role) => {
           const link = links.find((item: any) => item.role === role);
           if (link) {
+            const active = !!link.accepted_at;
             return (
               <div
                 key={role}
                 className="inline-flex items-center gap-2 rounded-md border bg-card px-2 py-1"
               >
-                <Badge variant={link.user_id ? "default" : "outline"}>
-                  {ROLE_LABEL[role]} {link.user_id ? "ativo" : "convidado"}
+                <Badge variant={active ? "default" : "outline"}>
+                  {ROLE_LABEL[role]} {active ? "ativo" : "convidado"}
                 </Badge>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  disabled={generatingRole === role}
+                  onClick={() => generateManual(role)}
+                  title="Gerar link manual para WhatsApp"
+                >
+                  <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                  Link WhatsApp
+                </Button>
                 <Button
                   type="button"
                   variant="ghost"
@@ -159,17 +266,28 @@ export function PortalAccessManager({
           }
 
           return (
-            <Button
-              key={role}
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isLoading || linkedRoles.has(role)}
-              onClick={() => invite(role)}
-            >
-              <MailPlus className="mr-1.5 h-4 w-4" />
-              Gerar acesso {ROLE_LABEL[role].toLowerCase()}
-            </Button>
+            <div key={role} className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isLoading || linkedRoles.has(role)}
+                onClick={() => invite(role)}
+              >
+                <MailPlus className="mr-1.5 h-4 w-4" />
+                Gerar acesso {ROLE_LABEL[role].toLowerCase()}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isLoading || generatingRole === role}
+                onClick={() => generateManual(role)}
+              >
+                <MessageCircle className="mr-1.5 h-4 w-4" />
+                Link WhatsApp
+              </Button>
+            </div>
           );
         })}
       </div>
@@ -182,14 +300,26 @@ export function PortalAccessManager({
             <Input readOnly value={manualInvite.actionLink} className="h-8 text-xs" />
             <Button type="button" variant="outline" size="sm" onClick={copyManualLink}>
               <Copy className="mr-1.5 h-3.5 w-3.5" />
-              Copiar
+              Link
             </Button>
           </div>
+          {manualInvite.message && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={copyManualMessage}>
+                <Copy className="mr-1.5 h-3.5 w-3.5" />
+                Copiar texto
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={openWhatsapp}>
+                <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
+                Abrir WhatsApp
+              </Button>
+            </div>
+          )}
         </div>
       )}
       <p className="mt-2 text-xs text-muted-foreground">
-        O convite e enviado para o e-mail cadastrado. O administrador pode revogar o acesso a
-        qualquer momento.
+        O convite pode ser enviado por e-mail ou compartilhado manualmente por WhatsApp. O
+        administrador pode revogar o acesso a qualquer momento.
       </p>
     </div>
   );
