@@ -5,7 +5,9 @@ import { useState } from "react";
 import { Loader2, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { EntityDocuments } from "@/components/entity-documents";
+import { PortalAccessManager } from "@/components/portal-access-manager";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,10 +53,12 @@ function legacyInterestType(interests: string[]) {
 
 function ClientsPage() {
   const qc = useQueryClient();
+  const { roles: userRoles } = useAuth();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>(EMPTY);
   const [searchingCep, setSearchingCep] = useState(false);
   const isEdit = !!form.id;
+  const isAdmin = userRoles.includes("admin");
 
   const { data: clients = [] } = useQuery({
     queryKey: ["clients"],
@@ -334,6 +338,15 @@ function ClientsPage() {
                     ))}
                   </div>
                 </div>
+                {isAdmin && isEdit && (
+                  <PortalAccessManager
+                    entity="client"
+                    entityId={form.id}
+                    email={form.email}
+                    fullName={form.full_name}
+                    roles={["owner", "tenant"]}
+                  />
+                )}
                 <EntityDocuments entityType="client" entityId={form.id} />
               </div>
               <DialogFooter>

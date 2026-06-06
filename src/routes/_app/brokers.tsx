@@ -1,10 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Broker form mirrors nullable Supabase fields during incremental editing. */
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Loader2, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { EntityDocuments } from "@/components/entity-documents";
+import { PortalAccessManager } from "@/components/portal-access-manager";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,10 +45,12 @@ const EMPTY = { active: true, registration_status: "regular" } as any;
 
 function BrokersPage() {
   const qc = useQueryClient();
+  const { roles: userRoles } = useAuth();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>(EMPTY);
   const [searchingCep, setSearchingCep] = useState(false);
   const isEdit = !!form.id;
+  const isAdmin = userRoles.includes("admin");
 
   const { data: brokers = [] } = useQuery({
     queryKey: ["brokers"],
@@ -259,6 +264,15 @@ function BrokersPage() {
                     onChange={(e) => set("birth_date", e.target.value || null)}
                   />
                 </div>
+                {isAdmin && isEdit && (
+                  <PortalAccessManager
+                    entity="broker"
+                    entityId={form.id}
+                    email={form.email}
+                    fullName={form.full_name}
+                    roles={["broker"]}
+                  />
+                )}
                 <EntityDocuments entityType="broker" entityId={form.id} />
               </div>
               <DialogFooter>

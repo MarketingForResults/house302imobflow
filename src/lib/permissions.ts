@@ -1,10 +1,12 @@
-export type AppRole = "admin" | "manager" | "financial" | "broker";
+export type AppRole = "admin" | "manager" | "financial" | "broker" | "owner" | "tenant";
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   admin: "Administrador",
   manager: "Gestor",
   financial: "Financeiro",
   broker: "Corretor",
+  owner: "Proprietario",
+  tenant: "Inquilino",
 };
 
 const OPERATIONAL_ROLES: AppRole[] = ["admin", "manager", "broker"];
@@ -36,9 +38,5 @@ export function canAccessPath(pathname: string, userRoles: string[]) {
 }
 
 export function formatRoles(userRoles: string[]) {
-  return (
-    userRoles
-      .map((role) => ROLE_LABELS[role as AppRole] ?? role)
-      .join(", ") || "sem papel"
-  );
+  return userRoles.map((role) => ROLE_LABELS[role as AppRole] ?? role).join(", ") || "sem papel";
 }

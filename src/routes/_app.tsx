@@ -42,6 +42,7 @@ const nav = [
 ] as const;
 
 const routeRoleMap = new Map(ROUTE_ROLES.map((route) => [route.prefix, route.roles]));
+const PORTAL_ROLES = ["owner", "tenant"] as const;
 
 function AppLayout() {
   const { user, loading, signOut, roles } = useAuth();
@@ -49,16 +50,18 @@ function AppLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const canUseBackoffice = hasAnyRole(roles, ["admin", "manager", "financial", "broker"]);
+  const portalOnly = !canUseBackoffice && hasAnyRole(roles, PORTAL_ROLES);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login" });
   }, [user, loading, navigate]);
 
   useEffect(() => {
-    if (!loading && user && !canAccessPath(location.pathname, roles)) {
+    if (!loading && user && !portalOnly && !canAccessPath(location.pathname, roles)) {
       navigate({ to: "/dashboard" });
     }
-  }, [location.pathname, loading, navigate, roles, user]);
+  }, [location.pathname, loading, navigate, portalOnly, roles, user]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -70,6 +73,10 @@ function AppLayout() {
         Carregando…
       </div>
     );
+  }
+
+  if (portalOnly) {
+    return <PortalOnlyLayout email={user.email} roles={roles} onSignOut={signOut} />;
   }
 
   const SidebarBody = ({
@@ -202,6 +209,49 @@ function AppLayout() {
           <Outlet />
         </main>
       </div>
+    </div>
+  );
+}
+
+function PortalOnlyLayout({
+  email,
+  roles,
+  onSignOut,
+}: {
+  email?: string;
+  roles: string[];
+  onSignOut: () => Promise<void>;
+}) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="flex h-16 items-center justify-between border-b px-4 md:px-8">
+        <img src={logo} alt="House302" className="h-auto max-h-7 max-w-[170px] object-contain" />
+        <button
+          onClick={() => onSignOut().then(() => navigate({ to: "/" }))}
+          className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        >
+          <LogOut className="h-4 w-4" /> Sair
+        </button>
+      </header>
+      <main className="mx-auto flex max-w-4xl flex-col gap-4 p-4 md:p-8">
+        <section className="rounded-md border bg-card p-5">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">
+            Portal House302
+          </div>
+          <h1 className="mt-1 text-2xl font-semibold">Acesso criado com sucesso</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Seu perfil esta vinculado ao atendimento da House302. As areas de documentos,
+            pagamentos, vistorias, chamados e formularios ficarao disponiveis conforme os processos
+            forem liberados pelo administrador.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2 text-xs">
+            <span className="rounded-md border px-2 py-1">{email}</span>
+            <span className="rounded-md border px-2 py-1">{roles.join(", ")}</span>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
