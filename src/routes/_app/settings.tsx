@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Settings form mirrors nullable Supabase app_settings fields while generated types are stale. */
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
@@ -29,6 +30,50 @@ const INDEX_OPTIONS = [
   { code: "INCC", label: "INCC-M (FGV)" },
   { code: "IVAR", label: "IVAR (FGV)" },
 ];
+
+type SettingsState = Record<string, any>;
+
+interface FieldProps {
+  settings: SettingsState;
+  isAdmin: boolean;
+  setSetting: (key: string, value: any) => void;
+  k: string;
+  label: string;
+  type?: string;
+  step?: string;
+  suffix?: string;
+  mask?: (value: string) => string;
+}
+
+function Field({
+  settings,
+  isAdmin,
+  setSetting,
+  k,
+  label,
+  type = "number",
+  step = "0.01",
+  suffix,
+  mask,
+}: FieldProps) {
+  return (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      <div className="flex items-center gap-2">
+        <Input
+          type={type}
+          step={step}
+          value={settings[k] ?? ""}
+          disabled={!isAdmin}
+          onChange={(e) => setSetting(k, mask ? mask(e.target.value) : e.target.value)}
+        />
+        {suffix && (
+          <span className="text-xs text-muted-foreground whitespace-nowrap">{suffix}</span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function SettingsPage() {
   const { roles } = useAuth();
@@ -118,25 +163,12 @@ function SettingsPage() {
 
   if (!s) return <div className="p-4 md:p-8 text-sm text-muted-foreground">Carregando…</div>;
 
-  const Field = ({ k, label, type = "number", step = "0.01", suffix, mask }: any) => (
-    <div>
-      <Label className="text-xs">{label}</Label>
-      <div className="flex items-center gap-2">
-        <Input
-          type={type}
-          step={step}
-          value={s[k] ?? ""}
-          disabled={!isAdmin}
-          onChange={(e) => setS({ ...s, [k]: mask ? mask(e.target.value) : e.target.value })}
-        />
-        {suffix && (
-          <span className="text-xs text-muted-foreground whitespace-nowrap">{suffix}</span>
-        )}
-      </div>
-    </div>
-  );
+  function setSetting(key: string, value: any) {
+    setS((current: any) => ({ ...current, [key]: value }));
+  }
 
   const selectedIndex = indexes.find((i) => i.code === s.rental_default_readjustment_index);
+  const fieldProps = { settings: s, isAdmin, setSetting };
 
   return (
     <div>
@@ -165,14 +197,20 @@ function SettingsPage() {
             Informações da imobiliária disponíveis para contratos, autorizações e outros modelos.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field k="company_legal_name" label="Razão social" type="text" />
-            <Field k="company_trade_name" label="Nome fantasia" type="text" />
-            <Field k="company_cnpj" label="CNPJ" type="text" mask={maskCnpj} />
-            <Field k="company_creci" label="CRECI da imobiliária" type="text" />
-            <Field k="company_phone" label="Telefone" type="text" mask={maskPhone} />
-            <Field k="company_email" label="E-mail" type="email" />
+            <Field {...fieldProps} k="company_legal_name" label="Razão social" type="text" />
+            <Field {...fieldProps} k="company_trade_name" label="Nome fantasia" type="text" />
+            <Field {...fieldProps} k="company_cnpj" label="CNPJ" type="text" mask={maskCnpj} />
+            <Field {...fieldProps} k="company_creci" label="CRECI da imobiliária" type="text" />
+            <Field
+              {...fieldProps}
+              k="company_phone"
+              label="Telefone"
+              type="text"
+              mask={maskPhone}
+            />
+            <Field {...fieldProps} k="company_email" label="E-mail" type="email" />
             <div className="sm:col-span-2">
-              <Field k="company_address" label="Endereço completo" type="text" />
+              <Field {...fieldProps} k="company_address" label="Endereço completo" type="text" />
             </div>
           </div>
         </section>
@@ -183,18 +221,30 @@ function SettingsPage() {
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
+              {...fieldProps}
               k="rental_late_fee_pct"
               label="Multa por atraso"
               suffix="% sobre o valor devido"
             />
-            <Field k="rental_daily_interest_pct" label="Juros diários (mora)" suffix="% ao dia" />
             <Field
+              {...fieldProps}
+              k="rental_daily_interest_pct"
+              label="Juros diários (mora)"
+              suffix="% ao dia"
+            />
+            <Field
+              {...fieldProps}
               k="rental_grace_days"
               label="Carência (dias após vencimento)"
               step="1"
               suffix="dias"
             />
-            <Field k="rental_default_due_day" label="Dia de vencimento padrão" step="1" />
+            <Field
+              {...fieldProps}
+              k="rental_default_due_day"
+              label="Dia de vencimento padrão"
+              step="1"
+            />
           </div>
         </section>
 
@@ -203,7 +253,13 @@ function SettingsPage() {
             Vigência e tipo de contrato
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field k="rental_default_term_months" label="Vigência padrão" step="1" suffix="meses" />
+            <Field
+              {...fieldProps}
+              k="rental_default_term_months"
+              label="Vigência padrão"
+              step="1"
+              suffix="meses"
+            />
             <div>
               <Label className="text-xs">Tipo de contrato padrão</Label>
               <Select
@@ -222,6 +278,7 @@ function SettingsPage() {
               </Select>
             </div>
             <Field
+              {...fieldProps}
               k="contract_default_commission_pct"
               label="Comissão padrão de contrato"
               suffix="%"
@@ -282,9 +339,24 @@ function SettingsPage() {
             Compra e venda de imóvel — parâmetros padrão
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field k="sale_default_commission_pct" label="Comissão padrão de venda" suffix="%" />
-            <Field k="sale_itbi_pct" label="ITBI padrão" suffix="% sobre o valor da venda" />
-            <Field k="sale_default_down_payment_pct" label="Entrada padrão" suffix="% do valor" />
+            <Field
+              {...fieldProps}
+              k="sale_default_commission_pct"
+              label="Comissão padrão de venda"
+              suffix="%"
+            />
+            <Field
+              {...fieldProps}
+              k="sale_itbi_pct"
+              label="ITBI padrão"
+              suffix="% sobre o valor da venda"
+            />
+            <Field
+              {...fieldProps}
+              k="sale_default_down_payment_pct"
+              label="Entrada padrão"
+              suffix="% do valor"
+            />
             <div>
               <Label className="text-xs">Forma de pagamento padrão</Label>
               <Select
@@ -429,6 +501,7 @@ function SettingsPage() {
               )}
             </div>
             <Field
+              {...fieldProps}
               k="rental_default_readjustment_month"
               label="Mês de reajuste padrão (1–12)"
               step="1"
