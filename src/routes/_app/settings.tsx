@@ -150,9 +150,19 @@ function SettingsPage() {
   async function handleRefresh() {
     setRefreshing(true);
     try {
-      const { results } = await refresh({});
+      const response = await refresh();
+      const results = Array.isArray(response?.results) ? response.results : [];
+      if (!results.length) {
+        toast.error("A consulta nao retornou indices. Tente novamente em alguns minutos.");
+        return;
+      }
       const ok = results.filter((r: any) => r.ok).length;
-      toast.success(`${ok}/${results.length} índices atualizados nos sites oficiais (BCB/SGS)`);
+      if (ok > 0) {
+        toast.success(`${ok}/${results.length} índices atualizados nos sites oficiais (BCB/SGS)`);
+      } else {
+        const firstError = results.find((r: any) => r.error)?.error;
+        toast.error(firstError ?? "Nenhum indice foi atualizado nos sites oficiais");
+      }
       await loadIndexes();
     } catch (e: any) {
       toast.error(e.message ?? "Falha ao consultar índices");
