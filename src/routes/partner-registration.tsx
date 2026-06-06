@@ -18,6 +18,7 @@ import {
   maskPhone,
   maskRg,
 } from "@/lib/form-utils";
+import { translatedErrorMessage } from "@/lib/error-messages";
 import logo from "@/assets/logo-house302.png";
 import logoIcon from "@/assets/logo-house302-icon.png";
 
@@ -150,7 +151,7 @@ function PartnerRegistration() {
       });
       toast.success("Endereco do parceiro preenchido pelo CEP");
     } catch (error: any) {
-      toast.error(error.message ?? "Nao foi possivel buscar o CEP");
+      toast.error(translatedErrorMessage(error, "Nao foi possivel buscar o CEP."));
     } finally {
       setSearchingPartnerCep(false);
     }
@@ -173,7 +174,7 @@ function PartnerRegistration() {
       });
       toast.success("Endereco do imovel preenchido pelo CEP");
     } catch (error: any) {
-      toast.error(error.message ?? "Nao foi possivel buscar o CEP do imovel");
+      toast.error(translatedErrorMessage(error, "Nao foi possivel buscar o CEP do imovel."));
     } finally {
       setSearchingPropertyCep(false);
     }
@@ -223,7 +224,7 @@ function PartnerRegistration() {
           return;
         }
         toast.error(
-          fallbackError.message ?? "Nao foi possivel enviar seu cadastro. Tente novamente.",
+          translatedErrorMessage(fallbackError, "Nao foi possivel enviar seu cadastro. Tente novamente."),
         );
         return;
       }
@@ -243,7 +244,7 @@ function PartnerRegistration() {
         toast.error("O cadastro de parceiros ainda precisa ser liberado no banco de dados.");
         return;
       }
-      toast.error(error.message ?? "Nao foi possivel enviar seu cadastro. Tente novamente.");
+      toast.error(translatedErrorMessage(error, "Nao foi possivel enviar seu cadastro. Tente novamente."));
       return;
     }
 

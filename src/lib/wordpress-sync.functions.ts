@@ -28,7 +28,7 @@ export const syncPropertyToWordPress = createServerFn({ method: "POST" })
       .from("properties")
       .select("*, property_images(image_url, is_cover, sort_order), brokers(full_name)")
       .eq("id", data.propertyId)
-      .single();
+      .maybeSingle();
     if (error || !prop) throw new Error("Imóvel não encontrado");
 
     const payload = {

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plug, RefreshCw, Download, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { formatDateTimeBR } from "@/lib/format-date";
+import { translatedErrorMessage } from "@/lib/error-messages";
 
 export const Route = createFileRoute("/_app/integration")({ component: IntegrationPage });
 
@@ -158,7 +159,7 @@ function IntegrationPage() {
       await sync({ data: { propertyId, wpUrl, apiKey } });
       toast.success("Sincronizado");
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(translatedErrorMessage(e, "Nao foi possivel sincronizar."));
     }
   }
 

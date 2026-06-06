@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { Trash2, Upload, Star, ArrowLeft } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { EntityDocuments } from "@/components/entity-documents";
+import { translatedErrorMessage } from "@/lib/error-messages";
 
 export const Route = createFileRoute("/_app/properties/$id")({ component: PropertyEdit });
 
@@ -176,10 +177,6 @@ function normalizePropertyPayload(source: any) {
   return payload;
 }
 
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
-}
-
 async function loadProperty(db: any, propertyId: string) {
   const { data, error } = await db
     .from("properties")
@@ -288,7 +285,7 @@ function PropertyEdit() {
       toast.success("Endereço preenchido!");
       updateCoordinates(data.logradouro, data.bairro, data.localidade, data.uf);
     } catch (e: any) {
-      toast.error(`Erro ao buscar CEP: ${e.message}`);
+      toast.error(translatedErrorMessage(e, "Nao foi possivel buscar o CEP."));
     } finally {
       setSearchingCep(false);
     }
@@ -328,7 +325,7 @@ function PropertyEdit() {
       }
     } catch (e: any) {
       console.error("Erro ao buscar coordenadas", e);
-      toast.error(`Erro ao geolocalizar: ${e.message}`);
+      toast.error(translatedErrorMessage(e, "Nao foi possivel geolocalizar o imovel."));
     } finally {
       setFetchingCoords(false);
     }
@@ -409,9 +406,10 @@ function PropertyEdit() {
         return toast.error("Sessão expirada. Entre novamente para cadastrar o imóvel.");
       }
       payload.created_by = user.id;
-      const { data, error } = await db.from("properties").insert(payload).select("id").single();
+      const { data, error } = await db.from("properties").insert(payload).select("id").maybeSingle();
       setSaving(false);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel criar o imovel."));
+      if (!data?.id) return toast.error("Imovel criado, mas nao foi possivel abrir o cadastro.");
       setDirty(false);
       toast.success("Imóvel criado");
       navigate({ to: "/properties/$id", params: { id: data.id } });
@@ -425,7 +423,7 @@ function PropertyEdit() {
         setDirty(false);
         toast.success("Salvo");
       } catch (updateError: unknown) {
-        toast.error(errorMessage(updateError, "Nao foi possivel salvar o imovel"));
+        toast.error(translatedErrorMessage(updateError, "Nao foi possivel salvar o imovel"));
       } finally {
         setSaving(false);
       }
@@ -454,7 +452,7 @@ function PropertyEdit() {
       setDirty(false);
       toast.success(message);
     } catch (updateError: unknown) {
-      toast.error(errorMessage(updateError, "Nao foi possivel atualizar o atendimento"));
+      toast.error(translatedErrorMessage(updateError, "Nao foi possivel atualizar o atendimento"));
     }
   }
 
@@ -512,7 +510,7 @@ function PropertyEdit() {
           .from("property-images")
           .upload(path, blob, { contentType: blob.type || file.type });
         if (upErr) {
-          toast.error(`${file.name}: ${upErr.message}`);
+          toast.error(`${file.name}: ${translatedErrorMessage(upErr, "Nao foi possivel enviar a imagem.")}`);
           continue;
         }
         const {
@@ -527,12 +525,12 @@ function PropertyEdit() {
         });
         if (imageError) {
           await supabase.storage.from("property-images").remove([path]);
-          toast.error(`${file.name}: ${imageError.message}`);
+          toast.error(`${file.name}: ${translatedErrorMessage(imageError, "Nao foi possivel registrar a imagem no imovel.")}`);
           continue;
         }
         success++;
       } catch (e: any) {
-        toast.error(`${file.name}: ${e.message}`);
+        toast.error(`${file.name}: ${translatedErrorMessage(e, "Nao foi possivel processar a imagem.")}`);
       }
       setUploadProgress({ current: i + 1, total: toUpload.length });
     }
@@ -555,7 +553,7 @@ function PropertyEdit() {
   async function remove() {
     if (!confirm("Excluir este imóvel?")) return;
     const { error } = await supabase.from("properties").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o imovel."));
     toast.success("Excluído");
     navigate({ to: "/properties" });
   }

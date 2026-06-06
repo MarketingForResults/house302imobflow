@@ -40,6 +40,7 @@ import {
   BadgeDollarSign,
 } from "lucide-react";
 import { formatDateBR } from "@/lib/format-date";
+import { translatedErrorMessage } from "@/lib/error-messages";
 import { EntityDocuments } from "@/components/entity-documents";
 import { uploadEntityDocument } from "@/lib/entity-documents";
 
@@ -410,8 +411,9 @@ function RentalsPage() {
         created_by: user?.id,
       })
       .select("id")
-      .single();
-    if (error) return toast.error(error.message);
+      .maybeSingle();
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel criar o contrato."));
+    if (!created?.id) return toast.error("Contrato criado, mas nao foi possivel confirmar o registro.");
     const { error: paymentsError } = await supabase.rpc("generate_rental_payments", {
       _contract_id: created.id,
       _months: months,
@@ -434,7 +436,7 @@ function RentalsPage() {
         payment_kind: "deposit",
       });
       if (depositPaymentError) {
-        toast.error(`Contrato criado, mas nao foi possivel gerar o caucao: ${depositPaymentError.message}`);
+        toast.error(`Contrato criado, mas nao foi possivel gerar o caucao: ${translatedErrorMessage(depositPaymentError, "Falha ao gerar o caucao.")}`);
       }
     }
     if (contractFile) {
@@ -447,7 +449,7 @@ function RentalsPage() {
           file: contractFile,
         });
       } catch (uploadError: any) {
-        toast.error(`Contrato criado, mas não foi possível anexar o PDF: ${uploadError.message}`);
+        toast.error(`Contrato criado, mas nao foi possivel anexar o PDF: ${translatedErrorMessage(uploadError, "Falha ao anexar o PDF.")}`);
       }
     }
     toast.success("Contrato criado e lancamentos gerados");
@@ -506,7 +508,9 @@ function RentalsPage() {
     const { data, error } = await supabase.storage
       .from("rental-payment-receipts")
       .createSignedUrl(p.receipt_file_path, 60 * 10);
-    if (error || !data?.signedUrl) return toast.error(error?.message ?? "Não foi possível abrir o recibo anexado.");
+    if (error || !data?.signedUrl) {
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel abrir o recibo anexado."));
+    }
     window.open(data.signedUrl, "_blank");
   }
 
@@ -517,7 +521,9 @@ function RentalsPage() {
     const { data, error } = await supabase.storage
       .from("rental-payment-receipts")
       .createSignedUrl(p.deposit_refund_receipt_file_path, 60 * 10);
-    if (error || !data?.signedUrl) return toast.error(error?.message ?? "Não foi possível abrir o comprovante da devolução.");
+    if (error || !data?.signedUrl) {
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel abrir o comprovante da devolucao."));
+    }
     window.open(data.signedUrl, "_blank");
   }
 
@@ -570,11 +576,11 @@ function RentalsPage() {
         patch.deposit_refund_uploaded_at = new Date().toISOString();
       }
     } catch (err: any) {
-      return toast.error(`Não foi possível anexar o comprovante: ${err.message}`);
+      return toast.error(`Nao foi possivel anexar o comprovante: ${translatedErrorMessage(err, "Falha no anexo.")}`);
     }
 
     const { error } = await updateRentalPayment(p.id, patch);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel registrar a devolucao do caucao."));
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success("Devolução do caução registrada");
     closeDepositRefund();
@@ -599,7 +605,7 @@ function RentalsPage() {
         patch.receipt_uploaded_at = new Date().toISOString();
       }
     } catch (err: any) {
-      return toast.error(`Não foi possível anexar o recibo: ${err.message}`);
+      return toast.error(`Nao foi possivel anexar o recibo: ${translatedErrorMessage(err, "Falha no anexo.")}`);
     }
     const { error, usedFallback } = await updateRentalPayment(
       p.id,
@@ -612,7 +618,7 @@ function RentalsPage() {
           }
         : undefined,
     );
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel registrar o pagamento."));
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     if (usedFallback) {
       toast.warning("Pagamento registrado, mas o recibo não foi vinculado porque o schema do Supabase ainda não expõe os campos de recibo.");
@@ -644,7 +650,7 @@ function RentalsPage() {
       },
       basePatch,
     );
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel reverter o lancamento."));
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success("Lançamento revertido para pendente");
   }
@@ -652,7 +658,7 @@ function RentalsPage() {
   async function deletePayment(id: string) {
     if (!confirm("Excluir este lançamento?")) return;
     const { error } = await supabase.from("rental_payments").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o lancamento."));
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success("Lançamento excluído");
   }
@@ -683,7 +689,7 @@ function RentalsPage() {
       ) {
         return toast.error(`Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
       }
-      return toast.error(error.message);
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel atualizar o lancamento."));
     }
     setEditingPayment(null);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
@@ -721,7 +727,7 @@ function RentalsPage() {
       ) {
         return toast.error(`Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
       }
-      return toast.error(error.message);
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel adicionar o lancamento."));
     }
     setAddingFor(null);
     setNewPayment({});
@@ -743,7 +749,7 @@ function RentalsPage() {
       qc.invalidateQueries({ queryKey: ["rental_payments"] });
       toast.success(`${ids.length} lançamento(s) excluído(s) com sucesso!`);
     } catch (err: any) {
-      toast.error(`Erro ao excluir parcelas: ${err.message}`);
+      toast.error(translatedErrorMessage(err, "Nao foi possivel excluir as parcelas."));
     }
   }
 
@@ -785,7 +791,7 @@ function RentalsPage() {
       qc.invalidateQueries({ queryKey: ["rental_payments"] });
       toast.success(`${ids.length} lançamento(s) marcado(s) como pago(s)!`);
     } catch (err: any) {
-      toast.error(`Erro ao registrar pagamentos: ${err.message}`);
+      toast.error(translatedErrorMessage(err, "Nao foi possivel registrar os pagamentos."));
     }
   }
 
@@ -798,9 +804,9 @@ function RentalsPage() {
     )
       return;
     const { error: e1 } = await supabase.from("rental_payments").delete().in("contract_id", ids);
-    if (e1) return toast.error(e1.message);
+    if (e1) return toast.error(translatedErrorMessage(e1, "Nao foi possivel excluir as parcelas do contrato."));
     const { error: e2 } = await supabase.from("rental_contracts").delete().in("id", ids);
-    if (e2) return toast.error(e2.message);
+    if (e2) return toast.error(translatedErrorMessage(e2, "Nao foi possivel excluir o contrato."));
     setSelected({});
     qc.invalidateQueries({ queryKey: ["rental_contracts"] });
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
@@ -812,14 +818,14 @@ function RentalsPage() {
       _contract_id: contractId,
       _months: 12,
     });
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel gerar as parcelas."));
     toast.success(`${data} parcela(s) geradas`);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
   }
 
   async function markLate() {
     const { data, error } = await supabase.rpc("mark_late_rental_payments");
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel marcar os atrasados."));
     toast.success(`${data} parcela(s) marcada(s) como atrasadas`);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
   }

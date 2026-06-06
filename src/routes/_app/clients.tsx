@@ -8,6 +8,7 @@ import { EntityDocuments } from "@/components/entity-documents";
 import { PortalAccessManager } from "@/components/portal-access-manager";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { translatedErrorMessage } from "@/lib/error-messages";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -107,7 +108,7 @@ function ClientsPage() {
       });
       toast.success("Endereco preenchido pelo CEP");
     } catch (error: any) {
-      toast.error(error.message ?? "Nao foi possivel buscar o CEP");
+      toast.error(translatedErrorMessage(error, "Nao foi possivel buscar o CEP."));
     } finally {
       setSearchingCep(false);
     }
@@ -127,11 +128,11 @@ function ClientsPage() {
     if (isEdit) {
       const { id, created_at, updated_at, ...patch } = payloadBase;
       const { error } = await (supabase as any).from("clients").update(patch).eq("id", id);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel atualizar o cliente."));
       toast.success("Cliente atualizado");
     } else {
       const { error } = await (supabase as any).from("clients").insert(payloadBase);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel cadastrar o cliente."));
       toast.success("Cliente cadastrado");
     }
 
@@ -143,7 +144,7 @@ function ClientsPage() {
   async function remove(id: string) {
     if (!confirm("Excluir cliente?")) return;
     const { error } = await supabase.from("clients").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o cliente."));
     qc.invalidateQueries({ queryKey: ["clients"] });
   }
 

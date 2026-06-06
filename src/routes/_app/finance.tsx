@@ -57,6 +57,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { translatedErrorMessage } from "@/lib/error-messages";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/finance")({ component: FinancePage });
@@ -324,7 +325,7 @@ function FinancePage() {
       ? db.from("financial_records").update(payload).eq("id", recordEditing.id)
       : db.from("financial_records").insert(payload);
     const { error } = await query;
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar o lancamento."));
     toast.success(recordEditing.id ? "Lancamento atualizado" : "Lancamento criado");
     setRecordEditing(null);
     refresh();
@@ -336,7 +337,7 @@ function FinancePage() {
       .from("financial_records")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", record.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel remover o lancamento."));
     toast.success("Lancamento removido com soft delete");
     refresh();
   }
@@ -351,7 +352,7 @@ function FinancePage() {
       ? db.from("financial_categories").update(payload).eq("id", categoryEditing.id)
       : db.from("financial_categories").insert(payload);
     const { error } = await query;
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar a categoria."));
     toast.success(categoryEditing.id ? "Categoria atualizada" : "Categoria criada");
     setCategoryEditing(null);
     refresh();
@@ -370,7 +371,7 @@ function FinancePage() {
       ? db.from("financial_cost_centers").update(payload).eq("id", costCenterEditing.id)
       : db.from("financial_cost_centers").insert(payload);
     const { error } = await query;
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar o centro de custos."));
     toast.success(costCenterEditing.id ? "Centro de custos atualizado" : "Centro de custos criado");
     setCostCenterEditing(null);
     refresh();
@@ -382,7 +383,7 @@ function FinancePage() {
       .from(table)
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", item.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel remover o registro."));
     toast.success("Registro removido com soft delete");
     refresh();
   }
@@ -401,7 +402,7 @@ function FinancePage() {
       config: nextSettings.config ?? {},
     };
     const { error } = await db.from("financial_settings").update(payload).eq("id", nextSettings.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar as configuracoes financeiras."));
     toast.success("Configuracoes financeiras atualizadas");
     refresh();
   }
@@ -471,7 +472,7 @@ function FinancePage() {
       status: error ? "failed" : "processed",
       error_message: error?.message ?? null,
     });
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel importar os lancamentos."));
     toast.success(`${payload.length} lancamento(s) importado(s)`);
     refresh();
   }

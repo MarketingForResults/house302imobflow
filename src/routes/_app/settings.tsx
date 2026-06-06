@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { RefreshCw, ExternalLink } from "lucide-react";
 import { refreshEconomicIndexes } from "@/lib/economic-indexes.functions";
+import { translatedErrorMessage } from "@/lib/error-messages";
 import { formatDateBR } from "@/lib/format-date";
 import { maskCnpj, maskPhone } from "@/lib/form-utils";
 
@@ -143,7 +144,7 @@ function SettingsPage() {
       })
       .eq("id", true);
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar as configuracoes."));
     toast.success("Configurações salvas.");
   }
 
@@ -161,11 +162,11 @@ function SettingsPage() {
         toast.success(`${ok}/${results.length} índices atualizados nos sites oficiais (BCB/SGS)`);
       } else {
         const firstError = results.find((r: any) => r.error)?.error;
-        toast.error(firstError ?? "Nenhum indice foi atualizado nos sites oficiais");
+        toast.error(translatedErrorMessage(firstError, "Nenhum indice foi atualizado nos sites oficiais."));
       }
       await loadIndexes();
     } catch (e: any) {
-      toast.error(e.message ?? "Falha ao consultar índices");
+      toast.error(translatedErrorMessage(e, "Falha ao consultar indices."));
     } finally {
       setRefreshing(false);
     }

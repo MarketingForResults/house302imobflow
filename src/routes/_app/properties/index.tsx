@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { translatedErrorMessage } from "@/lib/error-messages";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,7 +78,7 @@ function PropertiesList() {
       toast.success(`Imóvel ${code} excluído com sucesso!`);
       refetch();
     } catch (err: any) {
-      toast.error(`Erro ao excluir imóvel: ${err.message}`);
+      toast.error(translatedErrorMessage(err, "Nao foi possivel excluir o imovel."));
     }
   }
 

@@ -21,6 +21,7 @@ import {
   removeEntityDocument,
   uploadEntityDocument,
 } from "@/lib/entity-documents";
+import { translatedErrorMessage } from "@/lib/error-messages";
 
 const DEFAULT_KINDS = [
   ["identity", "Identidade / CNH"],
@@ -74,7 +75,7 @@ export function EntityDocuments({
       await qc.invalidateQueries({ queryKey });
       toast.success(files.length > 1 ? "Documentos enviados" : "Documento enviado");
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(translatedErrorMessage(error, "Nao foi possivel enviar o documento."));
     } finally {
       setUploading(false);
     }
@@ -84,7 +85,7 @@ export function EntityDocuments({
     try {
       await openEntityDocument(document);
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(translatedErrorMessage(error, "Nao foi possivel abrir o documento."));
     }
   }
 
@@ -95,7 +96,7 @@ export function EntityDocuments({
       await qc.invalidateQueries({ queryKey });
       toast.success("Documento excluido");
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o documento."));
     }
   }
 

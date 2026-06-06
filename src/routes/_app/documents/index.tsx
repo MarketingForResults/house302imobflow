@@ -22,6 +22,7 @@ import {
 import { DEFAULT_DOCUMENT_KINDS, DOCUMENT_KIND_LABEL } from "@/lib/doc-placeholders";
 import { FileText, Plus, Settings2, Pencil, Trash2 } from "lucide-react";
 import { formatDateBR } from "@/lib/format-date";
+import { translatedErrorMessage } from "@/lib/error-messages";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -68,7 +69,7 @@ function DocumentsList() {
         notes: editing.notes,
       })
       .eq("id", editing.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel atualizar o documento."));
     setEditing(null);
     qc.invalidateQueries({ queryKey: ["documents"] });
     toast.success("Documento atualizado");
@@ -76,7 +77,7 @@ function DocumentsList() {
   async function remove(id: string) {
     if (!confirm("Excluir este documento?")) return;
     const { error } = await supabase.from("documents").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o documento."));
     qc.invalidateQueries({ queryKey: ["documents"] });
     toast.success("Documento excluído");
   }

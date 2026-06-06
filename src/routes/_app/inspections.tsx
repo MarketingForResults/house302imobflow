@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { translatedErrorMessage } from "@/lib/error-messages";
 
 export const Route = createFileRoute("/_app/inspections")({ component: InspectionsPage });
 
@@ -133,16 +134,18 @@ function InspectionsPage() {
       .from("property_inspections")
       .upsert(payload, { onConflict: "property_id" })
       .select("*")
-      .single();
-    if (error) return toast.error(error.message);
+      .maybeSingle();
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar a vistoria."));
     const workflow_status =
       payload.status === "scheduled" ? "inspection_scheduled" : "inspection_pending";
     const { error: propertyError } = await supabase
       .from("properties")
       .update({ workflow_status, broker_id: payload.assigned_broker_id })
       .eq("id", editing.id);
-    if (propertyError) return toast.error(propertyError.message);
-    setInspection({ ...data, scheduled_at: data.scheduled_at?.slice(0, 16) ?? "" });
+    if (propertyError) {
+      return toast.error(translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."));
+    }
+    if (data) setInspection({ ...data, scheduled_at: data.scheduled_at?.slice(0, 16) ?? "" });
     toast.success("Vistoria atualizada");
     refresh();
   }
@@ -163,7 +166,7 @@ function InspectionsPage() {
     const { error } = await supabase
       .from("property_inspections")
       .upsert(payload, { onConflict: "property_id" });
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel concluir a vistoria."));
     const { error: propertyError } = await supabase
       .from("properties")
       .update({
@@ -171,7 +174,9 @@ function InspectionsPage() {
         broker_id: payload.assigned_broker_id,
       })
       .eq("id", editing.id);
-    if (propertyError) return toast.error(propertyError.message);
+    if (propertyError) {
+      return toast.error(translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."));
+    }
     toast.success("Vistoria concluída e enviada para aprovação");
     setEditing(null);
     refresh();
@@ -198,12 +203,14 @@ function InspectionsPage() {
       },
       { onConflict: "property_id" },
     );
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel revisar a vistoria."));
     const { error: propertyError } = await supabase
       .from("properties")
       .update({ workflow_status })
       .eq("id", editing.id);
-    if (propertyError) return toast.error(propertyError.message);
+    if (propertyError) {
+      return toast.error(translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."));
+    }
     toast.success(approved ? "Imóvel liberado para divulgação" : "Vistoria reprovada");
     setEditing(null);
     refresh();
@@ -217,9 +224,9 @@ function InspectionsPage() {
       const path = `${editing.id}/inspection-${Date.now()}-${index}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
       const { error: uploadError } = await supabase.storage
         .from("property-images")
-        .upload(path, file);
+        .upload(path, file, { contentType: file.type || "application/octet-stream" });
       if (uploadError) {
-        toast.error(`${file.name}: ${uploadError.message}`);
+        toast.error(`${file.name}: ${translatedErrorMessage(uploadError, "Nao foi possivel enviar a foto.")}`);
         continue;
       }
       const {
@@ -231,7 +238,12 @@ function InspectionsPage() {
         is_cover: (editing.property_images?.length ?? 0) === 0 && success === 0,
         sort_order: (editing.property_images?.length ?? 0) + success,
       });
-      if (!error) success++;
+      if (error) {
+        await supabase.storage.from("property-images").remove([path]);
+        toast.error(`${file.name}: ${translatedErrorMessage(error, "Nao foi possivel registrar a foto no imovel.")}`);
+        continue;
+      }
+      success++;
     }
     const { data } = await supabase
       .from("properties")
@@ -239,7 +251,7 @@ function InspectionsPage() {
         "*, brokers(full_name), clients(full_name, phone, email), capture_partners(full_name, phone), property_images(*), property_inspections(*)",
       )
       .eq("id", editing.id)
-      .single();
+      .maybeSingle();
     setEditing(data ?? editing);
     setUploading(false);
     if (success) toast.success(`${success} foto(s) adicionada(s) ao imóvel`);
@@ -248,7 +260,7 @@ function InspectionsPage() {
 
   async function deleteImage(id: string) {
     const { error } = await supabase.from("property_images").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir a foto."));
     setEditing({
       ...editing,
       property_images: editing.property_images.filter((image: any) => image.id !== id),
@@ -346,12 +358,21 @@ function InspectionsPage() {
                         .join(" - ")}
                     </p>
                   </div>
-                  <Button size="sm" variant="outline" asChild>
-                    <Link to="/properties/$id" params={{ id: editing.id }}>
-                      <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                      Abrir cadastro completo
-                    </Link>
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    {!["awaiting_inspection_review", "ready_to_publish", "rejected"].includes(
+                      editing?.workflow_status,
+                    ) && (
+                      <Button size="sm" onClick={save}>
+                        Salvar atendimento
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to="/properties/$id" params={{ id: editing.id }}>
+                        <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                        Abrir cadastro completo
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
                 <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
                   <div>

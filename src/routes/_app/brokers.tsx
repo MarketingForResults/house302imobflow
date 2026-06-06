@@ -8,6 +8,7 @@ import { EntityDocuments } from "@/components/entity-documents";
 import { PortalAccessManager } from "@/components/portal-access-manager";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { translatedErrorMessage } from "@/lib/error-messages";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -84,7 +85,7 @@ function BrokersPage() {
       });
       toast.success("Endereco preenchido pelo CEP");
     } catch (error: any) {
-      toast.error(error.message ?? "Nao foi possivel buscar o CEP");
+      toast.error(translatedErrorMessage(error, "Nao foi possivel buscar o CEP."));
     } finally {
       setSearchingCep(false);
     }
@@ -104,11 +105,11 @@ function BrokersPage() {
     if (isEdit) {
       const { id, created_at, updated_at, ...patch } = normalizedForm;
       const { error } = await supabase.from("brokers").update(patch).eq("id", id);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel atualizar o corretor."));
       toast.success("Corretor atualizado");
     } else {
       const { error } = await supabase.from("brokers").insert(normalizedForm);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel cadastrar o corretor."));
       toast.success("Corretor cadastrado");
     }
     setOpen(false);
@@ -124,7 +125,7 @@ function BrokersPage() {
   async function remove(id: string) {
     if (!confirm("Excluir corretor?")) return;
     const { error } = await supabase.from("brokers").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o corretor."));
     qc.invalidateQueries({ queryKey: ["brokers"] });
   }
 

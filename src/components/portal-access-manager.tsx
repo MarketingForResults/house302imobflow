@@ -9,6 +9,7 @@ import {
   invitePortalAccess,
   revokePortalAccess,
 } from "@/lib/access-management.functions";
+import { translatedErrorMessage } from "@/lib/error-messages";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -109,7 +110,7 @@ export function PortalAccessManager({
 
       qc.invalidateQueries({ queryKey });
     } catch (error: any) {
-      toast.error(error.message ?? "Nao foi possivel gerar o acesso");
+      toast.error(translatedErrorMessage(error, "Nao foi possivel gerar o acesso."));
       qc.invalidateQueries({ queryKey });
     }
   }
@@ -167,7 +168,7 @@ export function PortalAccessManager({
       }
       qc.invalidateQueries({ queryKey });
     } catch (error: any) {
-      toast.error(error.message ?? "Nao foi possivel gerar o link manual");
+      toast.error(translatedErrorMessage(error, "Nao foi possivel gerar o link manual."));
     } finally {
       setGeneratingRole(null);
     }
@@ -214,7 +215,7 @@ export function PortalAccessManager({
       toast.success("Acesso revogado");
       qc.invalidateQueries({ queryKey });
     } catch (error: any) {
-      toast.error(error.message ?? "Nao foi possivel revogar o acesso");
+      toast.error(translatedErrorMessage(error, "Nao foi possivel revogar o acesso."));
     }
   }
 

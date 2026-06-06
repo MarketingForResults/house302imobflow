@@ -82,8 +82,9 @@ async function ensurePortalAccessLink(data: PortalAccessPayload, invitedBy: stri
 
   const { data: link, error: linkError } = existing
     ? { data: existing, error: null }
-    : await admin.from("portal_access_links").insert(payload).select("*").single();
+    : await admin.from("portal_access_links").insert(payload).select("*").maybeSingle();
   if (linkError) throw new Error(linkError.message);
+  if (!link) throw new Error("O link de acesso foi criado, mas nao foi retornado pelo Supabase.");
 
   return { payload, link };
 }
@@ -230,7 +231,7 @@ export const revokePortalAccess = createServerFn({ method: "POST" })
       .from("portal_access_links")
       .select("*")
       .eq("id", data.accessId)
-      .single();
+      .maybeSingle();
     if (linkError || !link) throw new Error(linkError?.message ?? "Acesso nao encontrado");
 
     const revokedAt = new Date().toISOString();

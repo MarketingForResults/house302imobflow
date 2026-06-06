@@ -36,6 +36,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { translatedErrorMessage } from "@/lib/error-messages";
 import {
   composeAddress,
   lookupCepAddress,
@@ -91,6 +92,8 @@ function PartnersPage() {
 
   const { data: partners = [] } = useQuery({
     queryKey: ["capture-partners"],
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("capture_partners")
@@ -119,7 +122,7 @@ function PartnersPage() {
       });
       toast.success("Endereco preenchido pelo CEP");
     } catch (error: any) {
-      toast.error(error.message ?? "Nao foi possivel buscar o CEP");
+      toast.error(translatedErrorMessage(error, "Nao foi possivel buscar o CEP."));
     } finally {
       setSearchingCep(false);
     }
@@ -136,7 +139,7 @@ function PartnersPage() {
       ? supabase.from("capture_partners").update(payload).eq("id", editing.id)
       : supabase.from("capture_partners").insert(payload);
     const { error } = await query;
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar o parceiro."));
     toast.success(editing.id ? "Parceiro atualizado" : "Parceiro cadastrado");
     setEditing(null);
     refresh();
@@ -160,7 +163,7 @@ function PartnersPage() {
       .from("capture_partners")
       .update({ registration_status, active: registration_status === "approved" })
       .eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel revisar o parceiro."));
     toast.success(registration_status === "approved" ? "Parceiro aprovado" : "Parceiro reprovado");
     refresh();
   }
@@ -168,7 +171,7 @@ function PartnersPage() {
   async function remove(partner: any) {
     if (!confirm(`Excluir o parceiro ${partner.full_name}?`)) return;
     const { error } = await supabase.from("capture_partners").delete().eq("id", partner.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o parceiro."));
     toast.success("Parceiro excluido");
     refresh();
   }

@@ -22,6 +22,7 @@ import {
   sanitizeRichTextHtml,
 } from "@/lib/doc-placeholders";
 import { generateDocumentPdf } from "@/lib/pdf-utils";
+import { translatedErrorMessage } from "@/lib/error-messages";
 import { toast } from "sonner";
 import { ArrowLeft, Download } from "lucide-react";
 
@@ -140,11 +141,11 @@ function NewDocumentPage() {
         created_by: user?.id,
       })
       .select("*")
-      .single();
+      .maybeSingle();
 
     if (error) {
       setSaving(false);
-      return toast.error(error.message);
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel gerar o documento."));
     }
 
     const pdf = await generateDocumentPdf({

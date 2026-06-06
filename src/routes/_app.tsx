@@ -17,6 +17,7 @@ import {
   PanelLeftClose,
   Landmark,
   BadgeDollarSign,
+  Clock3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canAccessPath, formatRoles, hasAnyRole, ROUTE_ROLES } from "@/lib/permissions";
@@ -50,6 +51,8 @@ function AppLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [loginAt] = useState(() => new Date());
+  const [now, setNow] = useState(() => new Date());
   const canUseBackoffice = hasAnyRole(roles, ["admin", "manager", "financial", "broker"]);
   const portalOnly = !canUseBackoffice && hasAnyRole(roles, PORTAL_ROLES);
 
@@ -67,6 +70,11 @@ function AppLayout() {
     setMobileOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   if (loading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
@@ -78,6 +86,11 @@ function AppLayout() {
   if (portalOnly) {
     return <PortalOnlyLayout email={user.email} roles={roles} onSignOut={signOut} />;
   }
+
+  const roleLabel = formatRoles(roles);
+  const loginLabel = formatDateTimeBR(loginAt);
+  const elapsedLabel = formatElapsed(now.getTime() - loginAt.getTime());
+  const doSignOut = () => signOut().then(() => navigate({ to: "/" }));
 
   const SidebarBody = ({
     collapsed = false,
@@ -125,6 +138,15 @@ function AppLayout() {
           </>
         )}
       </div>
+      {!collapsed && !mobile && (
+        <div className="border-b px-4 py-2 text-[11px] leading-5 text-muted-foreground">
+          <div className="truncate">
+            Nivel: <span className="font-medium text-foreground">{roleLabel}</span>
+          </div>
+          <div className="truncate">Login: {loginLabel}</div>
+          <div className="truncate">Sessao: {elapsedLabel}</div>
+        </div>
+      )}
       <nav
         className={cn(
           "flex-1 overflow-y-auto",
@@ -158,14 +180,8 @@ function AppLayout() {
           })}
       </nav>
       <div className={cn("border-t", collapsed ? "p-2" : "p-3")}>
-        {!collapsed && (
-          <div className="mb-2 px-2 text-xs">
-            <div className="truncate font-medium">{user.email}</div>
-            <div className="text-muted-foreground">{formatRoles(roles)}</div>
-          </div>
-        )}
         <button
-          onClick={() => signOut().then(() => navigate({ to: "/" }))}
+          onClick={doSignOut}
           title={collapsed ? "Sair" : undefined}
           className={cn(
             "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground",
@@ -189,6 +205,25 @@ function AppLayout() {
         <SidebarBody collapsed={sidebarCollapsed} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 hidden min-h-16 items-center justify-between gap-4 border-b bg-background px-4 md:flex">
+          <div className="flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
+            <Clock3 className="h-4 w-4 text-primary" />
+            <div className="min-w-0">
+              <div className="truncate">
+                Nivel: <span className="font-medium text-foreground">{roleLabel}</span>
+              </div>
+              <div className="truncate">
+                Login: {loginLabel} | Sessao: {elapsedLabel}
+              </div>
+            </div>
+          </div>
+          <SessionAccount
+            email={user.email}
+            roleLabel={roleLabel}
+            elapsedLabel={elapsedLabel}
+            onSignOut={doSignOut}
+          />
+        </header>
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background px-3 md:hidden">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
@@ -204,11 +239,84 @@ function AppLayout() {
             </SheetContent>
           </Sheet>
           <img src={logo} alt="House302" className="h-auto max-h-6 max-w-[150px] object-contain" />
+          <div className="ml-auto">
+            <SessionAccount
+              email={user.email}
+              roleLabel={roleLabel}
+              elapsedLabel={elapsedLabel}
+              onSignOut={doSignOut}
+              compact
+            />
+          </div>
         </header>
         <main className="flex-1 overflow-x-hidden">
           <Outlet />
         </main>
       </div>
+    </div>
+  );
+}
+
+function formatDateTimeBR(value: Date) {
+  return value.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatElapsed(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map((item) => String(item).padStart(2, "0")).join(":");
+}
+
+function SessionAccount({
+  email,
+  roleLabel,
+  elapsedLabel,
+  onSignOut,
+  compact = false,
+}: {
+  email?: string;
+  roleLabel: string;
+  elapsedLabel: string;
+  onSignOut: () => void;
+  compact?: boolean;
+}) {
+  const initials = (email?.[0] ?? "H").toUpperCase();
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-full border bg-card shadow-sm",
+        compact ? "px-1.5 py-1" : "py-1.5 pl-3 pr-1.5",
+      )}
+    >
+      {!compact && (
+        <div className="min-w-0 text-right text-xs">
+          <div className="truncate font-medium">{email}</div>
+          <div className="truncate text-muted-foreground">
+            {roleLabel} | {elapsedLabel}
+          </div>
+        </div>
+      )}
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+        {initials}
+      </div>
+      <button
+        type="button"
+        onClick={onSignOut}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        title="Sair"
+        aria-label="Sair"
+      >
+        <LogOut className="h-4 w-4" />
+      </button>
     </div>
   );
 }

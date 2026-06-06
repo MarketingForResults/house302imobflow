@@ -26,6 +26,7 @@ import {
   PLACEHOLDER_LABELS,
   sanitizeRichTextHtml,
 } from "@/lib/doc-placeholders";
+import { translatedErrorMessage } from "@/lib/error-messages";
 import { toast } from "sonner";
 import {
   AlignCenter,
@@ -169,8 +170,12 @@ function TemplatesPage() {
       system_kind: false,
       sort_order: documentKinds.length * 10 + 100,
     };
-    const { data, error } = await supabase.from("document_kinds").insert(payload).select("*").single();
-    if (error) return toast.error(error.message);
+    const { data, error } = await supabase
+      .from("document_kinds")
+      .insert(payload)
+      .select("*")
+      .maybeSingle();
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel adicionar a modalidade."));
     const createdKind = data ?? payload;
     qc.setQueryData(["document_kinds"], (current: any[] | undefined) =>
       sortDocumentKinds([...(current ?? documentKinds).filter((kind: any) => kind.id !== id), createdKind]),
@@ -192,7 +197,7 @@ function TemplatesPage() {
     }
     if (!confirm(`Excluir a modalidade ${kind.label}?`)) return;
     const { error } = await supabase.from("document_kinds").delete().eq("id", kind.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir a modalidade."));
     qc.setQueryData(["document_kinds"], (current: any[] | undefined) =>
       (current ?? documentKinds).filter((candidate: any) => candidate.id !== kind.id),
     );
@@ -217,10 +222,10 @@ function TemplatesPage() {
         .from("document_templates")
         .update(payload)
         .eq("id", payload.id);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar o modelo."));
     } else {
       const { error } = await supabase.from("document_templates").insert(payload);
-      if (error) return toast.error(error.message);
+      if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar o modelo."));
     }
     toast.success("Modelo salvo");
     setEditing(null);
@@ -231,7 +236,7 @@ function TemplatesPage() {
   async function remove(id: string) {
     if (!confirm("Excluir este modelo?")) return;
     const { error } = await supabase.from("document_templates").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o modelo."));
     refetch();
   }
 
@@ -297,7 +302,7 @@ function TemplatesPage() {
       setEditorVersion((version) => version + 1);
       toast.success("Documento importado e pré-formatado. Revise o conteúdo antes de salvar.");
     } catch (error: any) {
-      toast.error(error.message ?? "Não foi possível importar o documento");
+      toast.error(translatedErrorMessage(error, "Nao foi possivel importar o documento."));
     } finally {
       setImporting(false);
     }

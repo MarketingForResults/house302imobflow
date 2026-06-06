@@ -37,6 +37,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadEntityDocument } from "@/lib/entity-documents";
+import { translatedErrorMessage } from "@/lib/error-messages";
 import { formatDateBR } from "@/lib/format-date";
 import { newReportPdf } from "@/lib/pdf-utils";
 
@@ -161,8 +162,9 @@ function SalesPage() {
       down_payment_amount: Number(contractForm.down_payment_amount || 0),
       commission_pct: contractForm.commission_pct ? Number(contractForm.commission_pct) : null,
     };
-    const { data, error } = await db.from("sale_contracts").insert(payload).select("*").single();
-    if (error) return toast.error(error.message);
+    const { data, error } = await db.from("sale_contracts").insert(payload).select("*").maybeSingle();
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel cadastrar a venda."));
+    if (!data?.id) return toast.error("Venda criada, mas nao foi possivel confirmar o registro.");
 
     if (contractFile) {
       try {
@@ -174,7 +176,7 @@ function SalesPage() {
           file: contractFile,
         });
       } catch (uploadError: any) {
-        toast.error(`Venda criada, mas não foi possível anexar o PDF: ${uploadError.message}`);
+        toast.error(`Venda criada, mas nao foi possivel anexar o PDF: ${translatedErrorMessage(uploadError, "Falha ao anexar o PDF.")}`);
       }
     }
     toast.success("Contrato de venda cadastrado");
@@ -200,7 +202,7 @@ function SalesPage() {
       amount_due: Number(paymentForm.amount_due),
       notes: paymentForm.notes?.trim() || null,
     });
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel adicionar o recebimento."));
     toast.success("Recebimento adicionado");
     setPaymentFor(null);
     setPaymentForm({ ...EMPTY_PAYMENT });
@@ -216,7 +218,7 @@ function SalesPage() {
         amount_paid: Number(payment.amount_due),
       })
       .eq("id", payment.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel confirmar o recebimento."));
     toast.success("Recebimento confirmado");
     refresh();
   }
@@ -224,14 +226,14 @@ function SalesPage() {
   async function removePayment(payment: any) {
     if (!confirm(`Excluir ${payment.description}?`)) return;
     const { error } = await db.from("sale_payments").delete().eq("id", payment.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o recebimento."));
     refresh();
   }
 
   async function removeContract(contract: any) {
     if (!confirm(`Excluir o contrato ${contract.code}?`)) return;
     const { error } = await db.from("sale_contracts").delete().eq("id", contract.id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o contrato."));
     toast.success("Contrato excluído");
     refresh();
   }
