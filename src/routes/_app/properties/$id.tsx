@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- The property form includes fields added by Supabase migrations before generated types are refreshed. */
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -87,12 +88,102 @@ const STATES = [
   { value: "TO", label: "Tocantins" },
 ];
 
+const PROPERTY_EDITABLE_FIELDS = [
+  "type",
+  "status",
+  "title",
+  "description",
+  "price",
+  "area_m2",
+  "bedrooms",
+  "bathrooms",
+  "suites",
+  "parking_spaces",
+  "address",
+  "neighborhood",
+  "city",
+  "state",
+  "country",
+  "latitude",
+  "longitude",
+  "video_url",
+  "tour_url",
+  "broker_id",
+  "commission_pct",
+  "created_by",
+  "wp_post_id",
+  "wp_synced_at",
+  "planned_furniture",
+  "furnished",
+  "financed",
+  "accepts_trade",
+  "exclusive",
+  "trade_notes",
+  "client_id",
+  "workflow_status",
+  "listing_purpose",
+  "capture_partner_id",
+  "owner_name",
+  "owner_cpf",
+  "owner_phone",
+  "owner_email",
+  "owner_address",
+  "capture_notes",
+  "admin_reviewed_by",
+  "admin_reviewed_at",
+  "admin_review_notes",
+  "sale_min_price",
+  "sale_max_price",
+  "rental_min_price",
+  "rental_max_price",
+] as const;
+
+const PROPERTY_NUMERIC_FIELDS = new Set([
+  "price",
+  "area_m2",
+  "bedrooms",
+  "bathrooms",
+  "suites",
+  "parking_spaces",
+  "latitude",
+  "longitude",
+  "commission_pct",
+  "sale_min_price",
+  "sale_max_price",
+  "rental_min_price",
+  "rental_max_price",
+]);
+
+const PROPERTY_OPTIONAL_RELATIONS = ["broker_id", "capture_partner_id", "client_id"];
+
+function normalizePropertyPayload(source: any) {
+  const payload: any = {};
+  for (const field of PROPERTY_EDITABLE_FIELDS) {
+    if (field in source) payload[field] = source[field];
+  }
+
+  for (const field of PROPERTY_NUMERIC_FIELDS) {
+    if (payload[field] === "") payload[field] = null;
+    else if (payload[field] !== null && payload[field] !== undefined) {
+      payload[field] = Number(payload[field]);
+    }
+  }
+
+  for (const field of PROPERTY_OPTIONAL_RELATIONS) {
+    if (payload[field] === "" || payload[field] === "none") payload[field] = null;
+  }
+
+  return payload;
+}
+
 function PropertyEdit() {
   const { roles } = useAuth();
   const isAdmin = roles.includes("admin");
   const { id } = useParams({ from: "/_app/properties/$id" });
   const isNew = id === "new";
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const db = supabase as any;
   const [form, setForm] = useState<any>({
     type: "house",
     status: "available",
@@ -106,6 +197,8 @@ function PropertyEdit() {
     exclusive: false,
   });
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [loadedPropertyId, setLoadedPropertyId] = useState<string | null>(null);
 
   const [cep, setCep] = useState("");
   const [searchingCep, setSearchingCep] = useState(false);
@@ -140,6 +233,7 @@ function PropertyEdit() {
   }, [form.state]);
 
   function handleStateChange(uf: string) {
+    setDirty(true);
     setForm((f: any) => ({ ...f, state: uf, city: "" }));
     fetchCities(uf);
   }
@@ -157,6 +251,7 @@ function PropertyEdit() {
         toast.error("CEP não encontrado!");
         return;
       }
+      setDirty(true);
       setForm((f: any) => ({
         ...f,
         state: data.uf,
@@ -195,6 +290,7 @@ function PropertyEdit() {
       const data = await res.json();
       if (data && data.length > 0) {
         const item = data[0];
+        setDirty(true);
         setForm((f: any) => ({
           ...f,
           latitude: parseFloat(item.lat),
@@ -243,25 +339,34 @@ function PropertyEdit() {
   const { data: existing, refetch } = useQuery({
     queryKey: ["property", id],
     enabled: !isNew,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await db
         .from("properties")
         .select("*, property_images(*)")
         .eq("id", id)
         .single();
+      if (error) throw error;
       return data;
     },
   });
 
   useEffect(() => {
-    if (existing) setForm(existing);
-  }, [existing]);
+    if (!existing) return;
+    if (!dirty || loadedPropertyId !== existing.id) {
+      setForm(existing);
+      setLoadedPropertyId(existing.id);
+      setDirty(false);
+    }
+  }, [dirty, existing, loadedPropertyId]);
 
   function set(k: string, v: any) {
+    setDirty(true);
     setForm((f: any) => ({ ...f, [k]: v }));
   }
   function selectOwner(clientId: string) {
     const owner = clients.find((client: any) => client.id === clientId);
+    setDirty(true);
     setForm((current: any) => ({
       ...current,
       client_id: clientId,
@@ -275,19 +380,9 @@ function PropertyEdit() {
 
   async function save() {
     setSaving(true);
-    const payload = { ...form };
-    delete payload.property_images;
-    if (payload.price === "") payload.price = null;
-    if (payload.broker_id === "" || payload.broker_id === "none") payload.broker_id = null;
-    if (payload.capture_partner_id === "" || payload.capture_partner_id === "none")
-      payload.capture_partner_id = null;
-    if (payload.client_id === "" || payload.client_id === "none") payload.client_id = null;
+    const payload = normalizePropertyPayload(form);
 
     if (isNew) {
-      delete payload.id;
-      delete payload.code;
-      delete payload.created_at;
-      delete payload.updated_at;
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -296,21 +391,26 @@ function PropertyEdit() {
         return toast.error("Sessão expirada. Entre novamente para cadastrar o imóvel.");
       }
       payload.created_by = user.id;
-      const { data, error } = await supabase
-        .from("properties")
-        .insert(payload)
-        .select("id")
-        .single();
+      const { data, error } = await db.from("properties").insert(payload).select("id").single();
       setSaving(false);
       if (error) return toast.error(error.message);
+      setDirty(false);
       toast.success("Imóvel criado");
       navigate({ to: "/properties/$id", params: { id: data.id } });
     } else {
-      const { error } = await supabase.from("properties").update(payload).eq("id", id);
+      const { data, error } = await db
+        .from("properties")
+        .update(payload)
+        .eq("id", id)
+        .select("*, property_images(*)")
+        .single();
       setSaving(false);
       if (error) return toast.error(error.message);
+      queryClient.setQueryData(["property", id], data);
+      setForm(data);
+      setLoadedPropertyId(data.id);
+      setDirty(false);
       toast.success("Salvo");
-      refetch();
     }
   }
 
@@ -327,10 +427,18 @@ function PropertyEdit() {
       patch.admin_reviewed_at = new Date().toISOString();
       patch.admin_review_notes = form.admin_review_notes ?? null;
     }
-    const { error } = await supabase.from("properties").update(patch).eq("id", id);
+    const { data, error } = await db
+      .from("properties")
+      .update(patch)
+      .eq("id", id)
+      .select("*, property_images(*)")
+      .single();
     if (error) return toast.error(error.message);
+    queryClient.setQueryData(["property", id], data);
+    setForm(data);
+    setLoadedPropertyId(data.id);
+    setDirty(false);
     toast.success(message);
-    refetch();
   }
 
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(

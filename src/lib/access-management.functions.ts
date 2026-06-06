@@ -34,6 +34,10 @@ function getRedirectUrl() {
   return origin ? `${origin}/login` : undefined;
 }
 
+function getActionLink(data: any) {
+  return data?.properties?.action_link ?? data?.properties?.actionLink ?? null;
+}
+
 export const invitePortalAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => InviteAccessSchema.parse(input))
@@ -75,38 +79,78 @@ export const invitePortalAccess = createServerFn({ method: "POST" })
     if (linkError) throw new Error(linkError.message);
 
     const redirectTo = getRedirectUrl();
+    const inviteMetadata = {
+      full_name: payload.full_name,
+      portal_role: payload.role,
+      portal_access_id: link.id,
+    };
     const { data: invite, error: inviteError } = await admin.auth.admin.inviteUserByEmail(
       payload.email,
       {
         redirectTo,
-        data: {
-          full_name: payload.full_name,
-          portal_role: payload.role,
-          portal_access_id: link.id,
-        },
+        data: inviteMetadata,
       },
     );
 
-    if (inviteError) {
+    const { data: generatedInvite, error: generateInviteError } =
+      await admin.auth.admin.generateLink({
+        type: "invite",
+        email: payload.email,
+        options: {
+          redirectTo,
+          data: inviteMetadata,
+        },
+      });
+    let generated = generatedInvite;
+    let generateError = generateInviteError;
+
+    if (generateError) {
+      const { data: recoveryLink, error: recoveryError } = await admin.auth.admin.generateLink({
+        type: "recovery",
+        email: payload.email,
+        options: {
+          redirectTo,
+          data: inviteMetadata,
+        },
+      });
+      if (!recoveryError) {
+        generateError = null;
+        generated = recoveryLink;
+      }
+    }
+
+    const actionLink = getActionLink(generated);
+
+    if (inviteError && !actionLink) {
       throw new Error(inviteError.message);
     }
 
-    if (invite.user?.id) {
+    const userId = invite?.user?.id ?? generated?.user?.id ?? null;
+
+    if (userId) {
       await admin
         .from("portal_access_links")
-        .update({ user_id: invite.user.id, accepted_at: new Date().toISOString() })
+        .update({ user_id: userId, accepted_at: new Date().toISOString() })
         .eq("id", link.id);
 
       await admin
         .from("user_roles")
-        .upsert({ user_id: invite.user.id, role: data.role }, { onConflict: "user_id,role" });
+        .upsert({ user_id: userId, role: data.role }, { onConflict: "user_id,role" });
 
       if (data.role === "broker" && data.brokerId) {
-        await admin.from("brokers").update({ user_id: invite.user.id }).eq("id", data.brokerId);
+        await admin.from("brokers").update({ user_id: userId }).eq("id", data.brokerId);
       }
     }
 
-    return { ok: true, accessId: link.id, userId: invite.user?.id ?? null };
+    return {
+      ok: true,
+      accessId: link.id,
+      userId,
+      actionLink,
+      emailSent: !inviteError,
+      emailError: inviteError?.message ?? null,
+      linkError: generateError?.message ?? null,
+    };
   });
 
 export const revokePortalAccess = createServerFn({ method: "POST" })

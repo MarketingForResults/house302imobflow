@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase types are regenerated after the new portal_access_links migration is applied. */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { KeyRound, MailPlus, ShieldOff } from "lucide-react";
+import { Copy, KeyRound, MailPlus, ShieldOff } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { invitePortalAccess, revokePortalAccess } from "@/lib/access-management.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type AccessRole = "owner" | "tenant" | "broker";
 
@@ -25,6 +27,13 @@ const ROLE_LABEL: Record<AccessRole, string> = {
 };
 const db = supabase as any;
 
+interface ManualInvite {
+  role: AccessRole;
+  actionLink: string;
+  emailSent: boolean;
+  emailError?: string | null;
+}
+
 export function PortalAccessManager({
   entity,
   entityId,
@@ -36,6 +45,7 @@ export function PortalAccessManager({
   const inviteAccess = useServerFn(invitePortalAccess);
   const revokeAccess = useServerFn(revokePortalAccess);
   const queryKey = ["portal_access_links", entity, entityId];
+  const [manualInvite, setManualInvite] = useState<ManualInvite | null>(null);
 
   const { data: links = [], isLoading } = useQuery({
     queryKey,
@@ -62,7 +72,7 @@ export function PortalAccessManager({
     }
 
     try {
-      await inviteAccess({
+      const result = (await inviteAccess({
         data: {
           email,
           fullName,
@@ -70,11 +80,36 @@ export function PortalAccessManager({
           clientId: entity === "client" ? entityId : null,
           brokerId: entity === "broker" ? entityId : null,
         },
-      });
-      toast.success(`Convite de ${ROLE_LABEL[role].toLowerCase()} enviado`);
+      })) as ManualInvite | null;
+
+      if (result?.actionLink) {
+        setManualInvite({ ...result, role });
+        navigator.clipboard
+          ?.writeText(result.actionLink)
+          .then(() => toast.success("Link de acesso gerado e copiado"))
+          .catch(() => toast.success("Link de acesso gerado"));
+      } else {
+        setManualInvite(null);
+        toast.success(`Convite de ${ROLE_LABEL[role].toLowerCase()} enviado`);
+      }
+
+      if (result && !result.emailSent) {
+        toast.warning(result.emailError ?? "O e-mail nao foi enviado; use o link manual");
+      }
+
       qc.invalidateQueries({ queryKey });
     } catch (error: any) {
       toast.error(error.message ?? "Nao foi possivel gerar o acesso");
+    }
+  }
+
+  async function copyManualLink() {
+    if (!manualInvite?.actionLink) return;
+    try {
+      await navigator.clipboard.writeText(manualInvite.actionLink);
+      toast.success("Link copiado");
+    } catch {
+      toast.error("Nao foi possivel copiar o link");
     }
   }
 
@@ -138,6 +173,20 @@ export function PortalAccessManager({
           );
         })}
       </div>
+      {manualInvite?.actionLink && (
+        <div className="mt-3 rounded-md border border-primary/20 bg-primary/5 p-2 text-xs">
+          <div className="mb-2 font-medium text-foreground">
+            Link manual de {ROLE_LABEL[manualInvite.role].toLowerCase()}
+          </div>
+          <div className="flex gap-2">
+            <Input readOnly value={manualInvite.actionLink} className="h-8 text-xs" />
+            <Button type="button" variant="outline" size="sm" onClick={copyManualLink}>
+              <Copy className="mr-1.5 h-3.5 w-3.5" />
+              Copiar
+            </Button>
+          </div>
+        </div>
+      )}
       <p className="mt-2 text-xs text-muted-foreground">
         O convite e enviado para o e-mail cadastrado. O administrador pode revogar o acesso a
         qualquer momento.
