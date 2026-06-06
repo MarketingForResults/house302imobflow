@@ -176,6 +176,32 @@ function normalizePropertyPayload(source: any) {
   return payload;
 }
 
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+async function loadProperty(db: any, propertyId: string) {
+  const { data, error } = await db
+    .from("properties")
+    .select("*, property_images(*)")
+    .eq("id", propertyId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Imóvel não encontrado ou sem permissão de leitura");
+  return data;
+}
+
+async function updateProperty(db: any, propertyId: string, patch: any) {
+  const { data, error } = await db
+    .from("properties")
+    .update(patch)
+    .eq("id", propertyId)
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("O imóvel não foi atualizado. Verifique as permissões de edição.");
+}
+
 function PropertyEdit() {
   const { roles } = useAuth();
   const isAdmin = roles.includes("admin");
@@ -340,15 +366,7 @@ function PropertyEdit() {
     queryKey: ["property", id],
     enabled: !isNew,
     refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const { data, error } = await db
-        .from("properties")
-        .select("*, property_images(*)")
-        .eq("id", id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
+    queryFn: async () => loadProperty(db, id),
   });
 
   useEffect(() => {
@@ -398,19 +416,19 @@ function PropertyEdit() {
       toast.success("Imóvel criado");
       navigate({ to: "/properties/$id", params: { id: data.id } });
     } else {
-      const { data, error } = await db
-        .from("properties")
-        .update(payload)
-        .eq("id", id)
-        .select("*, property_images(*)")
-        .single();
-      setSaving(false);
-      if (error) return toast.error(error.message);
-      queryClient.setQueryData(["property", id], data);
-      setForm(data);
-      setLoadedPropertyId(data.id);
-      setDirty(false);
-      toast.success("Salvo");
+      try {
+        await updateProperty(db, id, payload);
+        const data = await loadProperty(db, id);
+        queryClient.setQueryData(["property", id], data);
+        setForm(data);
+        setLoadedPropertyId(data.id);
+        setDirty(false);
+        toast.success("Salvo");
+      } catch (updateError: unknown) {
+        toast.error(errorMessage(updateError, "Nao foi possivel salvar o imovel"));
+      } finally {
+        setSaving(false);
+      }
     }
   }
 
@@ -427,18 +445,17 @@ function PropertyEdit() {
       patch.admin_reviewed_at = new Date().toISOString();
       patch.admin_review_notes = form.admin_review_notes ?? null;
     }
-    const { data, error } = await db
-      .from("properties")
-      .update(patch)
-      .eq("id", id)
-      .select("*, property_images(*)")
-      .single();
-    if (error) return toast.error(error.message);
-    queryClient.setQueryData(["property", id], data);
-    setForm(data);
-    setLoadedPropertyId(data.id);
-    setDirty(false);
-    toast.success(message);
+    try {
+      await updateProperty(db, id, patch);
+      const data = await loadProperty(db, id);
+      queryClient.setQueryData(["property", id], data);
+      setForm(data);
+      setLoadedPropertyId(data.id);
+      setDirty(false);
+      toast.success(message);
+    } catch (updateError: unknown) {
+      toast.error(errorMessage(updateError, "Nao foi possivel atualizar o atendimento"));
+    }
   }
 
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(
