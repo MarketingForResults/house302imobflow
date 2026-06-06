@@ -519,12 +519,17 @@ function PropertyEdit() {
           data: { publicUrl },
         } = supabase.storage.from("property-images").getPublicUrl(path);
         const isFirst = currentCount === 0 && success === 0;
-        await supabase.from("property_images").insert({
+        const { error: imageError } = await supabase.from("property_images").insert({
           property_id: id,
           image_url: publicUrl,
           is_cover: isFirst,
           sort_order: currentCount + success,
         });
+        if (imageError) {
+          await supabase.storage.from("property-images").remove([path]);
+          toast.error(`${file.name}: ${imageError.message}`);
+          continue;
+        }
         success++;
       } catch (e: any) {
         toast.error(`${file.name}: ${e.message}`);
