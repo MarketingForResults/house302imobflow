@@ -16,8 +16,24 @@ export type Database = {
     Tables: {
       app_settings: {
         Row: {
+          company_address: string | null
+          company_cnpj: string | null
+          company_creci: string | null
+          company_email: string | null
+          company_legal_name: string | null
+          company_city: string | null
+          company_complement: string | null
+          company_neighborhood: string | null
+          company_number: string | null
+          company_person_type: string
+          company_phone: string | null
+          company_state: string | null
+          company_street: string | null
+          company_trade_name: string | null
+          company_zip_code: string | null
           contract_default_commission_pct: number | null
           id: boolean
+          rental_contract_notes: string | null
           rental_daily_interest_pct: number
           rental_default_contract_type: string
           rental_default_due_day: number
@@ -30,14 +46,31 @@ export type Database = {
           sale_default_commission_pct: number
           sale_default_down_payment_pct: number
           sale_default_payment_method: string
+          sale_contract_notes: string | null
           sale_itbi_pct: number
           savings_monthly_rate_pct: number
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          company_address?: string | null
+          company_cnpj?: string | null
+          company_creci?: string | null
+          company_email?: string | null
+          company_legal_name?: string | null
+          company_city?: string | null
+          company_complement?: string | null
+          company_neighborhood?: string | null
+          company_number?: string | null
+          company_person_type?: string
+          company_phone?: string | null
+          company_state?: string | null
+          company_street?: string | null
+          company_trade_name?: string | null
+          company_zip_code?: string | null
           contract_default_commission_pct?: number | null
           id?: boolean
+          rental_contract_notes?: string | null
           rental_daily_interest_pct?: number
           rental_default_contract_type?: string
           rental_default_due_day?: number
@@ -50,14 +83,31 @@ export type Database = {
           sale_default_commission_pct?: number
           sale_default_down_payment_pct?: number
           sale_default_payment_method?: string
+          sale_contract_notes?: string | null
           sale_itbi_pct?: number
           savings_monthly_rate_pct?: number
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          company_address?: string | null
+          company_cnpj?: string | null
+          company_creci?: string | null
+          company_email?: string | null
+          company_legal_name?: string | null
+          company_city?: string | null
+          company_complement?: string | null
+          company_neighborhood?: string | null
+          company_number?: string | null
+          company_person_type?: string
+          company_phone?: string | null
+          company_state?: string | null
+          company_street?: string | null
+          company_trade_name?: string | null
+          company_zip_code?: string | null
           contract_default_commission_pct?: number | null
           id?: boolean
+          rental_contract_notes?: string | null
           rental_daily_interest_pct?: number
           rental_default_contract_type?: string
           rental_default_due_day?: number
@@ -70,6 +120,7 @@ export type Database = {
           sale_default_commission_pct?: number
           sale_default_down_payment_pct?: number
           sale_default_payment_method?: string
+          sale_contract_notes?: string | null
           sale_itbi_pct?: number
           savings_monthly_rate_pct?: number
           updated_at?: string

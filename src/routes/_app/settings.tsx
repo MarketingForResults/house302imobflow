@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Select,
   SelectContent,
@@ -17,13 +18,50 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { RefreshCw, ExternalLink } from "lucide-react";
+import { ExternalLink, Pencil, RefreshCw, RotateCcw, Save, Search, Trash2 } from "lucide-react";
 import { refreshEconomicIndexes } from "@/lib/economic-indexes.functions";
 import { translatedErrorMessage } from "@/lib/error-messages";
 import { formatDateBR } from "@/lib/format-date";
-import { maskCnpj, maskPhone } from "@/lib/form-utils";
+import {
+  composeAddress,
+  lookupCepAddress,
+  maskCep,
+  maskCnpj,
+  maskCpf,
+  maskPhone,
+} from "@/lib/form-utils";
 
 export const Route = createFileRoute("/_app/settings")({ component: SettingsPage });
+
+type InstitutionalPersonType = "juridica" | "fisica";
+
+const INSTITUTIONAL_FIELDS = [
+  "company_person_type",
+  "company_legal_name",
+  "company_trade_name",
+  "company_cnpj",
+  "company_creci",
+  "company_zip_code",
+  "company_street",
+  "company_number",
+  "company_complement",
+  "company_neighborhood",
+  "company_city",
+  "company_state",
+  "company_address",
+  "company_phone",
+  "company_email",
+] as const;
+
+const COMPANY_ADDRESS_FIELDS = new Set([
+  "company_zip_code",
+  "company_street",
+  "company_number",
+  "company_complement",
+  "company_neighborhood",
+  "company_city",
+  "company_state",
+]);
 
 const INDEX_OPTIONS = [
   { code: "IPCA", label: "IPCA (IBGE)" },
@@ -44,6 +82,12 @@ interface FieldProps {
   step?: string;
   suffix?: string;
   mask?: (value: string) => string;
+  placeholder?: string;
+  inputMode?: any;
+  disabled?: boolean;
+  readOnly?: boolean;
+  onValueChange?: (value: string) => void;
+  institutionalFieldsDisabled?: boolean;
 }
 
 function Field({
@@ -56,6 +100,12 @@ function Field({
   step = "0.01",
   suffix,
   mask,
+  placeholder,
+  inputMode,
+  disabled,
+  readOnly,
+  onValueChange,
+  institutionalFieldsDisabled,
 }: FieldProps) {
   return (
     <div>
@@ -64,9 +114,20 @@ function Field({
         <Input
           type={type}
           step={step}
+          placeholder={placeholder}
+          inputMode={inputMode}
+          readOnly={readOnly}
           value={settings[k] ?? ""}
-          disabled={!isAdmin}
-          onChange={(e) => setSetting(k, mask ? mask(e.target.value) : e.target.value)}
+          disabled={
+            !isAdmin ||
+            disabled ||
+            (k.startsWith("company_") && Boolean(institutionalFieldsDisabled))
+          }
+          onChange={(e) => {
+            const value = mask ? mask(e.target.value) : e.target.value;
+            if (onValueChange) onValueChange(value);
+            else setSetting(k, value);
+          }}
         />
         {suffix && (
           <span className="text-xs text-muted-foreground whitespace-nowrap">{suffix}</span>
@@ -85,7 +146,10 @@ function SettingsPage() {
     months: "",
   });
   const [saving, setSaving] = useState(false);
+  const [savingInstitutional, setSavingInstitutional] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [cepSearching, setCepSearching] = useState(false);
+  const [institutionalEditing, setInstitutionalEditing] = useState(false);
   const [indexes, setIndexes] = useState<any[]>([]);
   const refresh = useServerFn(refreshEconomicIndexes);
 
@@ -97,13 +161,13 @@ function SettingsPage() {
     setIndexes(data ?? []);
   }
 
+  async function loadSettings() {
+    const { data } = await supabase.from("app_settings").select("*").eq("id", true).maybeSingle();
+    setS(data ?? {});
+  }
+
   useEffect(() => {
-    supabase
-      .from("app_settings")
-      .select("*")
-      .eq("id", true)
-      .maybeSingle()
-      .then(({ data }) => setS(data ?? {}));
+    loadSettings();
     loadIndexes();
   }, []);
 
@@ -131,10 +195,18 @@ function SettingsPage() {
         sale_default_payment_method: s.sale_default_payment_method ?? "a_vista",
         sale_deed_type: s.sale_deed_type ?? "escritura_publica",
         sale_default_down_payment_pct: Number(s.sale_default_down_payment_pct ?? 0),
+        company_person_type: s.company_person_type === "fisica" ? "fisica" : "juridica",
         company_legal_name: s.company_legal_name ?? null,
         company_trade_name: s.company_trade_name ?? null,
         company_cnpj: s.company_cnpj ?? null,
         company_creci: s.company_creci ?? null,
+        company_zip_code: s.company_zip_code ?? null,
+        company_street: s.company_street ?? null,
+        company_number: s.company_number ?? null,
+        company_complement: s.company_complement ?? null,
+        company_neighborhood: s.company_neighborhood ?? null,
+        company_city: s.company_city ?? null,
+        company_state: s.company_state ?? null,
         company_address: s.company_address ?? null,
         company_phone: s.company_phone ?? null,
         company_email: s.company_email ?? null,
@@ -146,6 +218,111 @@ function SettingsPage() {
     setSaving(false);
     if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar as configuracoes."));
     toast.success("Configurações salvas.");
+  }
+
+  function composeCompanyAddress(settings: any) {
+    return composeAddress({
+      zip_code: settings.company_zip_code,
+      street: settings.company_street,
+      number: settings.company_number,
+      complement: settings.company_complement,
+      neighborhood: settings.company_neighborhood,
+      city: settings.company_city,
+      state: settings.company_state,
+      address: settings.company_address,
+    });
+  }
+
+  function buildInstitutionalPatch(settings = s) {
+    const patch: Record<string, any> = {};
+    for (const field of INSTITUTIONAL_FIELDS) patch[field] = settings[field] ?? null;
+    patch.company_person_type = settings.company_person_type === "fisica" ? "fisica" : "juridica";
+    patch.company_address = composeCompanyAddress(settings) || settings.company_address || null;
+    return patch;
+  }
+
+  function setInstitutionalValue(key: string, value: string) {
+    setS((current: any) => {
+      const next = { ...current, [key]: value };
+      if (COMPANY_ADDRESS_FIELDS.has(key)) next.company_address = composeCompanyAddress(next);
+      return next;
+    });
+  }
+
+  function newInstitutionalData() {
+    setS((current: any) => ({
+      ...current,
+      company_person_type: "juridica",
+      company_legal_name: null,
+      company_trade_name: null,
+      company_cnpj: null,
+      company_creci: null,
+      company_zip_code: null,
+      company_street: null,
+      company_number: null,
+      company_complement: null,
+      company_neighborhood: null,
+      company_city: null,
+      company_state: null,
+      company_address: null,
+      company_phone: null,
+      company_email: null,
+    }));
+    setInstitutionalEditing(true);
+  }
+
+  async function saveInstitutionalData() {
+    setSavingInstitutional(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { error } = await supabase
+      .from("app_settings")
+      .update({ ...buildInstitutionalPatch(), updated_by: user?.id })
+      .eq("id", true);
+    setSavingInstitutional(false);
+    if (error) return toast.error(error.message);
+    setInstitutionalEditing(false);
+    toast.success("Cadastro institucional salvo.");
+    await loadSettings();
+  }
+
+  async function deleteInstitutionalData() {
+    if (!window.confirm("Excluir os dados institucionais deste cadastro?")) return;
+    const patch = Object.fromEntries(INSTITUTIONAL_FIELDS.map((field) => [field, null]));
+    patch.company_person_type = "juridica";
+    setSavingInstitutional(true);
+    const { error } = await supabase.from("app_settings").update(patch).eq("id", true);
+    setSavingInstitutional(false);
+    if (error) return toast.error(error.message);
+    setInstitutionalEditing(false);
+    toast.success("Cadastro institucional excluido.");
+    await loadSettings();
+  }
+
+  async function fillCompanyAddressByCep() {
+    if (!s.company_zip_code) return toast.error("Informe o CEP para buscar o endereco.");
+    setCepSearching(true);
+    try {
+      const address = await lookupCepAddress(s.company_zip_code);
+      setS((current: any) => {
+        const next = {
+          ...current,
+          company_zip_code: address.zip_code,
+          company_street: address.street,
+          company_neighborhood: address.neighborhood,
+          company_city: address.city,
+          company_state: address.state,
+        };
+        next.company_address = composeCompanyAddress(next);
+        return next;
+      });
+      toast.success("Endereco preenchido pelo CEP.");
+    } catch (e: any) {
+      toast.error(e.message ?? "Nao foi possivel buscar o CEP");
+    } finally {
+      setCepSearching(false);
+    }
   }
 
   async function handleRefresh() {
@@ -179,7 +356,14 @@ function SettingsPage() {
   }
 
   const selectedIndex = indexes.find((i) => i.code === s.rental_default_readjustment_index);
-  const fieldProps = { settings: s, isAdmin, setSetting };
+  const companyPersonType: InstitutionalPersonType =
+    s.company_person_type === "fisica" ? "fisica" : "juridica";
+  const isIndividual = companyPersonType === "fisica";
+  const hasInstitutionalData = INSTITUTIONAL_FIELDS.some(
+    (field) => field !== "company_person_type" && Boolean(s[field]),
+  );
+  const institutionalFieldsDisabled = !institutionalEditing || savingInstitutional;
+  const fieldProps = { settings: s, isAdmin, setSetting, institutionalFieldsDisabled };
 
   return (
     <div>
@@ -205,13 +389,105 @@ function SettingsPage() {
             Dados institucionais para documentos
           </h2>
           <p className="mb-4 text-xs text-muted-foreground">
-            Informações da imobiliária disponíveis para contratos, autorizações e outros modelos.
+            {isIndividual
+              ? "Informações do corretor independente disponíveis para contratos, autorizações e outros modelos."
+              : "Informações da imobiliária disponíveis para contratos, autorizações e outros modelos."}
           </p>
+          {isAdmin && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={newInstitutionalData}>
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                Novo
+              </Button>
+              {!institutionalEditing ? (
+                <Button size="sm" variant="outline" onClick={() => setInstitutionalEditing(true)}>
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                  Editar
+                </Button>
+              ) : (
+                <>
+                  <Button size="sm" onClick={saveInstitutionalData} disabled={savingInstitutional}>
+                    <Save className="mr-1.5 h-3.5 w-3.5" />
+                    {savingInstitutional ? "Salvando..." : "Salvar cadastro"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      await loadSettings();
+                      setInstitutionalEditing(false);
+                    }}
+                    disabled={savingInstitutional}
+                  >
+                    Cancelar
+                  </Button>
+                </>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                onClick={deleteInstitutionalData}
+                disabled={!hasInstitutionalData || savingInstitutional}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                Excluir
+              </Button>
+            </div>
+          )}
+          <div className="mb-5 flex flex-col gap-3 border-b pb-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <Label className="text-xs">Tipo de cadastro institucional</Label>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {isIndividual ? "Corretor pessoa física" : "Imobiliária pessoa jurídica"}
+              </div>
+            </div>
+            <ToggleGroup
+              type="single"
+              value={companyPersonType}
+              disabled={!isAdmin || institutionalFieldsDisabled}
+              onValueChange={(value) => {
+                if (!value) return;
+                setS({ ...s, company_person_type: value as InstitutionalPersonType });
+              }}
+              className="w-full justify-start rounded-md border bg-muted/20 p-1 sm:w-auto"
+            >
+              <ToggleGroupItem value="juridica" className="h-8 flex-1 px-3 sm:flex-none">
+                Pessoa jurídica
+              </ToggleGroupItem>
+              <ToggleGroupItem value="fisica" className="h-8 flex-1 px-3 sm:flex-none">
+                Pessoa física
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field {...fieldProps} k="company_legal_name" label="Razão social" type="text" />
-            <Field {...fieldProps} k="company_trade_name" label="Nome fantasia" type="text" />
-            <Field {...fieldProps} k="company_cnpj" label="CNPJ" type="text" mask={maskCnpj} />
-            <Field {...fieldProps} k="company_creci" label="CRECI da imobiliária" type="text" />
+            <Field
+              {...fieldProps}
+              k="company_legal_name"
+              label={isIndividual ? "Nome completo" : "Razão social"}
+              type="text"
+            />
+            <Field
+              {...fieldProps}
+              k="company_trade_name"
+              label={isIndividual ? "Nome profissional" : "Nome fantasia"}
+              type="text"
+            />
+            <Field
+              {...fieldProps}
+              k="company_cnpj"
+              label={isIndividual ? "CPF" : "CNPJ"}
+              type="text"
+              mask={isIndividual ? maskCpf : maskCnpj}
+              inputMode="numeric"
+              placeholder={isIndividual ? "000.000.000-00" : "00.000.000/0000-00"}
+            />
+            <Field
+              {...fieldProps}
+              k="company_creci"
+              label={isIndividual ? "CRECI do corretor" : "CRECI da imobiliária"}
+              type="text"
+            />
             <Field
               {...fieldProps}
               k="company_phone"
@@ -220,8 +496,88 @@ function SettingsPage() {
               mask={maskPhone}
             />
             <Field {...fieldProps} k="company_email" label="E-mail" type="email" />
+            <div>
+              <Label className="text-xs">CEP</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="00000-000"
+                  value={s.company_zip_code ?? ""}
+                  disabled={!isAdmin || institutionalFieldsDisabled}
+                  onChange={(e) =>
+                    setInstitutionalValue("company_zip_code", maskCep(e.target.value))
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={fillCompanyAddressByCep}
+                  disabled={!isAdmin || institutionalFieldsDisabled || cepSearching}
+                >
+                  <Search className="mr-1.5 h-3.5 w-3.5" />
+                  {cepSearching ? "Buscando..." : "Buscar"}
+                </Button>
+              </div>
+            </div>
+            <Field
+              {...fieldProps}
+              k="company_street"
+              label="Rua"
+              type="text"
+              onValueChange={(value: string) => setInstitutionalValue("company_street", value)}
+            />
+            <Field
+              {...fieldProps}
+              k="company_number"
+              label="Número"
+              type="text"
+              onValueChange={(value: string) => setInstitutionalValue("company_number", value)}
+            />
+            <Field
+              {...fieldProps}
+              k="company_complement"
+              label="Complemento"
+              type="text"
+              onValueChange={(value: string) =>
+                setInstitutionalValue("company_complement", value)
+              }
+            />
+            <Field
+              {...fieldProps}
+              k="company_neighborhood"
+              label="Bairro"
+              type="text"
+              onValueChange={(value: string) =>
+                setInstitutionalValue("company_neighborhood", value)
+              }
+            />
+            <div className="grid gap-4 sm:grid-cols-[1fr_7rem]">
+              <Field
+                {...fieldProps}
+                k="company_city"
+                label="Cidade"
+                type="text"
+                onValueChange={(value: string) => setInstitutionalValue("company_city", value)}
+              />
+              <Field
+                {...fieldProps}
+                k="company_state"
+                label="UF"
+                type="text"
+                onValueChange={(value: string) =>
+                  setInstitutionalValue("company_state", value.toUpperCase().slice(0, 2))
+                }
+              />
+            </div>
             <div className="sm:col-span-2">
-              <Field {...fieldProps} k="company_address" label="Endereço completo" type="text" />
+              <Field
+                {...fieldProps}
+                k="company_address"
+                label="Endereço completo"
+                type="text"
+                readOnly
+              />
             </div>
           </div>
         </section>
