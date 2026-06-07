@@ -16,24 +16,8 @@ export type Database = {
     Tables: {
       app_settings: {
         Row: {
-          company_address: string | null
-          company_cnpj: string | null
-          company_creci: string | null
-          company_email: string | null
-          company_legal_name: string | null
-          company_city: string | null
-          company_complement: string | null
-          company_neighborhood: string | null
-          company_number: string | null
-          company_person_type: string
-          company_phone: string | null
-          company_state: string | null
-          company_street: string | null
-          company_trade_name: string | null
-          company_zip_code: string | null
           contract_default_commission_pct: number | null
           id: boolean
-          rental_contract_notes: string | null
           rental_daily_interest_pct: number
           rental_default_contract_type: string
           rental_default_due_day: number
@@ -46,31 +30,14 @@ export type Database = {
           sale_default_commission_pct: number
           sale_default_down_payment_pct: number
           sale_default_payment_method: string
-          sale_contract_notes: string | null
           sale_itbi_pct: number
           savings_monthly_rate_pct: number
           updated_at: string
           updated_by: string | null
         }
         Insert: {
-          company_address?: string | null
-          company_cnpj?: string | null
-          company_creci?: string | null
-          company_email?: string | null
-          company_legal_name?: string | null
-          company_city?: string | null
-          company_complement?: string | null
-          company_neighborhood?: string | null
-          company_number?: string | null
-          company_person_type?: string
-          company_phone?: string | null
-          company_state?: string | null
-          company_street?: string | null
-          company_trade_name?: string | null
-          company_zip_code?: string | null
           contract_default_commission_pct?: number | null
           id?: boolean
-          rental_contract_notes?: string | null
           rental_daily_interest_pct?: number
           rental_default_contract_type?: string
           rental_default_due_day?: number
@@ -83,31 +50,14 @@ export type Database = {
           sale_default_commission_pct?: number
           sale_default_down_payment_pct?: number
           sale_default_payment_method?: string
-          sale_contract_notes?: string | null
           sale_itbi_pct?: number
           savings_monthly_rate_pct?: number
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
-          company_address?: string | null
-          company_cnpj?: string | null
-          company_creci?: string | null
-          company_email?: string | null
-          company_legal_name?: string | null
-          company_city?: string | null
-          company_complement?: string | null
-          company_neighborhood?: string | null
-          company_number?: string | null
-          company_person_type?: string
-          company_phone?: string | null
-          company_state?: string | null
-          company_street?: string | null
-          company_trade_name?: string | null
-          company_zip_code?: string | null
           contract_default_commission_pct?: number | null
           id?: boolean
-          rental_contract_notes?: string | null
           rental_daily_interest_pct?: number
           rental_default_contract_type?: string
           rental_default_due_day?: number
@@ -120,7 +70,6 @@ export type Database = {
           sale_default_commission_pct?: number
           sale_default_down_payment_pct?: number
           sale_default_payment_method?: string
-          sale_contract_notes?: string | null
           sale_itbi_pct?: number
           savings_monthly_rate_pct?: number
           updated_at?: string
@@ -683,22 +632,11 @@ export type Database = {
           amount_paid: number | null
           contract_id: string
           created_at: string
-          deposit_refund_amount: number | null
-          deposit_refund_due_date: string | null
-          deposit_refund_notes: string | null
-          deposit_refund_receipt_file_name: string | null
-          deposit_refund_receipt_file_path: string | null
-          deposit_refund_uploaded_at: string | null
-          deposit_refunded_at: string | null
           due_date: string
           id: string
           notes: string | null
           paid_at: string | null
-          payment_kind: string
           reference_month: string
-          receipt_file_name: string | null
-          receipt_file_path: string | null
-          receipt_uploaded_at: string | null
           status: Database["public"]["Enums"]["rental_payment_status"]
           updated_at: string
         }
@@ -707,22 +645,11 @@ export type Database = {
           amount_paid?: number | null
           contract_id: string
           created_at?: string
-          deposit_refund_amount?: number | null
-          deposit_refund_due_date?: string | null
-          deposit_refund_notes?: string | null
-          deposit_refund_receipt_file_name?: string | null
-          deposit_refund_receipt_file_path?: string | null
-          deposit_refund_uploaded_at?: string | null
-          deposit_refunded_at?: string | null
           due_date: string
           id?: string
           notes?: string | null
           paid_at?: string | null
-          payment_kind?: string
           reference_month: string
-          receipt_file_name?: string | null
-          receipt_file_path?: string | null
-          receipt_uploaded_at?: string | null
           status?: Database["public"]["Enums"]["rental_payment_status"]
           updated_at?: string
         }
@@ -731,22 +658,11 @@ export type Database = {
           amount_paid?: number | null
           contract_id?: string
           created_at?: string
-          deposit_refund_amount?: number | null
-          deposit_refund_due_date?: string | null
-          deposit_refund_notes?: string | null
-          deposit_refund_receipt_file_name?: string | null
-          deposit_refund_receipt_file_path?: string | null
-          deposit_refund_uploaded_at?: string | null
-          deposit_refunded_at?: string | null
           due_date?: string
           id?: string
           notes?: string | null
           paid_at?: string | null
-          payment_kind?: string
           reference_month?: string
-          receipt_file_name?: string | null
-          receipt_file_path?: string | null
-          receipt_uploaded_at?: string | null
           status?: Database["public"]["Enums"]["rental_payment_status"]
           updated_at?: string
         }
@@ -842,7 +758,7 @@ export type Database = {
       mark_late_rental_payments: { Args: never; Returns: number }
     }
     Enums: {
-      app_role: "admin" | "manager" | "financial" | "broker"
+      app_role: "admin" | "manager" | "broker"
       document_kind:
         | "visit_form"
         | "sale_contract"
@@ -991,7 +907,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "manager", "financial", "broker"],
+      app_role: ["admin", "manager", "broker"],
       document_kind: [
         "visit_form",
         "sale_contract",
