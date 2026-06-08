@@ -338,7 +338,7 @@ function SettingsPage() {
       if (ok > 0) {
         toast.success(`${ok}/${results.length} índices atualizados nos sites oficiais (BCB/SGS)`);
       } else {
-        const firstError = results.find((r: any) => r.error)?.error;
+        const firstError = (results as any[]).find((r) => !r.ok)?.error;
         toast.error(translatedErrorMessage(firstError, "Nenhum indice foi atualizado nos sites oficiais."));
       }
       await loadIndexes();
