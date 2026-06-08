@@ -17,7 +17,6 @@ import {
   PanelLeftClose,
   Landmark,
   BadgeDollarSign,
-  Clock3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canAccessPath, formatRoles, hasAnyRole, ROUTE_ROLES } from "@/lib/permissions";
