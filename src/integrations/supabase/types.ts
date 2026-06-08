@@ -133,6 +133,9 @@ export type Database = {
           active: boolean
           address: string | null
           avatar_url: string | null
+          bank_account: string | null
+          bank_agency: string | null
+          bank_name: string | null
           birth_date: string | null
           city: string | null
           cnh: string | null
@@ -142,11 +145,17 @@ export type Database = {
           created_at: string
           creci: string | null
           email: string | null
+          father_name: string | null
           full_name: string
           id: string
+          marital_status: string | null
+          mother_name: string | null
+          nationality: string | null
           neighborhood: string | null
           number: string | null
           phone: string | null
+          pix_key: string | null
+          profession: string | null
           registration_status: string
           rg: string | null
           state: string | null
@@ -159,6 +168,9 @@ export type Database = {
           active?: boolean
           address?: string | null
           avatar_url?: string | null
+          bank_account?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
           birth_date?: string | null
           city?: string | null
           cnh?: string | null
@@ -168,11 +180,17 @@ export type Database = {
           created_at?: string
           creci?: string | null
           email?: string | null
+          father_name?: string | null
           full_name: string
           id?: string
+          marital_status?: string | null
+          mother_name?: string | null
+          nationality?: string | null
           neighborhood?: string | null
           number?: string | null
           phone?: string | null
+          pix_key?: string | null
+          profession?: string | null
           registration_status?: string
           rg?: string | null
           state?: string | null
@@ -185,6 +203,9 @@ export type Database = {
           active?: boolean
           address?: string | null
           avatar_url?: string | null
+          bank_account?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
           birth_date?: string | null
           city?: string | null
           cnh?: string | null
@@ -194,11 +215,17 @@ export type Database = {
           created_at?: string
           creci?: string | null
           email?: string | null
+          father_name?: string | null
           full_name?: string
           id?: string
+          marital_status?: string | null
+          mother_name?: string | null
+          nationality?: string | null
           neighborhood?: string | null
           number?: string | null
           phone?: string | null
+          pix_key?: string | null
+          profession?: string | null
           registration_status?: string
           rg?: string | null
           state?: string | null
@@ -213,6 +240,7 @@ export type Database = {
         Row: {
           active: boolean
           address: string | null
+          birth_date: string | null
           city: string | null
           cnh: string | null
           complement: string | null
@@ -221,6 +249,8 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          marital_status: string | null
+          nationality: string | null
           neighborhood: string | null
           notes: string | null
           number: string | null
@@ -228,6 +258,7 @@ export type Database = {
           payment_preference: string | null
           phone: string | null
           pix_key: string | null
+          profession: string | null
           property_address: string | null
           property_city: string | null
           property_complement: string | null
@@ -250,6 +281,7 @@ export type Database = {
         Insert: {
           active?: boolean
           address?: string | null
+          birth_date?: string | null
           city?: string | null
           cnh?: string | null
           complement?: string | null
@@ -258,6 +290,8 @@ export type Database = {
           email?: string | null
           full_name: string
           id?: string
+          marital_status?: string | null
+          nationality?: string | null
           neighborhood?: string | null
           notes?: string | null
           number?: string | null
@@ -265,6 +299,7 @@ export type Database = {
           payment_preference?: string | null
           phone?: string | null
           pix_key?: string | null
+          profession?: string | null
           property_address?: string | null
           property_city?: string | null
           property_complement?: string | null
@@ -287,6 +322,7 @@ export type Database = {
         Update: {
           active?: boolean
           address?: string | null
+          birth_date?: string | null
           city?: string | null
           cnh?: string | null
           complement?: string | null
@@ -295,6 +331,8 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          marital_status?: string | null
+          nationality?: string | null
           neighborhood?: string | null
           notes?: string | null
           number?: string | null
@@ -302,6 +340,7 @@ export type Database = {
           payment_preference?: string | null
           phone?: string | null
           pix_key?: string | null
+          profession?: string | null
           property_address?: string | null
           property_city?: string | null
           property_complement?: string | null
@@ -327,6 +366,9 @@ export type Database = {
         Row: {
           address: string | null
           avatar_url: string | null
+          bank_account: string | null
+          bank_agency: string | null
+          bank_name: string | null
           birth_date: string | null
           city: string | null
           cnh: string | null
@@ -334,14 +376,20 @@ export type Database = {
           cpf: string | null
           created_at: string
           email: string | null
+          father_name: string | null
           full_name: string
           id: string
           interest_type: Database["public"]["Enums"]["interest_type"] | null
           interest_types: string[]
+          marital_status: string | null
+          mother_name: string | null
+          nationality: string | null
           neighborhood: string | null
           notes: string | null
           number: string | null
           phone: string | null
+          pix_key: string | null
+          profession: string | null
           rg: string | null
           state: string | null
           street: string | null
@@ -351,6 +399,9 @@ export type Database = {
         Insert: {
           address?: string | null
           avatar_url?: string | null
+          bank_account?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
           birth_date?: string | null
           city?: string | null
           cnh?: string | null
@@ -358,14 +409,20 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           email?: string | null
+          father_name?: string | null
           full_name: string
           id?: string
           interest_type?: Database["public"]["Enums"]["interest_type"] | null
           interest_types?: string[]
+          marital_status?: string | null
+          mother_name?: string | null
+          nationality?: string | null
           neighborhood?: string | null
           notes?: string | null
           number?: string | null
           phone?: string | null
+          pix_key?: string | null
+          profession?: string | null
           rg?: string | null
           state?: string | null
           street?: string | null
@@ -375,6 +432,9 @@ export type Database = {
         Update: {
           address?: string | null
           avatar_url?: string | null
+          bank_account?: string | null
+          bank_agency?: string | null
+          bank_name?: string | null
           birth_date?: string | null
           city?: string | null
           cnh?: string | null
@@ -382,14 +442,20 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           email?: string | null
+          father_name?: string | null
           full_name?: string
           id?: string
           interest_type?: Database["public"]["Enums"]["interest_type"] | null
           interest_types?: string[]
+          marital_status?: string | null
+          mother_name?: string | null
+          nationality?: string | null
           neighborhood?: string | null
           notes?: string | null
           number?: string | null
           phone?: string | null
+          pix_key?: string | null
+          profession?: string | null
           rg?: string | null
           state?: string | null
           street?: string | null
@@ -466,6 +532,7 @@ export type Database = {
       }
       documents: {
         Row: {
+          archived_at: string | null
           body_rendered: string
           broker_id: string | null
           client_id: string | null
@@ -478,12 +545,16 @@ export type Database = {
           partner_id: string | null
           payload_snapshot: Json
           property_id: string | null
+          rental_contract_id: string | null
+          signed_at: string | null
+          signed_file_url: string | null
           status: Database["public"]["Enums"]["document_status"]
           template_id: string | null
           title: string | null
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           body_rendered?: string
           broker_id?: string | null
           client_id?: string | null
@@ -496,12 +567,16 @@ export type Database = {
           partner_id?: string | null
           payload_snapshot?: Json
           property_id?: string | null
+          rental_contract_id?: string | null
+          signed_at?: string | null
+          signed_file_url?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           template_id?: string | null
           title?: string | null
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           body_rendered?: string
           broker_id?: string | null
           client_id?: string | null
@@ -514,6 +589,9 @@ export type Database = {
           partner_id?: string | null
           payload_snapshot?: Json
           property_id?: string | null
+          rental_contract_id?: string | null
+          signed_at?: string | null
+          signed_file_url?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           template_id?: string | null
           title?: string | null
@@ -539,6 +617,13 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_rental_contract_id_fkey"
+            columns: ["rental_contract_id"]
+            isOneToOne: false
+            referencedRelation: "rental_contracts"
             referencedColumns: ["id"]
           },
           {
@@ -1568,6 +1653,7 @@ export type Database = {
       }
       rental_contracts: {
         Row: {
+          archived_at: string | null
           broker_id: string | null
           code: string
           created_at: string
@@ -1576,6 +1662,7 @@ export type Database = {
           deposit_paid_at: string | null
           due_day: number
           end_date: string | null
+          homologation_status: string
           id: string
           kind: Database["public"]["Enums"]["rental_kind"]
           landlord_client_id: string | null
@@ -1590,6 +1677,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           broker_id?: string | null
           code?: string
           created_at?: string
@@ -1598,6 +1686,7 @@ export type Database = {
           deposit_paid_at?: string | null
           due_day?: number
           end_date?: string | null
+          homologation_status?: string
           id?: string
           kind?: Database["public"]["Enums"]["rental_kind"]
           landlord_client_id?: string | null
@@ -1612,6 +1701,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           broker_id?: string | null
           code?: string
           created_at?: string
@@ -1620,6 +1710,7 @@ export type Database = {
           deposit_paid_at?: string | null
           due_day?: number
           end_date?: string | null
+          homologation_status?: string
           id?: string
           kind?: Database["public"]["Enums"]["rental_kind"]
           landlord_client_id?: string | null

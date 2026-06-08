@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +38,7 @@ import {
   Receipt,
   Paperclip,
   BadgeDollarSign,
+  FolderArchive,
 } from "lucide-react";
 import { formatDateBR } from "@/lib/format-date";
 import { translatedErrorMessage } from "@/lib/error-messages";
@@ -996,6 +997,12 @@ function RentalsPage() {
         description="Contratos e parcelas — encargos calculados automaticamente conforme as Configurações"
         actions={
           <>
+            <Button variant="outline" asChild>
+              <Link to="/rentals/homologation">
+                <FolderArchive className="mr-1.5 h-4 w-4" />
+                Homologacao
+              </Link>
+            </Button>
             <Button variant="outline" onClick={markLate}>
               Marcar atrasados
             </Button>
