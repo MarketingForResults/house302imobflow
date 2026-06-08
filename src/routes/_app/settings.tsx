@@ -289,10 +289,10 @@ function SettingsPage() {
 
   async function deleteInstitutionalData() {
     if (!window.confirm("Excluir os dados institucionais deste cadastro?")) return;
-    const patch = Object.fromEntries(INSTITUTIONAL_FIELDS.map((field) => [field, null]));
+    const patch: Record<string, any> = Object.fromEntries(INSTITUTIONAL_FIELDS.map((field) => [field, null]));
     patch.company_person_type = "juridica";
     setSavingInstitutional(true);
-    const { error } = await supabase.from("app_settings").update(patch).eq("id", true);
+    const { error } = await (supabase as any).from("app_settings").update(patch).eq("id", true);
     setSavingInstitutional(false);
     if (error) return toast.error(error.message);
     setInstitutionalEditing(false);
@@ -338,7 +338,7 @@ function SettingsPage() {
       if (ok > 0) {
         toast.success(`${ok}/${results.length} índices atualizados nos sites oficiais (BCB/SGS)`);
       } else {
-        const firstError = results.find((r: any) => r.error)?.error;
+        const firstError = (results as any[]).find((r) => !r.ok)?.error;
         toast.error(translatedErrorMessage(firstError, "Nenhum indice foi atualizado nos sites oficiais."));
       }
       await loadIndexes();
