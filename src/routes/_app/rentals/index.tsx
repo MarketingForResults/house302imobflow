@@ -126,8 +126,8 @@ function RentalsPage() {
   const monthStartIso = monthStart.toISOString().slice(0, 10);
 
   // Late fee + daily interest recalculation based on app_settings
-  const lateFeePct = Number(settings?.rental_late_fee_pct ?? 0);
-  const dailyPct = Number(settings?.rental_daily_interest_pct ?? 0);
+  const lateFeePct = Number(settings?.rental_late_fee_pct || 10);
+  const dailyPct = Number(settings?.rental_daily_interest_pct || (1 / 30));
   const grace = Number(settings?.rental_grace_days ?? 0);
   const savingsMonthlyPct = Number(settings?.savings_monthly_rate_pct ?? 0.5);
 
@@ -194,36 +194,51 @@ function RentalsPage() {
 
   function recalc(p: any, asOf?: string) {
     const base = Number(p.amount_due ?? 0);
+    const baseDate = asOf ?? today;
+    const rawDaysLate = diffDays(p.due_date, baseDate);
+    const daysLate = rawDaysLate <= grace ? 0 : rawDaysLate;
+
     if (paymentKind(p) === "deposit") {
-      const paidPrincipal = Number(p.amount_paid ?? p.amount_due ?? 0);
-      const capDate = p.deposit_refunded_at?.slice(0, 10) ?? today;
-      const correction = p.status === "paid"
-        ? savingsYield(paidPrincipal, p.paid_at?.slice(0, 10), capDate)
-        : savingsYield(base, p.due_date, asOf ?? today);
-      return {
-        base,
-        fee: 0,
-        interest: correction.gain,
-        total: correction.updated,
-        daysLate: 0,
-        savingsMonths: correction.months,
-        isDeposit: true,
-      };
+      if (p.status === "paid") {
+        const fee = Number(p.late_fee_amount ?? 0);
+        const interest = Number(p.interest_amount ?? 0);
+        const paidPrincipal = Number(p.amount_paid ?? base + fee + interest);
+        const capDate = p.deposit_refunded_at?.slice(0, 10) ?? today;
+        const correction = savingsYield(paidPrincipal, p.paid_at?.slice(0, 10), capDate);
+        return {
+          base,
+          fee,
+          interest: correction.gain,
+          total: correction.updated,
+          daysLate: 0,
+          savingsMonths: correction.months,
+          isDeposit: true,
+        };
+      } else {
+        const fee = daysLate > 0 ? base * (lateFeePct / 100) : 0;
+        const interest = daysLate > 0 ? base * (dailyPct / 100) * daysLate : 0;
+        const calculatedTotal = base + fee + interest;
+        return {
+          base,
+          fee,
+          interest,
+          total: calculatedTotal,
+          daysLate,
+          savingsMonths: 0,
+          isDeposit: true,
+        };
+      }
     }
+
     if (p.status === "paid") {
       const fee = Number(p.late_fee_amount ?? 0);
       const interest = Number(p.interest_amount ?? 0);
       const total = p.amount_paid != null ? Number(p.amount_paid) : base + fee + interest;
       return { base, fee, interest, total, daysLate: 0, savingsMonths: 0, isDeposit: false };
     }
-    const baseDate = asOf ?? today;
-    const rawDaysLate = diffDays(p.due_date, baseDate);
-    if (rawDaysLate <= grace) {
-      return { base, fee: 0, interest: 0, total: base, daysLate: 0, savingsMonths: 0, isDeposit: false };
-    }
-    const daysLate = rawDaysLate;
-    const fee = base * (lateFeePct / 100);
-    const interest = base * (dailyPct / 100) * daysLate;
+
+    const fee = daysLate > 0 ? base * (lateFeePct / 100) : 0;
+    const interest = daysLate > 0 ? base * (dailyPct / 100) * daysLate : 0;
     const calculatedTotal = base + fee + interest;
     return { base, fee, interest, total: calculatedTotal, daysLate, savingsMonths: 0, isDeposit: false };
   }
