@@ -6,6 +6,7 @@ import { Loader2, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { EntityDocuments } from "@/components/entity-documents";
 import { PortalAccessManager } from "@/components/portal-access-manager";
+import { CopyableInput } from "@/components/copyable-input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { translatedErrorMessage } from "@/lib/error-messages";
