@@ -126,8 +126,11 @@ function RentalsPage() {
   const monthStartIso = monthStart.toISOString().slice(0, 10);
 
   // Late fee + daily interest recalculation based on app_settings
-  const lateFeePct = Number(settings?.rental_late_fee_pct || 10);
-  const dailyPct = Number(settings?.rental_daily_interest_pct || (1 / 30));
+  const parsedLateFee = Number(settings?.rental_late_fee_pct);
+  const lateFeePct = parsedLateFee > 0 ? parsedLateFee : 10;
+  
+  const parsedDailyInterest = Number(settings?.rental_daily_interest_pct);
+  const dailyPct = parsedDailyInterest > 0 ? parsedDailyInterest : (1 / 30);
   const grace = Number(settings?.rental_grace_days ?? 0);
   const savingsMonthlyPct = Number(settings?.savings_monthly_rate_pct ?? 0.5);
 
