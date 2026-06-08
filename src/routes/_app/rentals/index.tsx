@@ -205,14 +205,17 @@ function RentalsPage() {
       if (p.status === "paid") {
         const fee = Number(p.late_fee_amount ?? 0);
         const interest = Number(p.interest_amount ?? 0);
-        const paidPrincipal = Number(p.amount_paid ?? base + fee + interest);
+        const totalPaid = p.amount_paid != null ? Number(p.amount_paid) : base + fee + interest;
+        const depositPrincipal = base;
         const capDate = p.deposit_refunded_at?.slice(0, 10) ?? today;
-        const correction = savingsYield(paidPrincipal, p.paid_at?.slice(0, 10), capDate);
+        const correction = savingsYield(depositPrincipal, p.paid_at?.slice(0, 10), capDate);
         return {
           base,
           fee,
-          interest: correction.gain,
-          total: correction.updated,
+          interest,
+          total: totalPaid,
+          savingsGain: correction.gain,
+          totalRefund: correction.updated,
           daysLate: 0,
           savingsMonths: correction.months,
           isDeposit: true,
@@ -226,6 +229,8 @@ function RentalsPage() {
           fee,
           interest,
           total: calculatedTotal,
+          savingsGain: 0,
+          totalRefund: base,
           daysLate,
           savingsMonths: 0,
           isDeposit: true,
@@ -237,13 +242,21 @@ function RentalsPage() {
       const fee = Number(p.late_fee_amount ?? 0);
       const interest = Number(p.interest_amount ?? 0);
       const total = p.amount_paid != null ? Number(p.amount_paid) : base + fee + interest;
-      return { base, fee, interest, total, daysLate: 0, savingsMonths: 0, isDeposit: false };
+      return { 
+        base, fee, interest, total, 
+        savingsGain: 0, totalRefund: 0,
+        daysLate: 0, savingsMonths: 0, isDeposit: false 
+      };
     }
 
     const fee = daysLate > 0 ? base * (lateFeePct / 100) : 0;
     const interest = daysLate > 0 ? base * (dailyPct / 100) * daysLate : 0;
     const calculatedTotal = base + fee + interest;
-    return { base, fee, interest, total: calculatedTotal, daysLate, savingsMonths: 0, isDeposit: false };
+    return { 
+      base, fee, interest, total: calculatedTotal, 
+      savingsGain: 0, totalRefund: 0,
+      daysLate, savingsMonths: 0, isDeposit: false 
+    };
   }
 
   const paymentsByContract = useMemo(() => {
@@ -867,12 +880,12 @@ function RentalsPage() {
     const isDeposit = paymentKind(p) === "deposit";
     const label = isDeposit ? "caução" : "aluguel";
     const extra =
-      !isDeposit && r.daysLate > 0
-        ? ` Com multa e juros (${r.daysLate} dia(s) de atraso): R$ ${r.total.toFixed(2)}.`
+      r.daysLate > 0
+        ? ` Com encargos (${r.daysLate} dia(s) de atraso): R$ ${r.total.toFixed(2)}.`
         : "";
     const correction =
-      isDeposit && r.interest > 0
-        ? ` Valor atualizado pela poupança: R$ ${r.total.toFixed(2)}.`
+      isDeposit && r.savingsGain > 0
+        ? ` Valor atualizado pela poupança para devolução: R$ ${r.totalRefund.toFixed(2)}.`
         : "";
     const msg = `Olá ${c.tenant?.full_name ?? ""}, lembrete da House302: ${label} do imóvel ${c.properties?.code} (ref. ${referenceLabel(p.reference_month)}) no valor de R$ ${r.base.toFixed(2)} vence em ${formatDateBR(p.due_date)}.${extra}${correction} Contrato ${c.code}.`;
     window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
@@ -897,7 +910,7 @@ function RentalsPage() {
           referenceLabel(p.reference_month),
           formatDateBR(p.due_date),
           `R$ ${r.base.toFixed(2)}`,
-          `R$ ${r.total.toFixed(2)}`,
+          `R$ ${(isDeposit && p.status === "paid" ? r.totalRefund : r.total).toFixed(2)}`,
           p.status,
         ]);
       }
@@ -940,7 +953,9 @@ function RentalsPage() {
           Valor: r.base,
           Multa: r.fee,
           Juros: r.interest,
-          Total: r.total,
+          Rendimento_Caucao: isDeposit ? r.savingsGain : 0,
+          Total_Recebido: r.total,
+          Total_A_Devolver: isDeposit ? r.totalRefund : 0,
           Pago: p.amount_paid ?? "",
           Status: p.status,
         };
@@ -1544,18 +1559,28 @@ function RentalsPage() {
                               </td>
                               <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">
                                 {r.interest ? `R$ ${r.interest.toFixed(2)}` : "—"}
-                                {isDeposit && r.savingsMonths > 0 && (
-                                  <span className="ml-1 text-[11px] text-sky-700">
+                                {isDeposit && r.savingsGain > 0 && (
+                                  <div className="mt-1 text-[11px] text-sky-700 leading-tight">
+                                    rend. R$ {r.savingsGain.toFixed(2)}<br />
                                     ({r.savingsMonths}m)
-                                  </span>
+                                  </div>
                                 )}
                               </td>
                               <td className="px-4 py-2 text-right tabular-nums font-semibold">
-                                R$ {r.total.toFixed(2)}
-                                {isDeposit && p.deposit_refunded_at && p.deposit_refund_amount != null && (
-                                  <div className="text-[11px] font-normal text-sky-700">
-                                    devolvido R$ {Number(p.deposit_refund_amount).toFixed(2)}
+                                {isDeposit && p.status === "paid" ? (
+                                  <div className="flex flex-col items-end gap-1">
+                                    <div className="text-[11px] font-normal text-muted-foreground leading-tight">
+                                      recebido R$ {r.total.toFixed(2)}
+                                    </div>
+                                    <div>R$ {r.totalRefund.toFixed(2)}</div>
+                                    {p.deposit_refunded_at && p.deposit_refund_amount != null && (
+                                      <div className="text-[11px] font-normal text-sky-700 leading-tight">
+                                        devolvido R$ {Number(p.deposit_refund_amount).toFixed(2)}
+                                      </div>
+                                    )}
                                   </div>
+                                ) : (
+                                  `R$ ${r.total.toFixed(2)}`
                                 )}
                               </td>
                               <td className="px-4 py-2 text-xs">
