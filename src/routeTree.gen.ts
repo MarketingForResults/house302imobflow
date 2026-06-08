@@ -25,6 +25,7 @@ import { Route as AppSalesIndexRouteImport } from './routes/_app/sales/index'
 import { Route as AppRentalsIndexRouteImport } from './routes/_app/rentals/index'
 import { Route as AppPropertiesIndexRouteImport } from './routes/_app/properties/index'
 import { Route as AppDocumentsIndexRouteImport } from './routes/_app/documents/index'
+import { Route as AppRentalsHomologationRouteImport } from './routes/_app/rentals/homologation'
 import { Route as AppPropertiesIdRouteImport } from './routes/_app/properties/$id'
 import { Route as AppDocumentsTemplatesRouteImport } from './routes/_app/documents/templates'
 import { Route as AppDocumentsNewRouteImport } from './routes/_app/documents/new'
@@ -108,6 +109,11 @@ const AppDocumentsIndexRoute = AppDocumentsIndexRouteImport.update({
   path: '/documents/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRentalsHomologationRoute = AppRentalsHomologationRouteImport.update({
+  id: '/rentals/homologation',
+  path: '/rentals/homologation',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPropertiesIdRoute = AppPropertiesIdRouteImport.update({
   id: '/properties/$id',
   path: '/properties/$id',
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/documents/new': typeof AppDocumentsNewRoute
   '/documents/templates': typeof AppDocumentsTemplatesRoute
   '/properties/$id': typeof AppPropertiesIdRoute
+  '/rentals/homologation': typeof AppRentalsHomologationRoute
   '/documents/': typeof AppDocumentsIndexRoute
   '/properties/': typeof AppPropertiesIndexRoute
   '/rentals/': typeof AppRentalsIndexRoute
@@ -159,6 +166,7 @@ export interface FileRoutesByTo {
   '/documents/new': typeof AppDocumentsNewRoute
   '/documents/templates': typeof AppDocumentsTemplatesRoute
   '/properties/$id': typeof AppPropertiesIdRoute
+  '/rentals/homologation': typeof AppRentalsHomologationRoute
   '/documents': typeof AppDocumentsIndexRoute
   '/properties': typeof AppPropertiesIndexRoute
   '/rentals': typeof AppRentalsIndexRoute
@@ -181,6 +189,7 @@ export interface FileRoutesById {
   '/_app/documents/new': typeof AppDocumentsNewRoute
   '/_app/documents/templates': typeof AppDocumentsTemplatesRoute
   '/_app/properties/$id': typeof AppPropertiesIdRoute
+  '/_app/rentals/homologation': typeof AppRentalsHomologationRoute
   '/_app/documents/': typeof AppDocumentsIndexRoute
   '/_app/properties/': typeof AppPropertiesIndexRoute
   '/_app/rentals/': typeof AppRentalsIndexRoute
@@ -203,6 +212,7 @@ export interface FileRouteTypes {
     | '/documents/new'
     | '/documents/templates'
     | '/properties/$id'
+    | '/rentals/homologation'
     | '/documents/'
     | '/properties/'
     | '/rentals/'
@@ -223,6 +233,7 @@ export interface FileRouteTypes {
     | '/documents/new'
     | '/documents/templates'
     | '/properties/$id'
+    | '/rentals/homologation'
     | '/documents'
     | '/properties'
     | '/rentals'
@@ -244,6 +255,7 @@ export interface FileRouteTypes {
     | '/_app/documents/new'
     | '/_app/documents/templates'
     | '/_app/properties/$id'
+    | '/_app/rentals/homologation'
     | '/_app/documents/'
     | '/_app/properties/'
     | '/_app/rentals/'
@@ -371,6 +383,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDocumentsIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/rentals/homologation': {
+      id: '/_app/rentals/homologation'
+      path: '/rentals/homologation'
+      fullPath: '/rentals/homologation'
+      preLoaderRoute: typeof AppRentalsHomologationRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/properties/$id': {
       id: '/_app/properties/$id'
       path: '/properties/$id'
@@ -407,6 +426,7 @@ interface AppRouteChildren {
   AppDocumentsNewRoute: typeof AppDocumentsNewRoute
   AppDocumentsTemplatesRoute: typeof AppDocumentsTemplatesRoute
   AppPropertiesIdRoute: typeof AppPropertiesIdRoute
+  AppRentalsHomologationRoute: typeof AppRentalsHomologationRoute
   AppDocumentsIndexRoute: typeof AppDocumentsIndexRoute
   AppPropertiesIndexRoute: typeof AppPropertiesIndexRoute
   AppRentalsIndexRoute: typeof AppRentalsIndexRoute
@@ -425,6 +445,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDocumentsNewRoute: AppDocumentsNewRoute,
   AppDocumentsTemplatesRoute: AppDocumentsTemplatesRoute,
   AppPropertiesIdRoute: AppPropertiesIdRoute,
+  AppRentalsHomologationRoute: AppRentalsHomologationRoute,
   AppDocumentsIndexRoute: AppDocumentsIndexRoute,
   AppPropertiesIndexRoute: AppPropertiesIndexRoute,
   AppRentalsIndexRoute: AppRentalsIndexRoute,
