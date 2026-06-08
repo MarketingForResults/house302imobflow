@@ -39,6 +39,7 @@ import {
   Paperclip,
   BadgeDollarSign,
   FolderArchive,
+  FileText,
 } from "lucide-react";
 import { formatDateBR } from "@/lib/format-date";
 import { translatedErrorMessage } from "@/lib/error-messages";
@@ -856,6 +857,82 @@ function RentalsPage() {
     toast.success(`${ids.length} contrato(s) excluído(s)`);
   }
 
+  async function updateContractStatus(id: string, newStatus: string) {
+    const { error } = await supabase
+      .from("rental_contracts")
+      .update({ status: newStatus as any })
+      .eq("id", id);
+    if (error) return toast.error(translatedErrorMessage(error, "Não foi possível atualizar o status do contrato."));
+    qc.invalidateQueries({ queryKey: ["rental_contracts"] });
+    toast.success("Status do contrato atualizado com sucesso!");
+  }
+
+  async function exportContractExtract(c: any, list: any[]) {
+    const { doc } = await newReportPdf(`Extrato do Contrato — ${c.code}`);
+    
+    doc.setFontSize(10);
+    doc.text(`Imóvel: ${c.properties?.code ?? ""} — ${c.properties?.title ?? ""}`, 14, 40);
+    doc.text(`Inquilino: ${c.tenant?.full_name ?? ""}`, 14, 46);
+    const statusMap: any = { active: "Vigente/Iniciado", ended: "Concluído", suspended: "Pendente", cancelled: "Cancelado" };
+    doc.text(`Status atual: ${statusMap[c.status] ?? c.status}`, 14, 52);
+    
+    let totalPaid = 0;
+    let totalBasePaid = 0;
+    let totalLateFeesPaid = 0;
+    let depositPaid = 0;
+    let depositRefunded = 0;
+
+    const rows = list.map(p => {
+      const r = recalc(p);
+      const isDeposit = paymentKind(p) === "deposit";
+      
+      if (p.status === "paid") {
+        totalPaid += r.total;
+        if (isDeposit) {
+          depositPaid += r.base;
+          if (p.deposit_refund_amount != null) {
+            depositRefunded += Number(p.deposit_refund_amount);
+          }
+        } else {
+          totalBasePaid += r.base;
+          totalLateFeesPaid += r.fee + r.interest;
+        }
+      }
+
+      return [
+        isDeposit ? "Caução" : "Aluguel",
+        referenceLabel(p.reference_month),
+        formatDateBR(p.due_date),
+        p.paid_at ? formatDateBR(p.paid_at.slice(0,10)) : "—",
+        `R$ ${r.base.toFixed(2)}`,
+        `R$ ${(r.fee + r.interest).toFixed(2)}`,
+        `R$ ${(isDeposit && p.status === "paid" ? r.totalRefund : r.total).toFixed(2)}`,
+        p.status === "paid" ? "Pago" : "Pendente"
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 60,
+      head: [
+        ["Tipo", "Ref.", "Vencimento", "Pagamento", "Valor Base", "Encargos", "Total/Devolução", "Status"]
+      ],
+      body: rows,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [0, 0, 200] },
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFontSize(10);
+    doc.text(`Resumo do Contrato:`, 14, finalY);
+    doc.setFontSize(9);
+    doc.text(`Total de Aluguéis Recebidos (Base): R$ ${totalBasePaid.toFixed(2)}`, 14, finalY + 6);
+    doc.text(`Total de Encargos Recebidos (Atrasos): R$ ${totalLateFeesPaid.toFixed(2)}`, 14, finalY + 12);
+    doc.text(`Caução Recebido: R$ ${depositPaid.toFixed(2)}`, 14, finalY + 18);
+    doc.text(`Caução Devolvido: R$ ${depositRefunded.toFixed(2)}`, 14, finalY + 24);
+
+    doc.save(`extrato-contrato-${c.code}.pdf`);
+  }
+
   async function generateMore(contractId: string) {
     const { data, error } = await supabase.rpc("generate_rental_payments", {
       _contract_id: contractId,
@@ -1384,7 +1461,33 @@ function RentalsPage() {
                       R$ {totals.paid.toFixed(2)}
                     </strong>
                   </span>
-                  <span className="rounded-full bg-secondary px-2 py-0.5">{c.status}</span>
+                  <Select
+                    value={c.status}
+                    onValueChange={(val) => updateContractStatus(c.id, val)}
+                  >
+                    <SelectTrigger className="h-6 w-32 bg-secondary border-none text-[10px] uppercase font-bold rounded-full px-2 py-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Vigente/Iniciado</SelectItem>
+                      <SelectItem value="ended">Concluído</SelectItem>
+                      <SelectItem value="suspended">Pendente</SelectItem>
+                      <SelectItem value="cancelled">Cancelado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-2 text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      exportContractExtract(c, list);
+                    }}
+                    title="Baixar extrato em PDF"
+                  >
+                    <FileText className="mr-1 h-3 w-3" />
+                    Extrato
+                  </Button>
                   <Button
                     size="sm"
                     variant="ghost"
