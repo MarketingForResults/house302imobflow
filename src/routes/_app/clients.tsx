@@ -10,8 +10,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { translatedErrorMessage } from "@/lib/error-messages";
 import { PageHeader } from "@/components/page-header";
+import { CopyableInput } from "@/components/copyable-input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
