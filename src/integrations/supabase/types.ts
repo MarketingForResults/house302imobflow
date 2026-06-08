@@ -556,6 +556,543 @@ export type Database = {
         }
         Relationships: []
       }
+      financial_audit_logs: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
+      financial_bank_accounts: {
+        Row: {
+          account_number: string | null
+          account_type: string | null
+          active: boolean
+          agency: string | null
+          bank_name: string
+          created_at: string
+          created_by: string | null
+          current_balance: number
+          deleted_at: string | null
+          deleted_by: string | null
+          holder_document: string | null
+          holder_name: string | null
+          id: string
+          initial_balance: number
+          integration_payload: Json
+          integration_provider: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_number?: string | null
+          account_type?: string | null
+          active?: boolean
+          agency?: string | null
+          bank_name: string
+          created_at?: string
+          created_by?: string | null
+          current_balance?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
+          holder_document?: string | null
+          holder_name?: string | null
+          id?: string
+          initial_balance?: number
+          integration_payload?: Json
+          integration_provider?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_number?: string | null
+          account_type?: string | null
+          active?: boolean
+          agency?: string | null
+          bank_name?: string
+          created_at?: string
+          created_by?: string | null
+          current_balance?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
+          holder_document?: string | null
+          holder_name?: string | null
+          id?: string
+          initial_balance?: number
+          integration_payload?: Json
+          integration_provider?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      financial_bank_reconciliations: {
+        Row: {
+          bank_account_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          external_id: string | null
+          id: string
+          match_status: string
+          metadata: Json
+          record_id: string | null
+          statement_amount: number
+          statement_date: string
+          statement_description: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          bank_account_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          external_id?: string | null
+          id?: string
+          match_status?: string
+          metadata?: Json
+          record_id?: string | null
+          statement_amount?: number
+          statement_date: string
+          statement_description: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          bank_account_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          external_id?: string | null
+          id?: string
+          match_status?: string
+          metadata?: Json
+          record_id?: string | null
+          statement_amount?: number
+          statement_date?: string
+          statement_description?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_bank_reconciliations_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_bank_reconciliations_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "financial_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_categories: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string | null
+          id: string
+          kind: string
+          metadata: Json
+          name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          id?: string
+          kind?: string
+          metadata?: Json
+          name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          id?: string
+          kind?: string
+          metadata?: Json
+          name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      financial_cost_centers: {
+        Row: {
+          active: boolean
+          budget_monthly: number
+          code: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          metadata: Json
+          name: string
+          notes: string | null
+          responsible: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          budget_monthly?: number
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          metadata?: Json
+          name: string
+          notes?: string | null
+          responsible?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          budget_monthly?: number
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          metadata?: Json
+          name?: string
+          notes?: string | null
+          responsible?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      financial_import_batches: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          file_name: string | null
+          file_type: string | null
+          id: string
+          imported_rows: number
+          metadata: Json
+          module_key: string
+          status: string
+          total_rows: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          file_name?: string | null
+          file_type?: string | null
+          id?: string
+          imported_rows?: number
+          metadata?: Json
+          module_key: string
+          status?: string
+          total_rows?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          file_name?: string | null
+          file_type?: string | null
+          id?: string
+          imported_rows?: number
+          metadata?: Json
+          module_key?: string
+          status?: string
+          total_rows?: number
+        }
+        Relationships: []
+      }
+      financial_records: {
+        Row: {
+          amount: number
+          bank_account_id: string | null
+          broker_id: string | null
+          category_id: string | null
+          client_id: string | null
+          commission_rate: number | null
+          competence_month: string | null
+          cost_center_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string | null
+          direction: string
+          document_number: string | null
+          due_date: string | null
+          id: string
+          integration_payload: Json
+          metadata: Json
+          module_key: string
+          owner_document: string | null
+          owner_name: string | null
+          payment_date: string | null
+          payment_method: string | null
+          person_document: string | null
+          person_name: string | null
+          property_id: string | null
+          recurrence_rule: string | null
+          rental_contract_id: string | null
+          rental_payment_id: string | null
+          status: string
+          tags: string[]
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount?: number
+          bank_account_id?: string | null
+          broker_id?: string | null
+          category_id?: string | null
+          client_id?: string | null
+          commission_rate?: number | null
+          competence_month?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          direction?: string
+          document_number?: string | null
+          due_date?: string | null
+          id?: string
+          integration_payload?: Json
+          metadata?: Json
+          module_key: string
+          owner_document?: string | null
+          owner_name?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          person_document?: string | null
+          person_name?: string | null
+          property_id?: string | null
+          recurrence_rule?: string | null
+          rental_contract_id?: string | null
+          rental_payment_id?: string | null
+          status?: string
+          tags?: string[]
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          bank_account_id?: string | null
+          broker_id?: string | null
+          category_id?: string | null
+          client_id?: string | null
+          commission_rate?: number | null
+          competence_month?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          direction?: string
+          document_number?: string | null
+          due_date?: string | null
+          id?: string
+          integration_payload?: Json
+          metadata?: Json
+          module_key?: string
+          owner_document?: string | null
+          owner_name?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          person_document?: string | null
+          person_name?: string | null
+          property_id?: string | null
+          recurrence_rule?: string | null
+          rental_contract_id?: string | null
+          rental_payment_id?: string | null
+          status?: string
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_records_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_records_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_records_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "financial_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_records_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_records_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "financial_cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_records_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_records_rental_contract_id_fkey"
+            columns: ["rental_contract_id"]
+            isOneToOne: false
+            referencedRelation: "rental_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_records_rental_payment_id_fkey"
+            columns: ["rental_payment_id"]
+            isOneToOne: false
+            referencedRelation: "rental_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_settings: {
+        Row: {
+          boleto_enabled: boolean
+          commission_payment_day: number
+          config: Json
+          created_at: string
+          created_by: string | null
+          default_daily_interest_percent: number
+          default_late_fee_percent: number
+          deleted_at: string | null
+          deleted_by: string | null
+          gateway_enabled: boolean
+          gateway_provider: string | null
+          id: string
+          name: string
+          open_finance_enabled: boolean
+          owner_transfer_day: number
+          pix_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          boleto_enabled?: boolean
+          commission_payment_day?: number
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          default_daily_interest_percent?: number
+          default_late_fee_percent?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
+          gateway_enabled?: boolean
+          gateway_provider?: string | null
+          id?: string
+          name?: string
+          open_finance_enabled?: boolean
+          owner_transfer_day?: number
+          pix_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          boleto_enabled?: boolean
+          commission_payment_day?: number
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          default_daily_interest_percent?: number
+          default_late_fee_percent?: number
+          deleted_at?: string | null
+          deleted_by?: string | null
+          gateway_enabled?: boolean
+          gateway_provider?: string | null
+          id?: string
+          name?: string
+          open_finance_enabled?: boolean
+          owner_transfer_day?: number
+          pix_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       inspection_images: {
         Row: {
           created_at: string
@@ -1231,6 +1768,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_finance_user: { Args: { _user_id: string }; Returns: boolean }
       is_operational_user: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       mark_late_rental_payments: { Args: never; Returns: number }
