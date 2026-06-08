@@ -143,10 +143,11 @@ function NewDocumentPage() {
       .select("*")
       .maybeSingle();
 
-    if (error) {
+    if (error || !inserted) {
       setSaving(false);
       return toast.error(translatedErrorMessage(error, "Nao foi possivel gerar o documento."));
     }
+
 
     const pdf = await generateDocumentPdf({
       code: inserted.code,
