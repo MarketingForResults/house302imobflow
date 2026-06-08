@@ -90,7 +90,8 @@ export function PortalAccessManager({
           clientId: entity === "client" ? entityId : null,
           brokerId: entity === "broker" ? entityId : null,
         },
-      })) as ManualInvite | null;
+      })) as unknown as ManualInvite | null;
+
 
       if (result?.actionLink) {
         const invite = withMessage({ ...result, role });
