@@ -246,52 +246,6 @@ function formatElapsed(ms: number) {
   return [hours, minutes, seconds].map((item) => String(item).padStart(2, "0")).join(":");
 }
 
-function SessionAccount({
-  email,
-  roleLabel,
-  elapsedLabel,
-  onSignOut,
-  compact = false,
-}: {
-  email?: string;
-  roleLabel: string;
-  elapsedLabel: string;
-  onSignOut: () => void;
-  compact?: boolean;
-}) {
-  const initials = (email?.[0] ?? "H").toUpperCase();
-
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-2 rounded-full border bg-card shadow-sm",
-        compact ? "px-1.5 py-1" : "py-1.5 pl-3 pr-1.5",
-      )}
-    >
-      {!compact && (
-        <div className="min-w-0 text-right text-xs">
-          <div className="truncate font-medium">{email}</div>
-          <div className="truncate text-muted-foreground">
-            {roleLabel} | {elapsedLabel}
-          </div>
-        </div>
-      )}
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-        {initials}
-      </div>
-      <button
-        type="button"
-        onClick={onSignOut}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
-        title="Sair"
-        aria-label="Sair"
-      >
-        <LogOut className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
-
 function PortalOnlyLayout({
   email,
   roles,
