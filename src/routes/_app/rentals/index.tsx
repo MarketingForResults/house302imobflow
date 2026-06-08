@@ -542,9 +542,9 @@ function RentalsPage() {
     patch: Record<string, any>,
     fallbackPatch?: Record<string, any>,
   ) {
-    const { error } = await supabase.from("rental_payments").update(patch).eq("id", paymentId);
+    const { error } = await (supabase as any).from("rental_payments").update(patch).eq("id", paymentId);
     if (error && fallbackPatch && isSchemaCacheColumnError(error)) {
-      const retry = await supabase.from("rental_payments").update(fallbackPatch).eq("id", paymentId);
+      const retry = await (supabase as any).from("rental_payments").update(fallbackPatch).eq("id", paymentId);
       return { error: retry.error, usedFallback: true };
     }
     return { error, usedFallback: false };
