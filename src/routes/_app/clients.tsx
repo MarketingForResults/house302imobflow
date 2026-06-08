@@ -324,14 +324,100 @@ function ClientsPage() {
                   </div>
                 </section>
 
-                <div>
-                  <Label>Data de nascimento</Label>
-                  <Input
-                    type="date"
-                    value={form.birth_date ?? ""}
-                    onChange={(e) => set("birth_date", e.target.value || null)}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Data de nascimento</Label>
+                    <Input
+                      type="date"
+                      value={form.birth_date ?? ""}
+                      onChange={(e) => set("birth_date", e.target.value || null)}
+                    />
+                  </div>
+                  <div>
+                    <Label>Estado civil</Label>
+                    <Select
+                      value={form.marital_status ?? ""}
+                      onValueChange={(value) => set("marital_status", value || null)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="solteiro">Solteiro(a)</SelectItem>
+                        <SelectItem value="casado">Casado(a)</SelectItem>
+                        <SelectItem value="divorciado">Divorciado(a)</SelectItem>
+                        <SelectItem value="viuvo">Viuvo(a)</SelectItem>
+                        <SelectItem value="uniao_estavel">Uniao estavel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Nacionalidade</Label>
+                    <Input
+                      value={form.nationality ?? ""}
+                      onChange={(e) => set("nationality", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>Profissao</Label>
+                    <Input
+                      value={form.profession ?? ""}
+                      onChange={(e) => set("profession", e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Nome do pai</Label>
+                    <Input
+                      value={form.father_name ?? ""}
+                      onChange={(e) => set("father_name", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>Nome da mae</Label>
+                    <Input
+                      value={form.mother_name ?? ""}
+                      onChange={(e) => set("mother_name", e.target.value)}
+                    />
+                  </div>
+                </div>
+                <section className="rounded-md border bg-muted/10 p-3 space-y-3">
+                  <div className="text-sm font-medium">Dados bancarios</div>
+                  <div className="grid grid-cols-[1fr_120px] gap-3">
+                    <div>
+                      <Label>Banco</Label>
+                      <Input
+                        value={form.bank_name ?? ""}
+                        onChange={(e) => set("bank_name", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Agencia</Label>
+                      <Input
+                        value={form.bank_agency ?? ""}
+                        onChange={(e) => set("bank_agency", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Conta bancaria</Label>
+                    <CopyableInput
+                      value={form.bank_account ?? ""}
+                      onValueChange={(value) => set("bank_account", value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>Chave Pix</Label>
+                    <CopyableInput
+                      value={form.pix_key ?? ""}
+                      onValueChange={(value) => set("pix_key", value)}
+                    />
+                  </div>
+                </section>
+
                 <div>
                   <Label>Interesses para ações de marketing</Label>
                   <div className="mt-1.5 flex flex-wrap gap-3 rounded-md border p-3">
