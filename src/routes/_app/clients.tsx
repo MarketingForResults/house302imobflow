@@ -47,12 +47,25 @@ const INTEREST_OPTIONS = [
   ["sell", "Venda"],
   ["rent", "Aluguel"],
 ] as const;
-const EMPTY = { interest_type: "buy", interest_types: ["buy"] } as any;
+
+const ROLE_OPTIONS = [
+  ["owner", "Proprietário / Locador"],
+  ["tenant", "Inquilino / Locatário"],
+  ["buyer", "Comprador"],
+  ["seller", "Vendedor"],
+] as const;
+
+const EMPTY = { interest_type: "buy", interest_types: ["buy"], client_roles: [] } as any;
 
 function currentInterests(client: any): string[] {
   if (client.interest_types?.length) return client.interest_types;
   if (client.interest_type === "buy_rent") return ["buy", "rent"];
   return client.interest_type ? [client.interest_type] : [];
+}
+
+function currentRoles(client: any): string[] {
+  if (client.client_roles?.length) return client.client_roles;
+  return [];
 }
 
 function legacyInterestType(interests: string[]) {
@@ -100,6 +113,16 @@ function ClientsPage() {
     });
   }
 
+  function toggleRole(value: string) {
+    const selected = currentRoles(form);
+    setForm({
+      ...form,
+      client_roles: selected.includes(value)
+        ? selected.filter((item) => item !== value)
+        : [...selected, value],
+    });
+  }
+
   async function lookupCep() {
     const cep = String(form.zip_code ?? "").replace(/\D/g, "");
     if (cep.length !== 8) return toast.error("Informe um CEP com 8 digitos");
@@ -125,12 +148,14 @@ function ClientsPage() {
   async function save() {
     if (!form.full_name) return toast.error("Informe o nome");
     const interests = currentInterests(form);
+    const roles = currentRoles(form);
     if (!interests.length) return toast.error("Marque pelo menos um interesse");
     const payloadBase = {
       ...form,
       address: composeAddress(form),
       interest_types: interests,
       interest_type: legacyInterestType(interests),
+      client_roles: roles,
     };
 
     if (isEdit) {
@@ -419,6 +444,22 @@ function ClientsPage() {
                 </section>
 
                 <div>
+                  <Label>Perfil do Cliente</Label>
+                  <div className="mt-1.5 flex flex-wrap gap-3 rounded-md border p-3 bg-muted/5">
+                    {ROLE_OPTIONS.map(([value, text]) => (
+                      <label key={value} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={currentRoles(form).includes(value)}
+                          onChange={() => toggleRole(value)}
+                        />
+                        {text}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
                   <Label>Interesses para ações de marketing</Label>
                   <div className="mt-1.5 flex flex-wrap gap-3 rounded-md border p-3">
                     {INTEREST_OPTIONS.map(([value, text]) => (
@@ -472,7 +513,7 @@ function ClientsPage() {
                 <th className="px-4 py-3">Nome</th>
                 <th className="px-4 py-3">Telefone</th>
                 <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Interesses</th>
+                <th className="px-4 py-3">Perfil / Interesses</th>
                 <th className="px-4 py-3 text-right">Acoes</th>
               </tr>
             </thead>
@@ -490,12 +531,23 @@ function ClientsPage() {
                   <td className="px-4 py-3">{client.phone ?? "-"}</td>
                   <td className="px-4 py-3">{client.email ?? "-"}</td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {currentInterests(client).map((interest) => (
-                        <Badge key={interest} variant="secondary">
-                          {INTEREST_OPTIONS.find(([value]) => value === interest)?.[1] ?? interest}
-                        </Badge>
-                      ))}
+                    <div className="flex flex-col gap-1.5">
+                      {currentRoles(client).length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {currentRoles(client).map((role) => (
+                            <Badge key={role} variant="default" className="bg-primary/90">
+                              {ROLE_OPTIONS.find(([value]) => value === role)?.[1] ?? role}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {currentInterests(client).map((interest) => (
+                          <Badge key={interest} variant="secondary" className="text-[10px]">
+                            {INTEREST_OPTIONS.find(([value]) => value === interest)?.[1] ?? interest}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">

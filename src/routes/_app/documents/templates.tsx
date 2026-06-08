@@ -4,12 +4,6 @@ import { ChangeEvent, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -97,6 +91,9 @@ function TemplatesPage() {
   const [editorVersion, setEditorVersion] = useState(0);
   const [importing, setImporting] = useState(false);
   const [newKindName, setNewKindName] = useState("");
+  const [activePlaceholderGroup, setActivePlaceholderGroup] = useState<string>(
+    Object.keys(PLACEHOLDER_GROUPS)[0]
+  );
 
   const { data: templates = [], refetch } = useQuery({
     queryKey: ["document_templates"],
@@ -614,32 +611,43 @@ function TemplatesPage() {
           <p className="mb-4 text-xs text-muted-foreground">
             Clique em um campo para inseri-lo na posição atual do texto.
           </p>
-          <Accordion type="multiple" defaultValue={Object.keys(PLACEHOLDER_GROUPS)}>
-            {Object.entries(PLACEHOLDER_GROUPS).map(([group, items]) => (
-              <AccordionItem key={group} value={group}>
-                <AccordionTrigger className="py-2.5 text-xs font-semibold">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap gap-1 border-b pb-2">
+              {Object.keys(PLACEHOLDER_GROUPS).map((group) => (
+                <button
+                  key={group}
+                  onClick={() => setActivePlaceholderGroup(group)}
+                  className={`rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    activePlaceholderGroup === group
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                  }`}
+                >
                   {group}
-                </AccordionTrigger>
-                <AccordionContent className="grid gap-1 pb-3">
-                  {items.map((placeholder) => (
-                    <button
-                      key={placeholder}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => insertPlaceholder(placeholder)}
-                      disabled={!editing}
-                      className="group rounded border bg-muted/20 px-2 py-1.5 text-left transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-50 disabled:hover:bg-muted/20 disabled:hover:text-foreground"
-                      title={`Insere {{${placeholder}}}`}
-                    >
-                      <span className="block text-xs font-medium">
-                        {PLACEHOLDER_LABELS[placeholder]}
-                      </span>
-                      <code className="block text-[10px] text-muted-foreground transition-colors group-hover:text-primary-foreground/85">{`{{${placeholder}}}`}</code>
-                    </button>
-                  ))}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+                </button>
+              ))}
+            </div>
+            
+            <div className="grid gap-1.5 pb-2 max-h-[600px] overflow-y-auto pr-1">
+              {(PLACEHOLDER_GROUPS as any)[activePlaceholderGroup].map((placeholder: string) => (
+                <button
+                  key={placeholder}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => insertPlaceholder(placeholder)}
+                  disabled={!editing}
+                  className="group flex flex-col items-start rounded-md border bg-muted/20 px-2.5 py-2 text-left transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-50 disabled:hover:bg-muted/20 disabled:hover:text-foreground"
+                  title={`Insere {{${placeholder}}}`}
+                >
+                  <span className="text-xs font-medium">
+                    {PLACEHOLDER_LABELS[placeholder]}
+                  </span>
+                  <code className="mt-0.5 text-[10px] text-muted-foreground transition-colors group-hover:text-primary-foreground/85">
+                    {`{{${placeholder}}}`}
+                  </code>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

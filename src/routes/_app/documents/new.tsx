@@ -31,8 +31,10 @@ export const Route = createFileRoute("/_app/documents/new")({ component: NewDocu
 function NewDocumentPage() {
   const navigate = useNavigate();
   const [templateId, setTemplateId] = useState<string>("");
-  const [propertyId, setPropertyId] = useState<string>("");
-  const [clientId, setClientId] = useState<string>("");
+  const [ownerId, setOwnerId] = useState<string>("");
+  const [tenantId, setTenantId] = useState<string>("");
+  const [buyerId, setBuyerId] = useState<string>("");
+  const [sellerId, setSellerId] = useState<string>("");
   const [brokerId, setBrokerId] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [deadlineDays, setDeadlineDays] = useState<string>("");
@@ -92,14 +94,20 @@ function NewDocumentPage() {
     () => properties.find((p: any) => p.id === propertyId),
     [properties, propertyId],
   );
-  const client = useMemo(() => clients.find((c: any) => c.id === clientId), [clients, clientId]);
+  const owner = useMemo(() => clients.find((c: any) => c.id === ownerId), [clients, ownerId]);
+  const tenant = useMemo(() => clients.find((c: any) => c.id === tenantId), [clients, tenantId]);
+  const buyer = useMemo(() => clients.find((c: any) => c.id === buyerId), [clients, buyerId]);
+  const seller = useMemo(() => clients.find((c: any) => c.id === sellerId), [clients, sellerId]);
   const broker = useMemo(() => brokers.find((b: any) => b.id === brokerId), [brokers, brokerId]);
 
   const ctx = useMemo(
     () =>
       buildPlaceholderContext({
         property,
-        client,
+        owner,
+        tenant,
+        buyer,
+        seller,
         broker,
         settings,
         values: {
@@ -107,7 +115,7 @@ function NewDocumentPage() {
           deadline_days: deadlineDays ? Number(deadlineDays) : undefined,
         },
       }),
-    [property, client, broker, settings, amount, deadlineDays],
+    [property, owner, tenant, buyer, seller, broker, settings, amount, deadlineDays],
   );
 
   const rendered = useMemo(
@@ -134,7 +142,10 @@ function NewDocumentPage() {
         kind: template.kind,
         title,
         property_id: propertyId || null,
-        client_id: clientId || null,
+        owner_id: ownerId || null,
+        tenant_id: tenantId || null,
+        buyer_id: buyerId || null,
+        seller_id: sellerId || null,
         broker_id: brokerId || null,
         payload_snapshot: { ctx, amount, deadlineDays },
         body_rendered: rendered,
@@ -156,7 +167,10 @@ function NewDocumentPage() {
       bodyHtml: rendered,
       bodyText: richTextToPlainText(rendered),
       parties: [
-        client && { label: "CLIENTE", name: client.full_name, doc: client.cpf },
+        owner && { label: "LOCADOR", name: owner.full_name, doc: owner.cpf },
+        tenant && { label: "LOCATÁRIO", name: tenant.full_name, doc: tenant.cpf },
+        buyer && { label: "COMPRADOR", name: buyer.full_name, doc: buyer.cpf },
+        seller && { label: "VENDEDOR", name: seller.full_name, doc: seller.cpf },
         broker && {
           label: "CORRETOR",
           name: broker.full_name,
@@ -228,20 +242,67 @@ function NewDocumentPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="mb-1.5 block text-xs">Cliente</Label>
-              <Select value={clientId} onValueChange={setClientId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid gap-3 grid-cols-2">
+              <div>
+                <Label className="mb-1.5 block text-xs">Proprietário / Locador</Label>
+                <Select value={ownerId} onValueChange={setOwnerId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-xs">Locatário / Inquilino</Label>
+                <Select value={tenantId} onValueChange={setTenantId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-xs">Comprador</Label>
+                <Select value={buyerId} onValueChange={setBuyerId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-xs">Vendedor</Label>
+                <Select value={sellerId} onValueChange={setSellerId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div>
               <Label className="mb-1.5 block text-xs">Corretor</Label>
