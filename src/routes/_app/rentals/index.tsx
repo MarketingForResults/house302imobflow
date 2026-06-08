@@ -38,6 +38,7 @@ import {
   Receipt,
   Paperclip,
   BadgeDollarSign,
+  FolderArchive,
 } from "lucide-react";
 import { formatDateBR } from "@/lib/format-date";
 import { translatedErrorMessage } from "@/lib/error-messages";
