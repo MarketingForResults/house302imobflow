@@ -205,25 +205,6 @@ function AppLayout() {
         <SidebarBody collapsed={sidebarCollapsed} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 hidden min-h-16 items-center justify-between gap-4 border-b bg-background px-4 md:flex">
-          <div className="flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
-            <Clock3 className="h-4 w-4 text-primary" />
-            <div className="min-w-0">
-              <div className="truncate">
-                Nivel: <span className="font-medium text-foreground">{roleLabel}</span>
-              </div>
-              <div className="truncate">
-                Login: {loginLabel} | Sessao: {elapsedLabel}
-              </div>
-            </div>
-          </div>
-          <SessionAccount
-            email={user.email}
-            roleLabel={roleLabel}
-            elapsedLabel={elapsedLabel}
-            onSignOut={doSignOut}
-          />
-        </header>
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background px-3 md:hidden">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
@@ -239,15 +220,6 @@ function AppLayout() {
             </SheetContent>
           </Sheet>
           <img src={logo} alt="House302" className="h-auto max-h-6 max-w-[150px] object-contain" />
-          <div className="ml-auto">
-            <SessionAccount
-              email={user.email}
-              roleLabel={roleLabel}
-              elapsedLabel={elapsedLabel}
-              onSignOut={doSignOut}
-              compact
-            />
-          </div>
         </header>
         <main className="flex-1 overflow-x-hidden">
           <Outlet />
