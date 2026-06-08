@@ -17,7 +17,6 @@ import {
   PanelLeftClose,
   Landmark,
   BadgeDollarSign,
-  Clock3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canAccessPath, formatRoles, hasAnyRole, ROUTE_ROLES } from "@/lib/permissions";
@@ -205,25 +204,6 @@ function AppLayout() {
         <SidebarBody collapsed={sidebarCollapsed} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 hidden min-h-16 items-center justify-between gap-4 border-b bg-background px-4 md:flex">
-          <div className="flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
-            <Clock3 className="h-4 w-4 text-primary" />
-            <div className="min-w-0">
-              <div className="truncate">
-                Nivel: <span className="font-medium text-foreground">{roleLabel}</span>
-              </div>
-              <div className="truncate">
-                Login: {loginLabel} | Sessao: {elapsedLabel}
-              </div>
-            </div>
-          </div>
-          <SessionAccount
-            email={user.email}
-            roleLabel={roleLabel}
-            elapsedLabel={elapsedLabel}
-            onSignOut={doSignOut}
-          />
-        </header>
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background px-3 md:hidden">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
@@ -239,15 +219,6 @@ function AppLayout() {
             </SheetContent>
           </Sheet>
           <img src={logo} alt="House302" className="h-auto max-h-6 max-w-[150px] object-contain" />
-          <div className="ml-auto">
-            <SessionAccount
-              email={user.email}
-              roleLabel={roleLabel}
-              elapsedLabel={elapsedLabel}
-              onSignOut={doSignOut}
-              compact
-            />
-          </div>
         </header>
         <main className="flex-1 overflow-x-hidden">
           <Outlet />
@@ -273,52 +244,6 @@ function formatElapsed(ms: number) {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   return [hours, minutes, seconds].map((item) => String(item).padStart(2, "0")).join(":");
-}
-
-function SessionAccount({
-  email,
-  roleLabel,
-  elapsedLabel,
-  onSignOut,
-  compact = false,
-}: {
-  email?: string;
-  roleLabel: string;
-  elapsedLabel: string;
-  onSignOut: () => void;
-  compact?: boolean;
-}) {
-  const initials = (email?.[0] ?? "H").toUpperCase();
-
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-2 rounded-full border bg-card shadow-sm",
-        compact ? "px-1.5 py-1" : "py-1.5 pl-3 pr-1.5",
-      )}
-    >
-      {!compact && (
-        <div className="min-w-0 text-right text-xs">
-          <div className="truncate font-medium">{email}</div>
-          <div className="truncate text-muted-foreground">
-            {roleLabel} | {elapsedLabel}
-          </div>
-        </div>
-      )}
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-        {initials}
-      </div>
-      <button
-        type="button"
-        onClick={onSignOut}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
-        title="Sair"
-        aria-label="Sair"
-      >
-        <LogOut className="h-4 w-4" />
-      </button>
-    </div>
-  );
 }
 
 function PortalOnlyLayout({
