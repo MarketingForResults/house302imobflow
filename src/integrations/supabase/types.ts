@@ -16,8 +16,16 @@ export type Database = {
     Tables: {
       app_settings: {
         Row: {
+          company_address: string | null
+          company_cnpj: string | null
+          company_creci: string | null
+          company_email: string | null
+          company_legal_name: string | null
+          company_phone: string | null
+          company_trade_name: string | null
           contract_default_commission_pct: number | null
           id: boolean
+          rental_contract_notes: string | null
           rental_daily_interest_pct: number
           rental_default_contract_type: string
           rental_default_due_day: number
@@ -26,6 +34,7 @@ export type Database = {
           rental_default_term_months: number
           rental_grace_days: number
           rental_late_fee_pct: number
+          sale_contract_notes: string | null
           sale_deed_type: string
           sale_default_commission_pct: number
           sale_default_down_payment_pct: number
@@ -36,8 +45,16 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          company_address?: string | null
+          company_cnpj?: string | null
+          company_creci?: string | null
+          company_email?: string | null
+          company_legal_name?: string | null
+          company_phone?: string | null
+          company_trade_name?: string | null
           contract_default_commission_pct?: number | null
           id?: boolean
+          rental_contract_notes?: string | null
           rental_daily_interest_pct?: number
           rental_default_contract_type?: string
           rental_default_due_day?: number
@@ -46,6 +63,7 @@ export type Database = {
           rental_default_term_months?: number
           rental_grace_days?: number
           rental_late_fee_pct?: number
+          sale_contract_notes?: string | null
           sale_deed_type?: string
           sale_default_commission_pct?: number
           sale_default_down_payment_pct?: number
@@ -56,8 +74,16 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          company_address?: string | null
+          company_cnpj?: string | null
+          company_creci?: string | null
+          company_email?: string | null
+          company_legal_name?: string | null
+          company_phone?: string | null
+          company_trade_name?: string | null
           contract_default_commission_pct?: number | null
           id?: boolean
+          rental_contract_notes?: string | null
           rental_daily_interest_pct?: number
           rental_default_contract_type?: string
           rental_default_due_day?: number
@@ -66,6 +92,7 @@ export type Database = {
           rental_default_term_months?: number
           rental_grace_days?: number
           rental_late_fee_pct?: number
+          sale_contract_notes?: string | null
           sale_deed_type?: string
           sale_default_commission_pct?: number
           sale_default_down_payment_pct?: number
@@ -83,48 +110,192 @@ export type Database = {
           address: string | null
           avatar_url: string | null
           birth_date: string | null
+          city: string | null
+          cnh: string | null
           commission_pct: number | null
+          complement: string | null
           cpf: string | null
           created_at: string
           creci: string | null
           email: string | null
           full_name: string
           id: string
+          neighborhood: string | null
+          number: string | null
           phone: string | null
+          registration_status: string
+          rg: string | null
+          state: string | null
+          street: string | null
           updated_at: string
           user_id: string | null
+          zip_code: string | null
         }
         Insert: {
           active?: boolean
           address?: string | null
           avatar_url?: string | null
           birth_date?: string | null
+          city?: string | null
+          cnh?: string | null
           commission_pct?: number | null
+          complement?: string | null
           cpf?: string | null
           created_at?: string
           creci?: string | null
           email?: string | null
           full_name: string
           id?: string
+          neighborhood?: string | null
+          number?: string | null
           phone?: string | null
+          registration_status?: string
+          rg?: string | null
+          state?: string | null
+          street?: string | null
           updated_at?: string
           user_id?: string | null
+          zip_code?: string | null
         }
         Update: {
           active?: boolean
           address?: string | null
           avatar_url?: string | null
           birth_date?: string | null
+          city?: string | null
+          cnh?: string | null
           commission_pct?: number | null
+          complement?: string | null
           cpf?: string | null
           created_at?: string
           creci?: string | null
           email?: string | null
           full_name?: string
           id?: string
+          neighborhood?: string | null
+          number?: string | null
           phone?: string | null
+          registration_status?: string
+          rg?: string | null
+          state?: string | null
+          street?: string | null
           updated_at?: string
           user_id?: string | null
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
+      capture_partners: {
+        Row: {
+          active: boolean
+          address: string | null
+          city: string | null
+          cnh: string | null
+          complement: string | null
+          cpf_cnpj: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          neighborhood: string | null
+          notes: string | null
+          number: string | null
+          payment_details: string | null
+          payment_preference: string | null
+          phone: string | null
+          pix_key: string | null
+          property_address: string | null
+          property_city: string | null
+          property_complement: string | null
+          property_neighborhood: string | null
+          property_notes: string | null
+          property_number: string | null
+          property_owner_email: string | null
+          property_owner_name: string | null
+          property_owner_phone: string | null
+          property_state: string | null
+          property_street: string | null
+          property_zip_code: string | null
+          registration_status: string
+          rg: string | null
+          state: string | null
+          street: string | null
+          updated_at: string
+          zip_code: string | null
+        }
+        Insert: {
+          active?: boolean
+          address?: string | null
+          city?: string | null
+          cnh?: string | null
+          complement?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          neighborhood?: string | null
+          notes?: string | null
+          number?: string | null
+          payment_details?: string | null
+          payment_preference?: string | null
+          phone?: string | null
+          pix_key?: string | null
+          property_address?: string | null
+          property_city?: string | null
+          property_complement?: string | null
+          property_neighborhood?: string | null
+          property_notes?: string | null
+          property_number?: string | null
+          property_owner_email?: string | null
+          property_owner_name?: string | null
+          property_owner_phone?: string | null
+          property_state?: string | null
+          property_street?: string | null
+          property_zip_code?: string | null
+          registration_status?: string
+          rg?: string | null
+          state?: string | null
+          street?: string | null
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Update: {
+          active?: boolean
+          address?: string | null
+          city?: string | null
+          cnh?: string | null
+          complement?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          neighborhood?: string | null
+          notes?: string | null
+          number?: string | null
+          payment_details?: string | null
+          payment_preference?: string | null
+          phone?: string | null
+          pix_key?: string | null
+          property_address?: string | null
+          property_city?: string | null
+          property_complement?: string | null
+          property_neighborhood?: string | null
+          property_notes?: string | null
+          property_number?: string | null
+          property_owner_email?: string | null
+          property_owner_name?: string | null
+          property_owner_phone?: string | null
+          property_state?: string | null
+          property_street?: string | null
+          property_zip_code?: string | null
+          registration_status?: string
+          rg?: string | null
+          state?: string | null
+          street?: string | null
+          updated_at?: string
+          zip_code?: string | null
         }
         Relationships: []
       }
@@ -133,42 +304,102 @@ export type Database = {
           address: string | null
           avatar_url: string | null
           birth_date: string | null
+          city: string | null
+          cnh: string | null
+          complement: string | null
           cpf: string | null
           created_at: string
           email: string | null
           full_name: string
           id: string
           interest_type: Database["public"]["Enums"]["interest_type"] | null
+          interest_types: string[]
+          neighborhood: string | null
           notes: string | null
+          number: string | null
           phone: string | null
+          rg: string | null
+          state: string | null
+          street: string | null
           updated_at: string
+          zip_code: string | null
         }
         Insert: {
           address?: string | null
           avatar_url?: string | null
           birth_date?: string | null
+          city?: string | null
+          cnh?: string | null
+          complement?: string | null
           cpf?: string | null
           created_at?: string
           email?: string | null
           full_name: string
           id?: string
           interest_type?: Database["public"]["Enums"]["interest_type"] | null
+          interest_types?: string[]
+          neighborhood?: string | null
           notes?: string | null
+          number?: string | null
           phone?: string | null
+          rg?: string | null
+          state?: string | null
+          street?: string | null
           updated_at?: string
+          zip_code?: string | null
         }
         Update: {
           address?: string | null
           avatar_url?: string | null
           birth_date?: string | null
+          city?: string | null
+          cnh?: string | null
+          complement?: string | null
           cpf?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
           id?: string
           interest_type?: Database["public"]["Enums"]["interest_type"] | null
+          interest_types?: string[]
+          neighborhood?: string | null
           notes?: string | null
+          number?: string | null
           phone?: string | null
+          rg?: string | null
+          state?: string | null
+          street?: string | null
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
+      document_kinds: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          label: string
+          sort_order: number
+          system_kind: boolean
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id: string
+          label: string
+          sort_order?: number
+          system_kind?: boolean
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label?: string
+          sort_order?: number
+          system_kind?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -181,7 +412,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
-          kind: Database["public"]["Enums"]["document_kind"]
+          kind: string
           name: string
           updated_at: string
         }
@@ -192,7 +423,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
-          kind: Database["public"]["Enums"]["document_kind"]
+          kind: string
           name: string
           updated_at?: string
         }
@@ -203,7 +434,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
-          kind?: Database["public"]["Enums"]["document_kind"]
+          kind?: string
           name?: string
           updated_at?: string
         }
@@ -218,7 +449,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
-          kind: Database["public"]["Enums"]["document_kind"]
+          kind: string
           notes: string | null
           partner_id: string | null
           payload_snapshot: Json
@@ -236,7 +467,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          kind: Database["public"]["Enums"]["document_kind"]
+          kind: string
           notes?: string | null
           partner_id?: string | null
           payload_snapshot?: Json
@@ -254,7 +485,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          kind?: Database["public"]["Enums"]["document_kind"]
+          kind?: string
           notes?: string | null
           partner_id?: string | null
           payload_snapshot?: Json
@@ -325,6 +556,137 @@ export type Database = {
         }
         Relationships: []
       }
+      inspection_images: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          inspection_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          inspection_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          inspection_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_images_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspections: {
+        Row: {
+          area_m2: number | null
+          bathrooms: number | null
+          bedrooms: number | null
+          city: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          neighborhood: string | null
+          notes: string | null
+          owner_address: string | null
+          owner_cpf: string | null
+          owner_email: string | null
+          owner_name: string
+          owner_phone: string | null
+          parking_spaces: number | null
+          property_address: string
+          property_description: string | null
+          property_title: string | null
+          property_type: Database["public"]["Enums"]["property_type"]
+          rental_max_price: number | null
+          rental_min_price: number | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sale_max_price: number | null
+          sale_min_price: number | null
+          state: string | null
+          status: string
+          suites: number | null
+          updated_at: string
+        }
+        Insert: {
+          area_m2?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          neighborhood?: string | null
+          notes?: string | null
+          owner_address?: string | null
+          owner_cpf?: string | null
+          owner_email?: string | null
+          owner_name: string
+          owner_phone?: string | null
+          parking_spaces?: number | null
+          property_address: string
+          property_description?: string | null
+          property_title?: string | null
+          property_type?: Database["public"]["Enums"]["property_type"]
+          rental_max_price?: number | null
+          rental_min_price?: number | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sale_max_price?: number | null
+          sale_min_price?: number | null
+          state?: string | null
+          status?: string
+          suites?: number | null
+          updated_at?: string
+        }
+        Update: {
+          area_m2?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          neighborhood?: string | null
+          notes?: string | null
+          owner_address?: string | null
+          owner_cpf?: string | null
+          owner_email?: string | null
+          owner_name?: string
+          owner_phone?: string | null
+          parking_spaces?: number | null
+          property_address?: string
+          property_description?: string | null
+          property_title?: string | null
+          property_type?: Database["public"]["Enums"]["property_type"]
+          rental_max_price?: number | null
+          rental_min_price?: number | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sale_max_price?: number | null
+          sale_min_price?: number | null
+          state?: string | null
+          status?: string
+          suites?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           address: string | null
@@ -368,10 +730,15 @@ export type Database = {
         Row: {
           accepts_trade: boolean | null
           address: string | null
+          admin_review_notes: string | null
+          admin_reviewed_at: string | null
+          admin_reviewed_by: string | null
           area_m2: number | null
           bathrooms: number | null
           bedrooms: number | null
           broker_id: string | null
+          capture_notes: string | null
+          capture_partner_id: string | null
           city: string | null
           client_id: string | null
           code: string
@@ -385,11 +752,21 @@ export type Database = {
           furnished: boolean | null
           id: string
           latitude: number | null
+          listing_purpose: string
           longitude: number | null
           neighborhood: string | null
+          owner_address: string | null
+          owner_cpf: string | null
+          owner_email: string | null
+          owner_name: string | null
+          owner_phone: string | null
           parking_spaces: number | null
           planned_furniture: boolean | null
           price: number | null
+          rental_max_price: number | null
+          rental_min_price: number | null
+          sale_max_price: number | null
+          sale_min_price: number | null
           state: string | null
           status: Database["public"]["Enums"]["property_status"]
           suites: number | null
@@ -399,16 +776,22 @@ export type Database = {
           type: Database["public"]["Enums"]["property_type"]
           updated_at: string
           video_url: string | null
+          workflow_status: string
           wp_post_id: number | null
           wp_synced_at: string | null
         }
         Insert: {
           accepts_trade?: boolean | null
           address?: string | null
+          admin_review_notes?: string | null
+          admin_reviewed_at?: string | null
+          admin_reviewed_by?: string | null
           area_m2?: number | null
           bathrooms?: number | null
           bedrooms?: number | null
           broker_id?: string | null
+          capture_notes?: string | null
+          capture_partner_id?: string | null
           city?: string | null
           client_id?: string | null
           code?: string
@@ -422,11 +805,21 @@ export type Database = {
           furnished?: boolean | null
           id?: string
           latitude?: number | null
+          listing_purpose?: string
           longitude?: number | null
           neighborhood?: string | null
+          owner_address?: string | null
+          owner_cpf?: string | null
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
           parking_spaces?: number | null
           planned_furniture?: boolean | null
           price?: number | null
+          rental_max_price?: number | null
+          rental_min_price?: number | null
+          sale_max_price?: number | null
+          sale_min_price?: number | null
           state?: string | null
           status?: Database["public"]["Enums"]["property_status"]
           suites?: number | null
@@ -436,16 +829,22 @@ export type Database = {
           type: Database["public"]["Enums"]["property_type"]
           updated_at?: string
           video_url?: string | null
+          workflow_status?: string
           wp_post_id?: number | null
           wp_synced_at?: string | null
         }
         Update: {
           accepts_trade?: boolean | null
           address?: string | null
+          admin_review_notes?: string | null
+          admin_reviewed_at?: string | null
+          admin_reviewed_by?: string | null
           area_m2?: number | null
           bathrooms?: number | null
           bedrooms?: number | null
           broker_id?: string | null
+          capture_notes?: string | null
+          capture_partner_id?: string | null
           city?: string | null
           client_id?: string | null
           code?: string
@@ -459,11 +858,21 @@ export type Database = {
           furnished?: boolean | null
           id?: string
           latitude?: number | null
+          listing_purpose?: string
           longitude?: number | null
           neighborhood?: string | null
+          owner_address?: string | null
+          owner_cpf?: string | null
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
           parking_spaces?: number | null
           planned_furniture?: boolean | null
           price?: number | null
+          rental_max_price?: number | null
+          rental_min_price?: number | null
+          sale_max_price?: number | null
+          sale_min_price?: number | null
           state?: string | null
           status?: Database["public"]["Enums"]["property_status"]
           suites?: number | null
@@ -473,6 +882,7 @@ export type Database = {
           type?: Database["public"]["Enums"]["property_type"]
           updated_at?: string
           video_url?: string | null
+          workflow_status?: string
           wp_post_id?: number | null
           wp_synced_at?: string | null
         }
@@ -482,6 +892,13 @@ export type Database = {
             columns: ["broker_id"]
             isOneToOne: false
             referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "properties_capture_partner_id_fkey"
+            columns: ["capture_partner_id"]
+            isOneToOne: false
+            referencedRelation: "capture_partners"
             referencedColumns: ["id"]
           },
           {
@@ -523,6 +940,66 @@ export type Database = {
             foreignKeyName: "property_images_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_inspections: {
+        Row: {
+          assigned_broker_id: string | null
+          contact_notes: string | null
+          created_at: string
+          id: string
+          property_id: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scheduled_at: string | null
+          status: string
+          technical_notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_broker_id?: string | null
+          contact_notes?: string | null
+          created_at?: string
+          id?: string
+          property_id: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduled_at?: string | null
+          status?: string
+          technical_notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_broker_id?: string | null
+          contact_notes?: string | null
+          created_at?: string
+          id?: string
+          property_id?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduled_at?: string | null
+          status?: string
+          technical_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_inspections_assigned_broker_id_fkey"
+            columns: ["assigned_broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_inspections_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
             referencedRelation: "properties"
             referencedColumns: ["id"]
           },
@@ -754,6 +1231,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_operational_user: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       mark_late_rental_payments: { Args: never; Returns: number }
     }
