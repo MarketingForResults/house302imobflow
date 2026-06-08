@@ -996,6 +996,12 @@ function RentalsPage() {
         description="Contratos e parcelas — encargos calculados automaticamente conforme as Configurações"
         actions={
           <>
+            <Button variant="outline" asChild>
+              <Link to="/rentals/homologation">
+                <FolderArchive className="mr-1.5 h-4 w-4" />
+                Homologacao
+              </Link>
+            </Button>
             <Button variant="outline" onClick={markLate}>
               Marcar atrasados
             </Button>
