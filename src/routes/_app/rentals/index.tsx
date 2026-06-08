@@ -193,14 +193,13 @@ function RentalsPage() {
   }
 
   function recalc(p: any, asOf?: string) {
-    const baseDate = asOf ?? (p.status === "paid" && p.paid_at ? p.paid_at.slice(0, 10) : today);
     const base = Number(p.amount_due ?? 0);
     if (paymentKind(p) === "deposit") {
       const paidPrincipal = Number(p.amount_paid ?? p.amount_due ?? 0);
       const capDate = p.deposit_refunded_at?.slice(0, 10) ?? today;
       const correction = p.status === "paid"
         ? savingsYield(paidPrincipal, p.paid_at?.slice(0, 10), capDate)
-        : savingsYield(base, p.due_date, baseDate);
+        : savingsYield(base, p.due_date, asOf ?? today);
       return {
         base,
         fee: 0,
@@ -211,15 +210,22 @@ function RentalsPage() {
         isDeposit: true,
       };
     }
-    const daysLate = Math.max(0, diffDays(p.due_date, baseDate) - grace);
-    if (daysLate <= 0) {
+    if (p.status === "paid") {
+      const fee = Number(p.late_fee_amount ?? 0);
+      const interest = Number(p.interest_amount ?? 0);
+      const total = p.amount_paid != null ? Number(p.amount_paid) : base + fee + interest;
+      return { base, fee, interest, total, daysLate: 0, savingsMonths: 0, isDeposit: false };
+    }
+    const baseDate = asOf ?? today;
+    const rawDaysLate = diffDays(p.due_date, baseDate);
+    if (rawDaysLate <= grace) {
       return { base, fee: 0, interest: 0, total: base, daysLate: 0, savingsMonths: 0, isDeposit: false };
     }
+    const daysLate = rawDaysLate;
     const fee = base * (lateFeePct / 100);
     const interest = base * (dailyPct / 100) * daysLate;
     const calculatedTotal = base + fee + interest;
-    const total = p.status === "paid" && p.amount_paid != null ? Number(p.amount_paid) : calculatedTotal;
-    return { base, fee, interest, total, daysLate, savingsMonths: 0, isDeposit: false };
+    return { base, fee, interest, total: calculatedTotal, daysLate, savingsMonths: 0, isDeposit: false };
   }
 
   const paymentsByContract = useMemo(() => {
@@ -591,12 +597,15 @@ function RentalsPage() {
     if (!payingPayment) return;
     const { p } = payingPayment;
     if (!payDate) return toast.error("Informe a data do pagamento");
-    const total = recalc(p, payDate).total;
+    const calc = recalc(p, payDate);
+    const total = calc.total;
     const paidAtIso = new Date(payDate + "T12:00:00").toISOString();
     const patch: any = {
       status: "paid",
       paid_at: paidAtIso,
       amount_paid: total,
+      late_fee_amount: calc.fee,
+      interest_amount: calc.interest,
     };
     try {
       if (payReceiptFile) {
@@ -770,13 +779,15 @@ function RentalsPage() {
 
       const paidAtIso = new Date(dateStr + "T12:00:00").toISOString();
       const promises = listToPay.map((p) => {
-        const total = recalc(p, dateStr).total;
+        const calc = recalc(p, dateStr);
         return supabase
           .from("rental_payments")
           .update({
             status: "paid",
             paid_at: paidAtIso,
-            amount_paid: total,
+            amount_paid: calc.total,
+            late_fee_amount: calc.fee,
+            interest_amount: calc.interest,
           })
           .eq("id", p.id);
       });

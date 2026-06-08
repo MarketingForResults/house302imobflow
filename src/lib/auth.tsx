@@ -38,8 +38,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_e, s) => {
-      setLoading(true);
+    } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === "INITIAL_SESSION" || event === "SIGNED_OUT") {
+        setLoading(true);
+      }
       setTimeout(() => {
         void applySession(s);
       }, 0);
