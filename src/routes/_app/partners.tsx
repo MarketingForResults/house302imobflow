@@ -341,6 +341,43 @@ function PartnersPage() {
                   onChange={(e) => set("cnh", maskCnh(e.target.value))}
                 />
               </Field>
+              <Field label="Data de nascimento">
+                <Input
+                  type="date"
+                  value={editing.birth_date ?? ""}
+                  onChange={(e) => set("birth_date", e.target.value || null)}
+                />
+              </Field>
+              <Field label="Estado civil">
+                <Select
+                  value={editing.marital_status ?? ""}
+                  onValueChange={(value) => set("marital_status", value || null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="solteiro">Solteiro(a)</SelectItem>
+                    <SelectItem value="casado">Casado(a)</SelectItem>
+                    <SelectItem value="divorciado">Divorciado(a)</SelectItem>
+                    <SelectItem value="viuvo">Viuvo(a)</SelectItem>
+                    <SelectItem value="uniao_estavel">Uniao estavel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Nacionalidade">
+                <Input
+                  value={editing.nationality ?? ""}
+                  onChange={(e) => set("nationality", e.target.value)}
+                />
+              </Field>
+              <Field label="Profissao">
+                <Input
+                  value={editing.profession ?? ""}
+                  onChange={(e) => set("profession", e.target.value)}
+                />
+              </Field>
+
               <div className="sm:col-span-2">
                 <AddressFields
                   form={editing}
