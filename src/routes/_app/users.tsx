@@ -66,7 +66,7 @@ function UsersPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["app-users"],
     enabled: isAdmin,
-    queryFn: async () => (await list({ data: {} as any })) as any,
+    queryFn: async () => (await (list as any)()) as any,
   });
 
   const createMut = useMutation({
