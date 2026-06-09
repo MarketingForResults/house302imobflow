@@ -1,109 +1,52 @@
-## Visão geral
+# Plano de execução
 
-Cinco frentes grandes. Logo House302 recebido (azul puro) — vou aplicar à identidade. Antes de implementar, preciso de duas decisões rápidas; o resto eu já organizei.
+## 1. Bug — Anexar documentos (erro 400 "Registro nao encontrado ou sem permissao de leitura")
+- Investigar `src/components/entity-documents.tsx` + `src/lib/entity-documents.ts`. O insert em `documents` provavelmente está falhando por RLS ou por coluna obrigatória (após as migrations recentes que adicionaram `rental_contract_id`, `signed_at`, `archived_at`).
+- Verificar políticas RLS de `documents` e ajustar payload de insert (campos faltantes/extras) e o bucket de storage usado.
+- Garantir que `client_id`/`broker_id`/`property_id` estão sendo passados corretamente do formulário.
 
----
+## 2. Bug — Gerar acesso (e-mail e WhatsApp)
+- Revisar `src/lib/access-management.functions.ts` e `src/components/portal-access-manager.tsx`.
+- Capturar a mensagem real retornada pelo servidor (toast). Provável causa: `inviteUserByEmail` falhando porque o domínio de e-mail não está configurado, ou `portal_access_links` não tem GRANT/policies para o admin executar via auth-middleware.
+- Adicionar tratamento que sempre retorne o `actionLink` manual quando o invite falhar, e melhorar a mensagem mostrada ao usuário.
+- Para "Link WhatsApp", garantir que chama a função de gerar link manual e abre o `wa.me` com o link encurtado.
 
-## 1. Upload de até 30 imagens por imóvel
+## 3. Bug — Recibos com dados errados
+- Revisar geração do recibo em `src/routes/_app/rentals/index.tsx` (botão "Recibo"). Provavelmente está pegando o registro errado por causa de chave reusada/`map` por índice em vez de id, ou usando o último pagamento ao invés do clicado.
+- Corrigir para usar o `payment.id` específico e renderizar os dados corretos (valor, mês, multa, juros, total).
 
-A tabela `property_images` e o bucket `property-images` já existem. Mudanças no formulário:
+## 4. Nova aba "Usuários" com senha temporária
+- Adicionar entrada **Usuários** no menu lateral (apenas admin).
+- Página `src/routes/_app/users.tsx`:
+  - Listar usuários cadastrados (join `auth.users` + `profiles` + `user_roles`).
+  - "Adicionar usuário": e-mail, nome, categoria (role: admin/manager/financial/broker/owner/tenant) → cria usuário via `supabase.auth.admin.createUser` com senha temporária padrão (ex.: `House302@temp`) + flag `must_change_password=true` em `profiles`.
+  - Ações: redefinir senha temporária, alterar categoria, desativar.
+- Migration: adicionar coluna `must_change_password boolean default false` em `profiles`.
+- Fluxo de primeiro login:
+  - Após login, `AuthProvider` lê `profiles.must_change_password`. Se true → renderiza modal bloqueante (não fecha) pedindo nova senha + confirmação.
+  - Ao salvar: `supabase.auth.updateUser({ password })` + envia e-mail de confirmação (`supabase.auth.reauthenticate` ou simples notificação). Marca `must_change_password=false`.
+  - Só libera a UI após sucesso.
 
-- Input `multiple` + área de drag-and-drop, processando vários arquivos em paralelo.
-- Limite de **30 imagens** por imóvel (validação client + check via count antes do insert).
-- Reordenação por arrastar miniaturas (atualiza `sort_order`).
-- Compressão leve no client (canvas, max 1920px) para evitar arquivos enormes.
-- Ações já existentes (capa, excluir) preservadas.
+## 5. Reorganização do layout — barra superior
+- Criar componente `src/components/app-topbar.tsx` visível em todas as páginas autenticadas (desktop e mobile), no topo:
+  - **Esquerda**: sino de alertas (movido do dashboard "Pendencias da operacao" — manter o card no dashboard mas espelhar contador no sino do topo).
+  - **Direita**: botão-menu (avatar/iniciais) com dropdown estilo Lovable contendo:
+    - Perfil (nome + e-mail no topo)
+    - Configurações (move de `src/routes/_app/settings.tsx`)
+    - Suporte (ícone bóia `LifeBuoy`) → rota placeholder `/support`
+    - Sair
+- Remover itens **Configurações** e **Sair** do menu lateral (`src/routes/_app.tsx`).
+- Criar rota placeholder `src/routes/_app/support.tsx` ("em construção").
 
----
-
-## 2. Identidade visual House302
-
-- Logo salvo em `src/assets/logo-house302.png`, favicon em `public/favicon.png`.
-- Atualizar `src/styles.css`:
-  - `--primary` = azul House302 (`oklch(0.45 0.30 265)` aprox)
-  - `--accent` = mesmo azul para destaques
-  - `--ring` idem
-  - Light e dark coerentes.
-- Substituir o ícone genérico do sidebar pelo logo real.
-- Logo no cabeçalho dos PDFs e na página pública do imóvel.
-- Atualizar `<title>` e meta para "House302 — ImobiFlow CRM".
-
----
-
-## 3. Admin com poder total
-
-Hoje as RLS usam `is_staff` (admin + manager). Para admin irrestrito:
-
-- Política `admin all` em **todas** as tabelas (existentes + novas).
-- Permitir admin **deletar** `profiles` e `wp_sync_logs` (hoje bloqueado).
-- UI: garantir que botões editar/excluir aparecem para admin em qualquer registro de Clientes, Corretores, Parceiros, Imóveis, Documentos, Aluguéis.
-
----
-
-## 4. Documentos automáticos com templates
-
-### Banco
-
-- `document_templates` — `name`, `kind` (visit_form | sale_contract | sale_authorization | sale_authorization_exclusive | brokerage_authorization | rental_residential | rental_commercial | custom), `body` (texto com placeholders `{{property.code}}`, `{{client.full_name}}` etc), `active`.
-- `documents` — `code` (auto `DOC-AAAA-00001`), `template_id`, `kind`, `property_id`, `client_id`, `broker_id`, `partner_id`, `payload_snapshot` (jsonb), `body_rendered` (texto final), `status`, timestamps.
-
-### Editor de templates (`/_app/documents/templates`)
-
-- Lista por tipo + criar/editar.
-- Editor de texto com painel lateral mostrando placeholders agrupados (Imóvel / Cliente / Corretor / Parceiro / Valores / Datas) — clicar insere no cursor.
-- Pré-visualização com dados de exemplo.
-
-### Geração (`/_app/documents/new`)
-
-- Wizard: tipo → template → imóvel → cliente → corretor → campos extras (valor, prazo, exclusividade etc).
-- Renderiza substituindo placeholders → grava em `documents` → gera PDF.
-- **PDF**:
-  - Cabeçalho com logo House302 + código `DOC-...` + **código de barras Code-128** do localizador (lib `jsbarcode`).
-  - Corpo com texto formatado.
-  - Rodapé com dados das partes e linha de assinatura.
-- Listagem `/_app/documents` com filtros, reimpressão e cancelamento.
-
----
-
-## 5. Gestão de aluguéis (`/_app/rentals`)
-
-### Banco
-
-- `rental_contracts` — `code` (auto `LOC-AAAA-00001`), `property_id`, `tenant_client_id`, `landlord_client_id`, `broker_id`, `kind` (residential|commercial), `start_date`, `end_date`, `monthly_rent`, `due_day`, `deposit_amount`, `readjustment_index`, `readjustment_month`, `status` (active|ended|cancelled|suspended), `notes`.
-- `rental_payments` — `contract_id`, `reference_month`, `due_date`, `amount_due`, `amount_paid`, `paid_at`, `status` (pending|paid|late|partial|waived), `notes`.
-- Função SQL `generate_rental_payments(contract_id, n_months)`.
-- Função SQL `mark_late_rental_payments()` (chamada manual via botão por enquanto).
-
-### UI
-
-- **Lista de contratos** com filtros (status, vencimento próximo, inadimplentes).
-- **Detalhe**: dados, parcelas (paid/pending/late), botões "Registrar pagamento", "Gerar próximas parcelas", "Reajustar valor", "Encerrar".
-- **Aviso de cobrança**: gera PDF padronizado + link `wa.me` pré-formatado para WhatsApp.
-- **Relatórios mensais**: pagos / a vencer / inadimplentes / receita prevista vs realizada — exportação PDF + XLSX.
-
----
-
-## Dependências a instalar
-
-- `jspdf` + `jspdf-autotable` — PDFs
-- `jsbarcode` — código de barras Code-128
-- `xlsx` — planilhas
-
----
+## Detalhes técnicos
+- Reusar shadcn `DropdownMenu` para o menu superior.
+- Sino: novo componente `NotificationsBell` que consulta vistorias pendentes (mesma query do dashboard) e exibe popover com lista + link.
+- Senha temporária: gerada server-side e exibida uma única vez ao admin (com botão copiar + link WhatsApp).
+- Todas as ações de gerenciar usuários ficam em server function com `requireSupabaseAuth` + checagem `has_role(admin)`.
 
 ## Ordem de execução
-
-1. **Migração SQL única** — papéis estendidos (admin all em tudo), novas tabelas (document_templates, documents, rental_contracts, rental_payments), sequences de código, funções de geração de parcelas.
-2. Instalar libs.
-3. Identidade visual House302 (cores + logo no sidebar e topo).
-4. Multi-upload de até 30 imagens.
-5. Templates + gerador de documentos com barcode.
-6. Módulo de aluguéis completo.
-7. Revisão final de permissões admin em todas as telas.
-
----
-
-## Pontos a confirmar antes de começar
-
-1. **Editor de templates** — prefere editor de texto rico (negrito/itálico/listas, lib `@tiptap/react`) ou textarea simples? Para contratos formais, rico fica melhor mas adiciona uma dependência razoável.
-2. **Aviso de cobrança de aluguel** — por enquanto via WhatsApp (`wa.me`) está ok, ou já quer e-mail (Resend) configurado agora? E-mail exige verificar domínio depois.
+1. Migration (`must_change_password`) — aguarda aprovação.
+2. Corrigir bugs (anexo, gerar acesso, recibo).
+3. Implementar topbar + dropdown + remover do sidebar.
+4. Criar área Usuários + fluxo de troca de senha forçada.
+5. Rota placeholder de Suporte.
