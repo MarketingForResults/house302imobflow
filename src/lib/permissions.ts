@@ -25,6 +25,8 @@ export const ROUTE_ROLES: Array<{ prefix: string; roles: AppRole[] }> = [
   { prefix: "/finance", roles: FINANCIAL_ROLES },
   { prefix: "/integration", roles: ["admin", "manager"] },
   { prefix: "/settings", roles: ["admin"] },
+  { prefix: "/users", roles: ["admin"] },
+  { prefix: "/support", roles: ["admin", "manager", "financial", "broker", "owner", "tenant"] },
 ];
 
 export function hasAnyRole(userRoles: string[], allowedRoles: readonly AppRole[]) {
