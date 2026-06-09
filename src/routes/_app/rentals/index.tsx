@@ -979,11 +979,12 @@ function RentalsPage() {
       for (const p of paymentsByContract[c.id] ?? []) {
         if (!(p.due_date >= monthStartIso || p.status !== "paid")) continue;
         const r = recalc(p);
+        const isDeposit = paymentKind(p) === "deposit";
         rows.push([
           c.code,
           c.properties?.code ?? "—",
           c.tenant?.full_name ?? "—",
-          paymentKind(p) === "deposit" ? "Caução" : "Aluguel",
+          isDeposit ? "Caução" : "Aluguel",
           referenceLabel(p.reference_month),
           formatDateBR(p.due_date),
           `R$ ${r.base.toFixed(2)}`,
