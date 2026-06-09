@@ -36,6 +36,7 @@ function NewDocumentPage() {
   const [buyerId, setBuyerId] = useState<string>("");
   const [sellerId, setSellerId] = useState<string>("");
   const [brokerId, setBrokerId] = useState<string>("");
+  const [propertyId, setPropertyId] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [deadlineDays, setDeadlineDays] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -135,8 +136,8 @@ function NewDocumentPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    const { data: inserted, error } = await supabase
-      .from("documents")
+    const { data: inserted, error } = await (supabase
+      .from("documents") as any)
       .insert({
         template_id: template.id,
         kind: template.kind,

@@ -371,6 +371,7 @@ export type Database = {
           bank_name: string | null
           birth_date: string | null
           city: string | null
+          client_roles: string[] | null
           cnh: string | null
           complement: string | null
           cpf: string | null
@@ -404,6 +405,7 @@ export type Database = {
           bank_name?: string | null
           birth_date?: string | null
           city?: string | null
+          client_roles?: string[] | null
           cnh?: string | null
           complement?: string | null
           cpf?: string | null
@@ -437,6 +439,7 @@ export type Database = {
           bank_name?: string | null
           birth_date?: string | null
           city?: string | null
+          client_roles?: string[] | null
           cnh?: string | null
           complement?: string | null
           cpf?: string | null
