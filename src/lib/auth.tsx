@@ -9,6 +9,8 @@ interface AuthState {
   roles: AppRole[];
   loading: boolean;
   isStaff: boolean;
+  mustChangePassword: boolean;
+  refreshPasswordState: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
