@@ -28,7 +28,7 @@ export function ForcePasswordChange({
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      const { error: profileError } = await supabase
+      const { error: profileError } = await (supabase as any)
         .from("profiles")
         .update({ must_change_password: false })
         .eq("id", userId);

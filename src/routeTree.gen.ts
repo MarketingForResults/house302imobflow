@@ -13,6 +13,8 @@ import { Route as PartnerRegistrationRouteImport } from './routes/partner-regist
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppUsersRouteImport } from './routes/_app/users'
+import { Route as AppSupportRouteImport } from './routes/_app/support'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppPartnersRouteImport } from './routes/_app/partners'
 import { Route as AppIntegrationRouteImport } from './routes/_app/integration'
@@ -48,6 +50,16 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppUsersRoute = AppUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSupportRoute = AppSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
@@ -142,6 +154,8 @@ export interface FileRoutesByFullPath {
   '/integration': typeof AppIntegrationRoute
   '/partners': typeof AppPartnersRoute
   '/settings': typeof AppSettingsRoute
+  '/support': typeof AppSupportRoute
+  '/users': typeof AppUsersRoute
   '/documents/new': typeof AppDocumentsNewRoute
   '/documents/templates': typeof AppDocumentsTemplatesRoute
   '/properties/$id': typeof AppPropertiesIdRoute
@@ -163,6 +177,8 @@ export interface FileRoutesByTo {
   '/integration': typeof AppIntegrationRoute
   '/partners': typeof AppPartnersRoute
   '/settings': typeof AppSettingsRoute
+  '/support': typeof AppSupportRoute
+  '/users': typeof AppUsersRoute
   '/documents/new': typeof AppDocumentsNewRoute
   '/documents/templates': typeof AppDocumentsTemplatesRoute
   '/properties/$id': typeof AppPropertiesIdRoute
@@ -186,6 +202,8 @@ export interface FileRoutesById {
   '/_app/integration': typeof AppIntegrationRoute
   '/_app/partners': typeof AppPartnersRoute
   '/_app/settings': typeof AppSettingsRoute
+  '/_app/support': typeof AppSupportRoute
+  '/_app/users': typeof AppUsersRoute
   '/_app/documents/new': typeof AppDocumentsNewRoute
   '/_app/documents/templates': typeof AppDocumentsTemplatesRoute
   '/_app/properties/$id': typeof AppPropertiesIdRoute
@@ -209,6 +227,8 @@ export interface FileRouteTypes {
     | '/integration'
     | '/partners'
     | '/settings'
+    | '/support'
+    | '/users'
     | '/documents/new'
     | '/documents/templates'
     | '/properties/$id'
@@ -230,6 +250,8 @@ export interface FileRouteTypes {
     | '/integration'
     | '/partners'
     | '/settings'
+    | '/support'
+    | '/users'
     | '/documents/new'
     | '/documents/templates'
     | '/properties/$id'
@@ -252,6 +274,8 @@ export interface FileRouteTypes {
     | '/_app/integration'
     | '/_app/partners'
     | '/_app/settings'
+    | '/_app/support'
+    | '/_app/users'
     | '/_app/documents/new'
     | '/_app/documents/templates'
     | '/_app/properties/$id'
@@ -298,6 +322,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/users': {
+      id: '/_app/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AppUsersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/support': {
+      id: '/_app/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof AppSupportRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/settings': {
       id: '/_app/settings'
@@ -423,6 +461,8 @@ interface AppRouteChildren {
   AppIntegrationRoute: typeof AppIntegrationRoute
   AppPartnersRoute: typeof AppPartnersRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppSupportRoute: typeof AppSupportRoute
+  AppUsersRoute: typeof AppUsersRoute
   AppDocumentsNewRoute: typeof AppDocumentsNewRoute
   AppDocumentsTemplatesRoute: typeof AppDocumentsTemplatesRoute
   AppPropertiesIdRoute: typeof AppPropertiesIdRoute
@@ -442,6 +482,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppIntegrationRoute: AppIntegrationRoute,
   AppPartnersRoute: AppPartnersRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppSupportRoute: AppSupportRoute,
+  AppUsersRoute: AppUsersRoute,
   AppDocumentsNewRoute: AppDocumentsNewRoute,
   AppDocumentsTemplatesRoute: AppDocumentsTemplatesRoute,
   AppPropertiesIdRoute: AppPropertiesIdRoute,
