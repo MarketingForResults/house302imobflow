@@ -23,6 +23,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+
+  async function fetchMustChange(user: User): Promise<boolean> {
+    try {
+      const { data } = await (supabase as any)
+        .from("profiles")
+        .select("must_change_password")
+        .eq("id", user.id)
+        .maybeSingle();
+      return !!data?.must_change_password;
+    } catch {
+      return false;
+    }
+  }
+
+  async function refreshPasswordState() {
+    const { data } = await supabase.auth.getUser();
+    if (data.user) setMustChangePassword(await fetchMustChange(data.user));
+  }
 
   useEffect(() => {
     let active = true;
@@ -31,10 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function applySession(nextSession: Session | null) {
       const request = ++sessionRequest;
       const nextRoles = nextSession?.user ? await fetchRoles(nextSession.user) : [];
+      const nextMustChange = nextSession?.user ? await fetchMustChange(nextSession.user) : false;
       if (!active || request !== sessionRequest) return;
 
       setSession(nextSession);
       setRoles(nextRoles);
+      setMustChangePassword(nextMustChange);
       setLoading(false);
     }
 
@@ -76,6 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     roles,
     loading,
     isStaff: roles.some((role) => ["admin", "manager"].includes(role)),
+    mustChangePassword,
+    refreshPasswordState,
     signIn: async (email, password) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       return { error: error?.message ?? null };
