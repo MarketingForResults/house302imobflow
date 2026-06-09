@@ -1021,11 +1021,12 @@ function RentalsPage() {
       .map((p: any) => {
         const c = contracts.find((x: any) => x.id === p.contract_id);
         const r = recalc(p);
+        const isDeposit = paymentKind(p) === "deposit";
         return {
           Contrato: c?.code,
           Imóvel: c?.properties?.code,
           Inquilino: c?.tenant?.full_name,
-          Tipo: paymentKind(p) === "deposit" ? "Caução" : "Aluguel",
+          Tipo: isDeposit ? "Caução" : "Aluguel",
           Referência: referenceLabel(p.reference_month),
           Vencimento: formatDateBR(p.due_date),
           Valor: r.base,
