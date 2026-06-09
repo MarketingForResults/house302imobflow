@@ -136,8 +136,8 @@ function NewDocumentPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    const { data: inserted, error } = await supabase
-      .from("documents")
+    const { data: inserted, error } = await (supabase
+      .from("documents") as any)
       .insert({
         template_id: template.id,
         kind: template.kind,
