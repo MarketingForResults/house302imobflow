@@ -36,6 +36,7 @@ function NewDocumentPage() {
   const [buyerId, setBuyerId] = useState<string>("");
   const [sellerId, setSellerId] = useState<string>("");
   const [brokerId, setBrokerId] = useState<string>("");
+  const [propertyId, setPropertyId] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [deadlineDays, setDeadlineDays] = useState<string>("");
   const [saving, setSaving] = useState(false);
