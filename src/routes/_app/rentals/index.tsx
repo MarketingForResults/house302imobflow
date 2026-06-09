@@ -1046,17 +1046,32 @@ function RentalsPage() {
   }
 
   async function buildReceiptPdf(c: any, p: any) {
-    const amount = Number(p.amount_paid ?? p.amount_due ?? 0);
+    const breakdown = recalc(p);
+    const base = Number(breakdown.base ?? 0);
+    const fee = Number(breakdown.fee ?? 0);
+    const interest = Number(breakdown.interest ?? 0);
+    const total = p.amount_paid != null ? Number(p.amount_paid) : Number(breakdown.total ?? base);
     const paidIso = p.paid_at ? p.paid_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
     const isDeposit = paymentKind(p) === "deposit";
     const receiptLabel = isDeposit ? "caução" : "aluguel";
     const titleLabel = isDeposit ? "RECIBO DE PAGAMENTO DE CAUÇÃO" : "RECIBO DE PAGAMENTO DE ALUGUEL";
+    const fmt = (n: number) =>
+      `R$ ${Number(n ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const breakdownLines = [
+      `Valor base: ${fmt(base)}`,
+      fee > 0 ? `Multa: ${fmt(fee)}` : null,
+      interest > 0 ? `Juros: ${fmt(interest)}` : null,
+      `Total recebido: ${fmt(total)}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
     const body =
       `${titleLabel}\n\n` +
-      `Recebemos de ${c.tenant?.full_name ?? "—"} a quantia de R$ ${amount.toFixed(2)}, ` +
-      `referente ${isDeposit ? "a caução" : "ao aluguel"} do imóvel ${c.properties?.code ?? ""} — ${c.properties?.title ?? ""}, ` +
+      `Recebemos de ${c.tenant?.full_name ?? "—"} a quantia de ${fmt(total)}, ` +
+      `referente ${isDeposit ? "à caução" : "ao aluguel"} do imóvel ${c.properties?.code ?? ""} — ${c.properties?.title ?? ""}, ` +
       `competência ${referenceLabel(p.reference_month)}, vencimento em ${formatDateBR(p.due_date)}, ` +
       `pago em ${formatDateBR(paidIso)}.\n\n` +
+      `${breakdownLines}\n\n` +
       `Contrato: ${c.code}\n` +
       `Forma de pagamento: conforme ajuste entre as partes.\n\n` +
       `Para clareza e validade, firmamos o presente recibo.`;
@@ -1069,7 +1084,7 @@ function RentalsPage() {
       footerNote: `Recibo de ${receiptLabel} — House302 ImobiFlow`,
     });
     const fileName = `recibo-${receiptLabel}-${c.code}-${(p.reference_month ?? "").slice(0, 7)}.pdf`;
-    return { doc, fileName, amount, paidIso, receiptLabel };
+    return { doc, fileName, amount: total, paidIso, receiptLabel };
   }
 
   async function downloadReceipt() {

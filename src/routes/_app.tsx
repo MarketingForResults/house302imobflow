@@ -10,19 +10,21 @@ import {
   LogOut,
   FileText,
   KeyRound,
-  Settings,
   Menu,
   ClipboardCheck,
   Handshake,
   PanelLeftClose,
   Landmark,
   BadgeDollarSign,
+  UsersRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canAccessPath, formatRoles, hasAnyRole, ROUTE_ROLES } from "@/lib/permissions";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import logo from "@/assets/logo-house302.png";
 import logoIcon from "@/assets/logo-house302-icon.png";
+import { AppTopbar } from "@/components/app-topbar";
+import { ForcePasswordChange } from "@/components/force-password-change";
 
 export const Route = createFileRoute("/_app")({ component: AppLayout });
 
@@ -38,14 +40,14 @@ const nav = [
   { to: "/sales", label: "Vendas", icon: BadgeDollarSign },
   { to: "/finance", label: "Financeiro", icon: Landmark },
   { to: "/integration", label: "Integração WP", icon: Plug },
-  { to: "/settings", label: "Configurações", icon: Settings },
+  { to: "/users", label: "Usuários", icon: UsersRound },
 ] as const;
 
 const routeRoleMap = new Map(ROUTE_ROLES.map((route) => [route.prefix, route.roles]));
 const PORTAL_ROLES = ["owner", "tenant"] as const;
 
 function AppLayout() {
-  const { user, loading, signOut, roles } = useAuth();
+  const { user, loading, signOut, roles, mustChangePassword, refreshPasswordState } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -83,13 +85,23 @@ function AppLayout() {
   }
 
   if (portalOnly) {
-    return <PortalOnlyLayout email={user.email} roles={roles} onSignOut={signOut} />;
+    return (
+      <>
+        <PortalOnlyLayout email={user.email} roles={roles} onSignOut={signOut} />
+        {mustChangePassword && (
+          <ForcePasswordChange
+            userId={user.id}
+            email={user.email}
+            onDone={() => void refreshPasswordState()}
+          />
+        )}
+      </>
+    );
   }
 
   const roleLabel = formatRoles(roles);
   const loginLabel = formatDateTimeBR(loginAt);
   const elapsedLabel = formatElapsed(now.getTime() - loginAt.getTime());
-  const doSignOut = () => signOut().then(() => navigate({ to: "/" }));
 
   const SidebarBody = ({
     collapsed = false,
@@ -178,18 +190,6 @@ function AppLayout() {
             );
           })}
       </nav>
-      <div className={cn("border-t", collapsed ? "p-2" : "p-3")}>
-        <button
-          onClick={doSignOut}
-          title={collapsed ? "Sair" : undefined}
-          className={cn(
-            "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground",
-            collapsed && "h-10 justify-center px-0",
-          )}
-        >
-          <LogOut className="h-4 w-4" /> {!collapsed && "Sair"}
-        </button>
-      </div>
     </>
   );
 
@@ -204,26 +204,26 @@ function AppLayout() {
         <SidebarBody collapsed={sidebarCollapsed} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background px-3 md:hidden">
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <button
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border"
-                aria-label="Abrir menu"
-              >
-                <Menu className="h-5 w-5" />
-              </button>
-            </SheetTrigger>
-            <SheetContent side="left" className="flex w-64 flex-col p-0">
-              <SidebarBody mobile />
-            </SheetContent>
-          </Sheet>
-          <img src={logo} alt="House302" className="h-auto max-h-6 max-w-[150px] object-contain" />
-        </header>
+        <AppTopbar onOpenMobileMenu={() => setMobileOpen(true)} />
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild>
+            <span className="hidden" />
+          </SheetTrigger>
+          <SheetContent side="left" className="flex w-64 flex-col p-0">
+            <SidebarBody mobile />
+          </SheetContent>
+        </Sheet>
         <main className="flex-1 overflow-x-hidden">
           <Outlet />
         </main>
       </div>
+      {mustChangePassword && (
+        <ForcePasswordChange
+          userId={user.id}
+          email={user.email}
+          onDone={() => void refreshPasswordState()}
+        />
+      )}
     </div>
   );
 }
