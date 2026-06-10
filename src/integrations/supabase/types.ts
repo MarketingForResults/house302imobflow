@@ -668,6 +668,51 @@ export type Database = {
         }
         Relationships: []
       }
+      entity_documents: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          document_kind: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          file_size: number | null
+          id: string
+          label: string | null
+          mime_type: string | null
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          document_kind?: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          label?: string | null
+          mime_type?: string | null
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          document_kind?: string
+          entity_id?: string
+          entity_type?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          label?: string | null
+          mime_type?: string | null
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       financial_audit_logs: {
         Row: {
           action: string
@@ -1336,6 +1381,63 @@ export type Database = {
         }
         Relationships: []
       }
+      portal_access_links: {
+        Row: {
+          broker_id: string | null
+          client_id: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          invited_by: string | null
+          revoked_at: string | null
+          role: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          broker_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          revoked_at?: string | null
+          role: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          broker_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          invited_by?: string | null
+          revoked_at?: string | null
+          role?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_access_links_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_access_links_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           address: string | null
@@ -1344,8 +1446,10 @@ export type Database = {
           cpf: string | null
           created_at: string
           creci: string | null
+          email: string | null
           full_name: string | null
           id: string
+          must_change_password: boolean
           phone: string | null
           updated_at: string
         }
@@ -1356,8 +1460,10 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           creci?: string | null
+          email?: string | null
           full_name?: string | null
           id: string
+          must_change_password?: boolean
           phone?: string | null
           updated_at?: string
         }
@@ -1368,8 +1474,10 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           creci?: string | null
+          email?: string | null
           full_name?: string | null
           id?: string
+          must_change_password?: boolean
           phone?: string | null
           updated_at?: string
         }
