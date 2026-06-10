@@ -1046,6 +1046,9 @@ function RentalsPage() {
   }
 
   async function buildReceiptPdf(c: any, p: any) {
+    // Always use the freshest payment data from the query cache to avoid stale receipt values
+    const freshP = payments.find((x: any) => x.id === p.id) ?? p;
+    p = freshP;
     const breakdown = recalc(p);
     const base = Number(breakdown.base ?? 0);
     const fee = Number(breakdown.fee ?? 0);
@@ -2133,22 +2136,26 @@ function RentalsPage() {
           <DialogHeader>
             <DialogTitle>Enviar recibo do pagamento</DialogTitle>
           </DialogHeader>
-          {receiptFor && (
+          {receiptFor && (() => {
+            // Always resolve the freshest payment from the payments query cache
+            const freshP = payments.find((x: any) => x.id === receiptFor.p.id) ?? receiptFor.p;
+            const receiptForFresh = { ...receiptFor, p: freshP };
+            return (
             <div className="grid gap-3 text-sm">
               <div className="text-xs text-muted-foreground">
-                Contrato <strong>{receiptFor.c.code}</strong> • Ref. {referenceLabel(receiptFor.p.reference_month)} •
-                Pago em {receiptFor.p.paid_at ? formatDateBR(receiptFor.p.paid_at.slice(0, 10)) : "—"}
+                Contrato <strong>{receiptForFresh.c.code}</strong> • Ref. {referenceLabel(receiptForFresh.p.reference_month)} •
+                Pago em {receiptForFresh.p.paid_at ? formatDateBR(receiptForFresh.p.paid_at.slice(0, 10)) : "—"}
               </div>
               <div className="text-xs">
-                Inquilino: <strong>{receiptFor.c.tenant?.full_name ?? "—"}</strong>
+                Inquilino: <strong>{receiptForFresh.c.tenant?.full_name ?? "—"}</strong>
                 <br />
                 E-mail:{" "}
-                {receiptFor.c.tenant?.email ?? (
+                {receiptForFresh.c.tenant?.email ?? (
                   <span className="text-muted-foreground">não cadastrado</span>
                 )}
                 <br />
                 Telefone:{" "}
-                {receiptFor.c.tenant?.phone ?? (
+                {receiptForFresh.c.tenant?.phone ?? (
                   <span className="text-muted-foreground">não cadastrado</span>
                 )}
               </div>
@@ -2156,13 +2163,14 @@ function RentalsPage() {
                 O recibo em PDF será baixado neste dispositivo. Em seguida, abriremos o e-mail ou o
                 WhatsApp já com a mensagem pronta — basta anexar o arquivo baixado antes de enviar.
               </p>
-              {receiptFor.p.receipt_file_path && (
-                <Button variant="outline" size="sm" className="w-fit" onClick={() => openAttachedReceipt(receiptFor.p)}>
+              {receiptForFresh.p.receipt_file_path && (
+                <Button variant="outline" size="sm" className="w-fit" onClick={() => openAttachedReceipt(receiptForFresh.p)}>
                   <Paperclip className="mr-1.5 h-4 w-4" />Abrir comprovante anexado
                 </Button>
               )}
             </div>
-          )}
+            );
+          })()}
           <div className="grid gap-2 sm:grid-cols-3">
             <Button variant="outline" className="min-w-0 justify-center whitespace-nowrap" onClick={downloadReceipt}>
               <FileDown className="mr-1.5 h-4 w-4" />

@@ -100,12 +100,15 @@ export function PortalAccessManager({
           ?.writeText(invite.message ?? invite.actionLink)
           .then(() => toast.success("Texto de acesso gerado e copiado"))
           .catch(() => toast.success("Link de acesso gerado"));
+        if (!result.emailSent) {
+          toast.warning("E-mail nao enviado — use o link ou WhatsApp abaixo para compartilhar o acesso.");
+        }
       } else {
         setManualInvite(null);
-        toast.success(`Convite de ${ROLE_LABEL[role].toLowerCase()} enviado`);
+        toast.success(`Convite de ${ROLE_LABEL[role].toLowerCase()} enviado por e-mail`);
       }
 
-      if (result && !result.emailSent) {
+      if (result && result.emailSent === false && !result.actionLink) {
         toast.warning(result.emailError ?? "O e-mail nao foi enviado; use o link manual");
       }
 
