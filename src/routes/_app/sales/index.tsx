@@ -37,6 +37,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadEntityDocument } from "@/lib/entity-documents";
+import { useAuth } from "@/lib/auth";
+import { calculateDiscount, formatDiscountLabel } from "@/lib/discounts";
 import { translatedErrorMessage } from "@/lib/error-messages";
 import { formatDateBR } from "@/lib/format-date";
 import { newReportPdf } from "@/lib/pdf-utils";
@@ -46,6 +48,8 @@ export const Route = createFileRoute("/_app/sales/")({ component: SalesPage });
 const db = supabase as any;
 const EMPTY_CONTRACT = {
   total_amount: "",
+  discount_type: "none",
+  discount_value: "",
   down_payment_amount: "",
   contract_date: new Date().toISOString().slice(0, 10),
   status: "active",
@@ -54,6 +58,8 @@ const EMPTY_PAYMENT = {
   description: "Parcela",
   due_date: new Date().toISOString().slice(0, 10),
   amount_due: "",
+  discount_type: "none",
+  discount_value: "",
 };
 
 function money(value: unknown) {
@@ -62,6 +68,8 @@ function money(value: unknown) {
 
 function SalesPage() {
   const qc = useQueryClient();
+  const { roles } = useAuth();
+  const isAdmin = roles.includes("admin");
   const [openContract, setOpenContract] = useState(false);
   const [contractForm, setContractForm] = useState<any>({ ...EMPTY_CONTRACT });
   const [contractFile, setContractFile] = useState<File | null>(null);
@@ -153,17 +161,31 @@ function SalesPage() {
     ) {
       return toast.error("Preencha imóvel, comprador, valor e data do contrato");
     }
+    const discount = calculateDiscount(
+      contractForm.total_amount,
+      contractForm.discount_type,
+      contractForm.discount_value,
+    );
     const payload = {
       ...contractForm,
       seller_client_id: contractForm.seller_client_id || null,
       broker_id: contractForm.broker_id || null,
       expected_closing_date: contractForm.expected_closing_date || null,
-      total_amount: Number(contractForm.total_amount),
+      total_amount: discount.net,
+      gross_total_amount: discount.gross,
+      discount_type: discount.type,
+      discount_value: discount.value,
+      discount_amount: discount.amount,
       down_payment_amount: Number(contractForm.down_payment_amount || 0),
       commission_pct: contractForm.commission_pct ? Number(contractForm.commission_pct) : null,
     };
-    const { data, error } = await db.from("sale_contracts").insert(payload).select("*").maybeSingle();
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel cadastrar a venda."));
+    const { data, error } = await db
+      .from("sale_contracts")
+      .insert(payload)
+      .select("*")
+      .maybeSingle();
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel cadastrar a venda."));
     if (!data?.id) return toast.error("Venda criada, mas nao foi possivel confirmar o registro.");
 
     if (contractFile) {
@@ -176,7 +198,9 @@ function SalesPage() {
           file: contractFile,
         });
       } catch (uploadError: any) {
-        toast.error(`Venda criada, mas nao foi possivel anexar o PDF: ${translatedErrorMessage(uploadError, "Falha ao anexar o PDF.")}`);
+        toast.error(
+          `Venda criada, mas nao foi possivel anexar o PDF: ${translatedErrorMessage(uploadError, "Falha ao anexar o PDF.")}`,
+        );
       }
     }
     toast.success("Contrato de venda cadastrado");
@@ -195,14 +219,26 @@ function SalesPage() {
     ) {
       return toast.error("Preencha descrição, vencimento e valor");
     }
+    const discount = calculateDiscount(
+      paymentForm.amount_due,
+      paymentForm.discount_type,
+      paymentForm.discount_value,
+    );
     const { error } = await db.from("sale_payments").insert({
       contract_id: paymentFor.id,
       description: paymentForm.description.trim(),
       due_date: paymentForm.due_date,
-      amount_due: Number(paymentForm.amount_due),
+      amount_due: discount.net,
+      gross_amount_due: discount.gross,
+      discount_type: discount.type,
+      discount_value: discount.value,
+      discount_amount: discount.amount,
       notes: paymentForm.notes?.trim() || null,
     });
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel adicionar o recebimento."));
+    if (error)
+      return toast.error(
+        translatedErrorMessage(error, "Nao foi possivel adicionar o recebimento."),
+      );
     toast.success("Recebimento adicionado");
     setPaymentFor(null);
     setPaymentForm({ ...EMPTY_PAYMENT });
@@ -218,7 +254,10 @@ function SalesPage() {
         amount_paid: Number(payment.amount_due),
       })
       .eq("id", payment.id);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel confirmar o recebimento."));
+    if (error)
+      return toast.error(
+        translatedErrorMessage(error, "Nao foi possivel confirmar o recebimento."),
+      );
     toast.success("Recebimento confirmado");
     refresh();
   }
@@ -226,14 +265,16 @@ function SalesPage() {
   async function removePayment(payment: any) {
     if (!confirm(`Excluir ${payment.description}?`)) return;
     const { error } = await db.from("sale_payments").delete().eq("id", payment.id);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o recebimento."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o recebimento."));
     refresh();
   }
 
   async function removeContract(contract: any) {
     if (!confirm(`Excluir o contrato ${contract.code}?`)) return;
     const { error } = await db.from("sale_contracts").delete().eq("id", contract.id);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o contrato."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o contrato."));
     toast.success("Contrato excluído");
     refresh();
   }
@@ -365,6 +406,56 @@ function SalesPage() {
                     }
                   />
                 </Field>
+                {isAdmin && (
+                  <>
+                    <Field label="Desconto">
+                      <Select
+                        value={contractForm.discount_type ?? "none"}
+                        onValueChange={(value) =>
+                          setContractForm({ ...contractForm, discount_type: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem desconto</SelectItem>
+                          <SelectItem value="percent">Percentual (%)</SelectItem>
+                          <SelectItem value="amount">Valor fixo (R$)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Valor do desconto">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        disabled={(contractForm.discount_type ?? "none") === "none"}
+                        value={contractForm.discount_value ?? ""}
+                        onChange={(event) =>
+                          setContractForm({ ...contractForm, discount_value: event.target.value })
+                        }
+                      />
+                    </Field>
+                  </>
+                )}
+                {isAdmin &&
+                  formatDiscountLabel(
+                    calculateDiscount(
+                      contractForm.total_amount,
+                      contractForm.discount_type,
+                      contractForm.discount_value,
+                    ),
+                  ) && (
+                    <div className="sm:col-span-2 rounded border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                      {formatDiscountLabel(
+                        calculateDiscount(
+                          contractForm.total_amount,
+                          contractForm.discount_type,
+                          contractForm.discount_value,
+                        ),
+                      )}
+                    </div>
+                  )}
                 <Field label="Entrada">
                   <Input
                     type="number"
@@ -636,6 +727,38 @@ function SalesPage() {
               />
             </Field>
             <Field label="Observações">
+              {isAdmin && (
+                <div className="mb-3 grid grid-cols-2 gap-3">
+                  <Field label="Desconto">
+                    <Select
+                      value={paymentForm.discount_type ?? "none"}
+                      onValueChange={(value) =>
+                        setPaymentForm({ ...paymentForm, discount_type: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem desconto</SelectItem>
+                        <SelectItem value="percent">Percentual (%)</SelectItem>
+                        <SelectItem value="amount">Valor fixo (R$)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Valor do desconto">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      disabled={(paymentForm.discount_type ?? "none") === "none"}
+                      value={paymentForm.discount_value ?? ""}
+                      onChange={(event) =>
+                        setPaymentForm({ ...paymentForm, discount_value: event.target.value })
+                      }
+                    />
+                  </Field>
+                </div>
+              )}
               <Textarea
                 value={paymentForm.notes ?? ""}
                 onChange={(event) => setPaymentForm({ ...paymentForm, notes: event.target.value })}

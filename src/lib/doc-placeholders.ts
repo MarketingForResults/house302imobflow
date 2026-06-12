@@ -111,6 +111,11 @@ export const PLACEHOLDER_GROUPS = {
   Valores: [
     "values.amount",
     "values.amount_words",
+    "values.gross_amount",
+    "values.discount_type",
+    "values.discount_value",
+    "values.discount_amount",
+    "values.amount_after_discount",
     "values.deadline_days",
     "values.commission_pct",
   ],
@@ -215,6 +220,11 @@ export const PLACEHOLDER_LABELS: Record<string, string> = {
   "date.today_long": "Data atual por extenso",
   "values.amount": "Valor informado",
   "values.amount_words": "Valor por extenso",
+  "values.gross_amount": "Valor bruto",
+  "values.discount_type": "Tipo de desconto",
+  "values.discount_value": "Valor do desconto informado",
+  "values.discount_amount": "Desconto calculado",
+  "values.amount_after_discount": "Valor final com desconto",
   "values.deadline_days": "Prazo em dias",
   "values.commission_pct": "Percentual de comissão",
 };
@@ -300,6 +310,11 @@ export function buildPlaceholderContext(input: {
   values?: {
     amount?: number;
     amount_words?: string;
+    gross_amount?: number;
+    discount_type?: string;
+    discount_value?: number;
+    discount_amount?: number;
+    amount_after_discount?: number;
     deadline_days?: number;
     commission_pct?: number;
   };
@@ -441,6 +456,21 @@ export function buildPlaceholderContext(input: {
     values: {
       amount: fmtMoney(input.values?.amount),
       amount_words: input.values?.amount_words ?? "",
+      gross_amount: fmtMoney(input.values?.gross_amount),
+      discount_type:
+        input.values?.discount_type === "percent"
+          ? "Percentual"
+          : input.values?.discount_type === "amount"
+            ? "Valor fixo"
+            : "",
+      discount_value:
+        input.values?.discount_type === "percent"
+          ? input.values?.discount_value != null
+            ? `${input.values.discount_value}%`
+            : ""
+          : fmtMoney(input.values?.discount_value),
+      discount_amount: fmtMoney(input.values?.discount_amount),
+      amount_after_discount: fmtMoney(input.values?.amount_after_discount),
       deadline_days: input.values?.deadline_days ?? "",
       commission_pct: input.values?.commission_pct != null ? `${input.values.commission_pct}%` : "",
     },

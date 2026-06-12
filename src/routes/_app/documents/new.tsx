@@ -23,6 +23,7 @@ import {
 } from "@/lib/doc-placeholders";
 import { generateDocumentPdf } from "@/lib/pdf-utils";
 import { translatedErrorMessage } from "@/lib/error-messages";
+import { calculateDiscount, formatDiscountLabel } from "@/lib/discounts";
 import { toast } from "sonner";
 import { ArrowLeft, Download } from "lucide-react";
 
@@ -38,6 +39,8 @@ function NewDocumentPage() {
   const [brokerId, setBrokerId] = useState<string>("");
   const [propertyId, setPropertyId] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
+  const [discountType, setDiscountType] = useState<string>("none");
+  const [discountValue, setDiscountValue] = useState<string>("");
   const [deadlineDays, setDeadlineDays] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
@@ -101,22 +104,42 @@ function NewDocumentPage() {
   const seller = useMemo(() => clients.find((c: any) => c.id === sellerId), [clients, sellerId]);
   const broker = useMemo(() => brokers.find((b: any) => b.id === brokerId), [brokers, brokerId]);
 
-  const ctx = useMemo(
-    () =>
-      buildPlaceholderContext({
-        property,
-        owner,
-        tenant,
-        buyer,
-        seller,
-        broker,
-        settings,
-        values: {
-          amount: amount ? Number(amount) : undefined,
-          deadline_days: deadlineDays ? Number(deadlineDays) : undefined,
-        },
-      }),
-    [property, owner, tenant, buyer, seller, broker, settings, amount, deadlineDays],
+  const ctx = useMemo(() => {
+    const discount = calculateDiscount(amount, discountType, discountValue);
+    return buildPlaceholderContext({
+      property,
+      owner,
+      tenant,
+      buyer,
+      seller,
+      broker,
+      settings,
+      values: {
+        amount: discount.net || undefined,
+        gross_amount: amount ? discount.gross : undefined,
+        discount_type: discount.type,
+        discount_value: discount.value,
+        discount_amount: discount.amount,
+        amount_after_discount: discount.net || undefined,
+        deadline_days: deadlineDays ? Number(deadlineDays) : undefined,
+      },
+    });
+  }, [
+    property,
+    owner,
+    tenant,
+    buyer,
+    seller,
+    broker,
+    settings,
+    amount,
+    discountType,
+    discountValue,
+    deadlineDays,
+  ]);
+  const discount = useMemo(
+    () => calculateDiscount(amount, discountType, discountValue),
+    [amount, discountType, discountValue],
   );
 
   const rendered = useMemo(
@@ -136,8 +159,7 @@ function NewDocumentPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    const { data: inserted, error } = await (supabase
-      .from("documents") as any)
+    const { data: inserted, error } = await (supabase.from("documents") as any)
       .insert({
         template_id: template.id,
         kind: template.kind,
@@ -148,7 +170,15 @@ function NewDocumentPage() {
         buyer_id: buyerId || null,
         seller_id: sellerId || null,
         broker_id: brokerId || null,
-        payload_snapshot: { ctx, amount, deadlineDays },
+        payload_snapshot: {
+          ctx,
+          amount: discount.net,
+          grossAmount: discount.gross,
+          discountType: discount.type,
+          discountValue: discount.value,
+          discountAmount: discount.amount,
+          deadlineDays,
+        },
         body_rendered: rendered,
         created_by: user?.id,
       })
@@ -159,7 +189,6 @@ function NewDocumentPage() {
       setSaving(false);
       return toast.error(translatedErrorMessage(error, "Nao foi possivel gerar o documento."));
     }
-
 
     const pdf = await generateDocumentPdf({
       code: inserted.code,
@@ -334,6 +363,37 @@ function NewDocumentPage() {
                 />
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="mb-1.5 block text-xs">Desconto</Label>
+                <Select value={discountType} onValueChange={setDiscountType}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem desconto</SelectItem>
+                    <SelectItem value="percent">Percentual (%)</SelectItem>
+                    <SelectItem value="amount">Valor fixo (R$)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="mb-1.5 block text-xs">Valor do desconto</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  disabled={discountType === "none"}
+                  value={discountValue}
+                  onChange={(e) => setDiscountValue(e.target.value)}
+                />
+              </div>
+            </div>
+            {formatDiscountLabel(discount) && (
+              <div className="rounded border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                {formatDiscountLabel(discount)}. Valor final:{" "}
+                {discount.net.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </div>
+            )}
           </div>
         </div>
         <div className="lg:col-span-2 rounded-lg border bg-card p-5">

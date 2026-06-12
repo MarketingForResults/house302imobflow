@@ -130,7 +130,7 @@ function isMissingTableError(error: any) {
   return text.includes("42p01") || (text.includes("relation") && text.includes("does not exist"));
 }
 
-function PartnerRegistration() {
+export function PartnerRegistration() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [sent, setSent] = useState(false);
@@ -224,7 +224,10 @@ function PartnerRegistration() {
           return;
         }
         toast.error(
-          translatedErrorMessage(fallbackError, "Nao foi possivel enviar seu cadastro. Tente novamente."),
+          translatedErrorMessage(
+            fallbackError,
+            "Nao foi possivel enviar seu cadastro. Tente novamente.",
+          ),
         );
         return;
       }
@@ -244,7 +247,9 @@ function PartnerRegistration() {
         toast.error("O cadastro de parceiros ainda precisa ser liberado no banco de dados.");
         return;
       }
-      toast.error(translatedErrorMessage(error, "Nao foi possivel enviar seu cadastro. Tente novamente."));
+      toast.error(
+        translatedErrorMessage(error, "Nao foi possivel enviar seu cadastro. Tente novamente."),
+      );
       return;
     }
 

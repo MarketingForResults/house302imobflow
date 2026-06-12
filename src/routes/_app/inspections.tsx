@@ -3,7 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   CalendarClock,
+  CalendarPlus,
   CheckCircle2,
+  Download,
   ExternalLink,
   ImagePlus,
   Pencil,
@@ -63,6 +65,116 @@ function money(value: number | null | undefined) {
     : Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+const REMINDER_OPTIONS = [
+  { value: "0", label: "Sem lembrete" },
+  { value: "15", label: "15 minutos antes" },
+  { value: "30", label: "30 minutos antes" },
+  { value: "60", label: "1 hora antes" },
+  { value: "120", label: "2 horas antes" },
+  { value: "1440", label: "1 dia antes" },
+];
+
+function calendarRange(datetimeLocal?: string) {
+  if (!datetimeLocal) return null;
+  const start = new Date(datetimeLocal);
+  if (Number.isNaN(start.getTime())) return null;
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  const fmt = (date: Date) =>
+    date
+      .toISOString()
+      .replace(/[-:]/g, "")
+      .replace(/\.\d{3}Z$/, "Z");
+  return { start, end, text: `${fmt(start)}/${fmt(end)}` };
+}
+
+function calendarTitle(property: any) {
+  return `Vistoria tecnica - ${property?.code ?? "imovel"}`;
+}
+
+function calendarDetails(property: any, inspection: any) {
+  return [
+    property?.title,
+    inspection?.contact_notes ? `Contato: ${inspection.contact_notes}` : null,
+    inspection?.reminder_minutes ? `Lembrete: ${inspection.reminder_minutes} minutos antes` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function googleCalendarUrl(property: any, inspection: any) {
+  const range = calendarRange(inspection?.scheduled_at);
+  if (!range) return "";
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: calendarTitle(property),
+    dates: range.text,
+    details: calendarDetails(property, inspection),
+    location: property?.address ?? "",
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+function outlookCalendarUrl(property: any, inspection: any) {
+  const range = calendarRange(inspection?.scheduled_at);
+  if (!range) return "";
+  const params = new URLSearchParams({
+    path: "/calendar/action/compose",
+    rru: "addevent",
+    subject: calendarTitle(property),
+    startdt: range.start.toISOString(),
+    enddt: range.end.toISOString(),
+    body: calendarDetails(property, inspection),
+    location: property?.address ?? "",
+  });
+  return `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`;
+}
+
+function downloadIcs(property: any, inspection: any) {
+  const range = calendarRange(inspection?.scheduled_at);
+  if (!range) {
+    toast.error("Informe a data e hora da vistoria antes de gerar a agenda.");
+    return;
+  }
+  const escapeValue = (value: string) =>
+    value.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,");
+  const alarmMinutes = Number(inspection?.reminder_minutes ?? 60);
+  const alarm =
+    alarmMinutes > 0
+      ? [
+          "BEGIN:VALARM",
+          `TRIGGER:-PT${alarmMinutes}M`,
+          "ACTION:DISPLAY",
+          `DESCRIPTION:${escapeValue(calendarTitle(property))}`,
+          "END:VALARM",
+        ]
+      : [];
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//House302//ImobFlow//PT-BR",
+    "BEGIN:VEVENT",
+    `UID:${property?.id ?? crypto.randomUUID()}@house302`,
+    `DTSTAMP:${new Date()
+      .toISOString()
+      .replace(/[-:]/g, "")
+      .replace(/\.\d{3}Z$/, "Z")}`,
+    `DTSTART:${range.text.split("/")[0]}`,
+    `DTEND:${range.text.split("/")[1]}`,
+    `SUMMARY:${escapeValue(calendarTitle(property))}`,
+    `DESCRIPTION:${escapeValue(calendarDetails(property, inspection))}`,
+    `LOCATION:${escapeValue(property?.address ?? "")}`,
+    ...alarm,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+  const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${property?.code ?? "vistoria"}.ics`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function InspectionsPage() {
   const qc = useQueryClient();
   const { roles } = useAuth();
@@ -107,6 +219,7 @@ function InspectionsPage() {
       assigned_broker_id:
         property.property_inspections?.[0]?.assigned_broker_id ?? property.broker_id ?? "none",
       scheduled_at: property.property_inspections?.[0]?.scheduled_at?.slice(0, 16) ?? "",
+      reminder_minutes: property.property_inspections?.[0]?.reminder_minutes ?? 60,
     });
   }
 
@@ -120,6 +233,7 @@ function InspectionsPage() {
       assigned_broker_id:
         inspection.assigned_broker_id === "none" ? null : inspection.assigned_broker_id,
       scheduled_at: inspection.scheduled_at || null,
+      reminder_minutes: Number(inspection.reminder_minutes ?? 60),
       contact_notes: inspection.contact_notes || null,
       technical_notes: inspection.technical_notes || null,
       review_notes: inspection.review_notes || null,
@@ -130,12 +244,13 @@ function InspectionsPage() {
             ? "scheduled"
             : "pending",
     };
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("property_inspections")
       .upsert(payload, { onConflict: "property_id" })
       .select("*")
       .maybeSingle();
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar a vistoria."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar a vistoria."));
     const workflow_status =
       payload.status === "scheduled" ? "inspection_scheduled" : "inspection_pending";
     const { error: propertyError } = await supabase
@@ -143,10 +258,30 @@ function InspectionsPage() {
       .update({ workflow_status, broker_id: payload.assigned_broker_id })
       .eq("id", editing.id);
     if (propertyError) {
-      return toast.error(translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."));
+      return toast.error(
+        translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."),
+      );
     }
     if (data) setInspection({ ...data, scheduled_at: data.scheduled_at?.slice(0, 16) ?? "" });
     toast.success("Vistoria atualizada");
+    refresh();
+  }
+
+  async function deleteInspection() {
+    if (!editing?.id) return;
+    if (!confirm("Excluir o registro de vistoria deste imovel?")) return;
+    const { error } = await (supabase as any)
+      .from("property_inspections")
+      .delete()
+      .eq("property_id", editing.id);
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir a vistoria."));
+    await supabase
+      .from("properties")
+      .update({ workflow_status: "inspection_pending" })
+      .eq("id", editing.id);
+    toast.success("Registro de vistoria excluido");
+    setEditing(null);
     refresh();
   }
 
@@ -158,15 +293,17 @@ function InspectionsPage() {
       assigned_broker_id:
         inspection.assigned_broker_id === "none" ? null : inspection.assigned_broker_id,
       scheduled_at: inspection.scheduled_at || null,
+      reminder_minutes: Number(inspection.reminder_minutes ?? 60),
       contact_notes: inspection.contact_notes || null,
       technical_notes: inspection.technical_notes,
       review_notes: inspection.review_notes || null,
       status: "completed",
     };
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("property_inspections")
       .upsert(payload, { onConflict: "property_id" });
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel concluir a vistoria."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel concluir a vistoria."));
     const { error: propertyError } = await supabase
       .from("properties")
       .update({
@@ -175,7 +312,9 @@ function InspectionsPage() {
       })
       .eq("id", editing.id);
     if (propertyError) {
-      return toast.error(translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."));
+      return toast.error(
+        translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."),
+      );
     }
     toast.success("Vistoria concluída e enviada para aprovação");
     setEditing(null);
@@ -188,12 +327,13 @@ function InspectionsPage() {
     } = await supabase.auth.getUser();
     const status = approved ? "approved" : "rejected";
     const workflow_status = approved ? "ready_to_publish" : "rejected";
-    const { error } = await supabase.from("property_inspections").upsert(
+    const { error } = await (supabase as any).from("property_inspections").upsert(
       {
         property_id: editing.id,
         assigned_broker_id:
           inspection.assigned_broker_id === "none" ? null : inspection.assigned_broker_id,
         scheduled_at: inspection.scheduled_at || null,
+        reminder_minutes: Number(inspection.reminder_minutes ?? 60),
         contact_notes: inspection.contact_notes || null,
         technical_notes: inspection.technical_notes || null,
         review_notes: inspection.review_notes || null,
@@ -203,13 +343,16 @@ function InspectionsPage() {
       },
       { onConflict: "property_id" },
     );
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel revisar a vistoria."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel revisar a vistoria."));
     const { error: propertyError } = await supabase
       .from("properties")
       .update({ workflow_status })
       .eq("id", editing.id);
     if (propertyError) {
-      return toast.error(translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."));
+      return toast.error(
+        translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."),
+      );
     }
     toast.success(approved ? "Imóvel liberado para divulgação" : "Vistoria reprovada");
     setEditing(null);
@@ -226,7 +369,9 @@ function InspectionsPage() {
         .from("property-images")
         .upload(path, file, { contentType: file.type || "application/octet-stream" });
       if (uploadError) {
-        toast.error(`${file.name}: ${translatedErrorMessage(uploadError, "Nao foi possivel enviar a foto.")}`);
+        toast.error(
+          `${file.name}: ${translatedErrorMessage(uploadError, "Nao foi possivel enviar a foto.")}`,
+        );
         continue;
       }
       const {
@@ -240,7 +385,9 @@ function InspectionsPage() {
       });
       if (error) {
         await supabase.storage.from("property-images").remove([path]);
-        toast.error(`${file.name}: ${translatedErrorMessage(error, "Nao foi possivel registrar a foto no imovel.")}`);
+        toast.error(
+          `${file.name}: ${translatedErrorMessage(error, "Nao foi possivel registrar a foto no imovel.")}`,
+        );
         continue;
       }
       success++;
@@ -260,7 +407,8 @@ function InspectionsPage() {
 
   async function deleteImage(id: string) {
     const { error } = await supabase.from("property_images").delete().eq("id", id);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir a foto."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir a foto."));
     setEditing({
       ...editing,
       property_images: editing.property_images.filter((image: any) => image.id !== id),
@@ -449,6 +597,77 @@ function InspectionsPage() {
                       }
                     />
                   </Field>
+                  <Field label="Lembrete">
+                    <Select
+                      value={String(inspection.reminder_minutes ?? 60)}
+                      onValueChange={(value) =>
+                        setInspection({ ...inspection, reminder_minutes: Number(value) })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {REMINDER_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={!inspection.scheduled_at}
+                    asChild={!!inspection.scheduled_at}
+                  >
+                    {inspection.scheduled_at ? (
+                      <a
+                        href={googleCalendarUrl(editing, inspection)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <CalendarPlus className="mr-1.5 h-4 w-4" />
+                        Google Agenda
+                      </a>
+                    ) : (
+                      <span>Google Agenda</span>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={!inspection.scheduled_at}
+                    asChild={!!inspection.scheduled_at}
+                  >
+                    {inspection.scheduled_at ? (
+                      <a
+                        href={outlookCalendarUrl(editing, inspection)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <ExternalLink className="mr-1.5 h-4 w-4" />
+                        Outlook
+                      </a>
+                    ) : (
+                      <span>Outlook</span>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={!inspection.scheduled_at}
+                    onClick={() => downloadIcs(editing, inspection)}
+                  >
+                    <Download className="mr-1.5 h-4 w-4" />
+                    Baixar .ics
+                  </Button>
                 </div>
                 <div className="mt-3">
                   <Field label="Registros de contato">
@@ -528,6 +747,13 @@ function InspectionsPage() {
             </div>
           )}
           <DialogFooter className="mt-3 flex-wrap">
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Fechar
+            </Button>
+            <Button variant="destructive" onClick={deleteInspection}>
+              <Trash2 className="mr-1.5 h-4 w-4" />
+              Excluir vistoria
+            </Button>
             {isAdmin && editing?.workflow_status === "awaiting_inspection_review" && (
               <Button variant="destructive" onClick={() => review(false)}>
                 <XCircle className="mr-1.5 h-4 w-4" />

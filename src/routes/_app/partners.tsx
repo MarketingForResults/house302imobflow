@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   CheckCircle2,
+  Copy,
   ExternalLink,
   Loader2,
   MapPin,
@@ -143,7 +144,8 @@ function PartnersPage() {
       ? supabase.from("capture_partners").update(payload).eq("id", editing.id)
       : supabase.from("capture_partners").insert(payload);
     const { error } = await query;
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar o parceiro."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar o parceiro."));
     toast.success(editing.id ? "Parceiro atualizado" : "Parceiro cadastrado");
     setEditing(null);
     refresh();
@@ -167,7 +169,8 @@ function PartnersPage() {
       .from("capture_partners")
       .update({ registration_status, active: registration_status === "approved" })
       .eq("id", id);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel revisar o parceiro."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel revisar o parceiro."));
     toast.success(registration_status === "approved" ? "Parceiro aprovado" : "Parceiro reprovado");
     refresh();
   }
@@ -175,9 +178,16 @@ function PartnersPage() {
   async function remove(partner: any) {
     if (!confirm(`Excluir o parceiro ${partner.full_name}?`)) return;
     const { error } = await supabase.from("capture_partners").delete().eq("id", partner.id);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o parceiro."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o parceiro."));
     toast.success("Parceiro excluido");
     refresh();
+  }
+
+  async function copyShortLink() {
+    const url = new URL("/p", window.location.origin).toString();
+    await navigator.clipboard.writeText(url);
+    toast.success("Link curto copiado");
   }
 
   return (
@@ -187,6 +197,10 @@ function PartnersPage() {
         description="Indicadores de oportunidades de venda e aluguel"
         actions={
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={copyShortLink}>
+              <Copy className="mr-1.5 h-4 w-4" />
+              Copiar link curto
+            </Button>
             <Button variant="outline" asChild>
               <Link to="/partner-registration" target="_blank">
                 <ExternalLink className="mr-1.5 h-4 w-4" />

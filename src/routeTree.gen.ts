@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PartnerRegistrationRouteImport } from './routes/partner-registration'
+import { Route as PRouteImport } from './routes/p'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
@@ -35,6 +36,11 @@ import { Route as AppDocumentsNewRouteImport } from './routes/_app/documents/new
 const PartnerRegistrationRoute = PartnerRegistrationRouteImport.update({
   id: '/partner-registration',
   path: '/partner-registration',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PRoute = PRouteImport.update({
+  id: '/p',
+  path: '/p',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -145,6 +151,7 @@ const AppDocumentsNewRoute = AppDocumentsNewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/p': typeof PRoute
   '/partner-registration': typeof PartnerRegistrationRoute
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
@@ -168,6 +175,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/p': typeof PRoute
   '/partner-registration': typeof PartnerRegistrationRoute
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/p': typeof PRoute
   '/partner-registration': typeof PartnerRegistrationRoute
   '/_app/brokers': typeof AppBrokersRoute
   '/_app/clients': typeof AppClientsRoute
@@ -218,6 +227,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/p'
     | '/partner-registration'
     | '/brokers'
     | '/clients'
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/p'
     | '/partner-registration'
     | '/brokers'
     | '/clients'
@@ -265,6 +276,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/login'
+    | '/p'
     | '/partner-registration'
     | '/_app/brokers'
     | '/_app/clients'
@@ -290,6 +302,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  PRoute: typeof PRoute
   PartnerRegistrationRoute: typeof PartnerRegistrationRoute
 }
 
@@ -300,6 +313,13 @@ declare module '@tanstack/react-router' {
       path: '/partner-registration'
       fullPath: '/partner-registration'
       preLoaderRoute: typeof PartnerRegistrationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/p': {
+      id: '/p'
+      path: '/p'
+      fullPath: '/p'
+      preLoaderRoute: typeof PRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -500,6 +520,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  PRoute: PRoute,
   PartnerRegistrationRoute: PartnerRegistrationRoute,
 }
 export const routeTree = rootRouteImport

@@ -45,17 +45,23 @@ import { formatDateBR } from "@/lib/format-date";
 import { translatedErrorMessage } from "@/lib/error-messages";
 import { EntityDocuments } from "@/components/entity-documents";
 import { uploadEntityDocument } from "@/lib/entity-documents";
+import { useAuth } from "@/lib/auth";
+import { calculateDiscount, formatDiscountLabel } from "@/lib/discounts";
 
 export const Route = createFileRoute("/_app/rentals/")({ component: RentalsPage });
 
 function RentalsPage() {
   const qc = useQueryClient();
+  const { roles } = useAuth();
+  const isAdmin = roles.includes("admin");
   const [openContract, setOpenContract] = useState(false);
   const [form, setForm] = useState<any>({
     kind: "residential",
     due_day: 5,
     monthly_rent: "",
     term_months: 12,
+    discount_type: "none",
+    discount_value: "",
   });
   const [contractFile, setContractFile] = useState<File | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -129,9 +135,9 @@ function RentalsPage() {
   // Late fee + daily interest recalculation based on app_settings
   const parsedLateFee = Number(settings?.rental_late_fee_pct);
   const lateFeePct = parsedLateFee > 0 ? parsedLateFee : 10;
-  
+
   const parsedDailyInterest = Number(settings?.rental_daily_interest_pct);
-  const dailyPct = parsedDailyInterest > 0 ? parsedDailyInterest : (1 / 30);
+  const dailyPct = parsedDailyInterest > 0 ? parsedDailyInterest : 1 / 30;
   const grace = Number(settings?.rental_grace_days ?? 0);
   const savingsMonthlyPct = Number(settings?.savings_monthly_rate_pct ?? 0.5);
 
@@ -243,20 +249,32 @@ function RentalsPage() {
       const fee = Number(p.late_fee_amount ?? 0);
       const interest = Number(p.interest_amount ?? 0);
       const total = p.amount_paid != null ? Number(p.amount_paid) : base + fee + interest;
-      return { 
-        base, fee, interest, total, 
-        savingsGain: 0, totalRefund: 0,
-        daysLate: 0, savingsMonths: 0, isDeposit: false 
+      return {
+        base,
+        fee,
+        interest,
+        total,
+        savingsGain: 0,
+        totalRefund: 0,
+        daysLate: 0,
+        savingsMonths: 0,
+        isDeposit: false,
       };
     }
 
     const fee = daysLate > 0 ? base * (lateFeePct / 100) : 0;
     const interest = daysLate > 0 ? base * (dailyPct / 100) * daysLate : 0;
     const calculatedTotal = base + fee + interest;
-    return { 
-      base, fee, interest, total: calculatedTotal, 
-      savingsGain: 0, totalRefund: 0,
-      daysLate, savingsMonths: 0, isDeposit: false 
+    return {
+      base,
+      fee,
+      interest,
+      total: calculatedTotal,
+      savingsGain: 0,
+      totalRefund: 0,
+      daysLate,
+      savingsMonths: 0,
+      isDeposit: false,
     };
   }
 
@@ -317,7 +335,15 @@ function RentalsPage() {
       monthPaid,
       late,
     };
-  }, [payments, filteredContracts, filteredContractIds, lateFeePct, dailyPct, grace, savingsMonthlyPct]);
+  }, [
+    payments,
+    filteredContracts,
+    filteredContractIds,
+    lateFeePct,
+    dailyPct,
+    grace,
+    savingsMonthlyPct,
+  ]);
 
   function addMonths(iso: string, months: number): string {
     const d = new Date(iso + "T00:00:00");
@@ -329,8 +355,18 @@ function RentalsPage() {
 
   const monthOptions = useMemo(() => {
     const names = [
-      "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-      "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+      "janeiro",
+      "fevereiro",
+      "março",
+      "abril",
+      "maio",
+      "junho",
+      "julho",
+      "agosto",
+      "setembro",
+      "outubro",
+      "novembro",
+      "dezembro",
     ];
     const currentYear = new Date().getFullYear();
     const options: Array<{ value: string; label: string }> = [];
@@ -403,6 +439,8 @@ function RentalsPage() {
     setAddingFor(contract);
     setNewPayment({
       amount_due: contract.monthly_rent,
+      discount_type: "none",
+      discount_value: "",
       reference_month: nextAvailableReferenceMonth(contract.id, "rent"),
       payment_kind: "rent",
     });
@@ -412,6 +450,8 @@ function RentalsPage() {
     setAddingFor(contract);
     setNewPayment({
       amount_due: contract.deposit_amount ?? "",
+      discount_type: "none",
+      discount_value: "",
       due_date: contract.start_date ?? today,
       reference_month: nextAvailableReferenceMonth(contract.id, "deposit"),
       payment_kind: "deposit",
@@ -438,12 +478,21 @@ function RentalsPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    const rentDiscount = calculateDiscount(
+      form.monthly_rent,
+      form.discount_type,
+      form.discount_value,
+    );
     const { term_months: _t, ...rest } = form;
-    const { data: created, error } = await supabase
+    const { data: created, error } = await (supabase as any)
       .from("rental_contracts")
       .insert({
         ...rest,
-        monthly_rent: Number(form.monthly_rent),
+        monthly_rent: rentDiscount.net,
+        gross_monthly_rent: rentDiscount.gross,
+        discount_type: rentDiscount.type,
+        discount_value: rentDiscount.value,
+        discount_amount: rentDiscount.amount,
         due_day: dueDay,
         deposit_amount: form.deposit_amount ? Number(form.deposit_amount) : null,
         end_date,
@@ -451,8 +500,10 @@ function RentalsPage() {
       })
       .select("id")
       .maybeSingle();
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel criar o contrato."));
-    if (!created?.id) return toast.error("Contrato criado, mas nao foi possivel confirmar o registro.");
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel criar o contrato."));
+    if (!created?.id)
+      return toast.error("Contrato criado, mas nao foi possivel confirmar o registro.");
     const { error: paymentsError } = await supabase.rpc("generate_rental_payments", {
       _contract_id: created.id,
       _months: months,
@@ -464,18 +515,37 @@ function RentalsPage() {
         `Contrato criado, mas não foi possível gerar as parcelas: ${paymentsError.message}`,
       );
     }
+    await (supabase as any)
+      .from("rental_payments")
+      .update({
+        gross_amount_due: rentDiscount.gross,
+        discount_type: rentDiscount.type,
+        discount_value: rentDiscount.value,
+        discount_amount: rentDiscount.amount,
+      })
+      .eq("contract_id", created.id)
+      .eq("payment_kind", "rent");
+
     const depositAmount = Number(form.deposit_amount ?? 0);
     if (depositAmount > 0) {
-      const { error: depositPaymentError } = await supabase.from("rental_payments").insert({
-        contract_id: created.id,
-        reference_month: normalizeReferenceMonth(form.start_date),
-        due_date: form.start_date,
-        amount_due: depositAmount,
-        notes: "Caucao",
-        payment_kind: "deposit",
-      });
+      const { error: depositPaymentError } = await (supabase as any)
+        .from("rental_payments")
+        .insert({
+          contract_id: created.id,
+          reference_month: normalizeReferenceMonth(form.start_date),
+          due_date: form.start_date,
+          amount_due: depositAmount,
+          gross_amount_due: depositAmount,
+          discount_type: "none",
+          discount_value: 0,
+          discount_amount: 0,
+          notes: "Caucao",
+          payment_kind: "deposit",
+        });
       if (depositPaymentError) {
-        toast.error(`Contrato criado, mas nao foi possivel gerar o caucao: ${translatedErrorMessage(depositPaymentError, "Falha ao gerar o caucao.")}`);
+        toast.error(
+          `Contrato criado, mas nao foi possivel gerar o caucao: ${translatedErrorMessage(depositPaymentError, "Falha ao gerar o caucao.")}`,
+        );
       }
     }
     if (contractFile) {
@@ -488,12 +558,21 @@ function RentalsPage() {
           file: contractFile,
         });
       } catch (uploadError: any) {
-        toast.error(`Contrato criado, mas nao foi possivel anexar o PDF: ${translatedErrorMessage(uploadError, "Falha ao anexar o PDF.")}`);
+        toast.error(
+          `Contrato criado, mas nao foi possivel anexar o PDF: ${translatedErrorMessage(uploadError, "Falha ao anexar o PDF.")}`,
+        );
       }
     }
     toast.success("Contrato criado e lancamentos gerados");
     setOpenContract(false);
-    setForm({ kind: "residential", due_day: 5, monthly_rent: "", term_months: 12 });
+    setForm({
+      kind: "residential",
+      due_day: 5,
+      monthly_rent: "",
+      term_months: 12,
+      discount_type: "none",
+      discount_value: "",
+    });
     setContractFile(null);
     refetch();
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
@@ -530,7 +609,10 @@ function RentalsPage() {
   }
 
   function safeFileName(name: string) {
-    return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-");
+    return name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9._-]+/g, "-");
   }
 
   async function uploadPaymentReceipt(paymentId: string, file: File) {
@@ -561,7 +643,9 @@ function RentalsPage() {
       .from("rental-payment-receipts")
       .createSignedUrl(p.deposit_refund_receipt_file_path, 60 * 10);
     if (error || !data?.signedUrl) {
-      return toast.error(translatedErrorMessage(error, "Nao foi possivel abrir o comprovante da devolucao."));
+      return toast.error(
+        translatedErrorMessage(error, "Nao foi possivel abrir o comprovante da devolucao."),
+      );
     }
     window.open(data.signedUrl, "_blank");
   }
@@ -581,9 +665,15 @@ function RentalsPage() {
     patch: Record<string, any>,
     fallbackPatch?: Record<string, any>,
   ) {
-    const { error } = await (supabase as any).from("rental_payments").update(patch).eq("id", paymentId);
+    const { error } = await (supabase as any)
+      .from("rental_payments")
+      .update(patch)
+      .eq("id", paymentId);
     if (error && fallbackPatch && isSchemaCacheColumnError(error)) {
-      const retry = await (supabase as any).from("rental_payments").update(fallbackPatch).eq("id", paymentId);
+      const retry = await (supabase as any)
+        .from("rental_payments")
+        .update(fallbackPatch)
+        .eq("id", paymentId);
       return { error: retry.error, usedFallback: true };
     }
     return { error, usedFallback: false };
@@ -615,11 +705,16 @@ function RentalsPage() {
         patch.deposit_refund_uploaded_at = new Date().toISOString();
       }
     } catch (err: any) {
-      return toast.error(`Nao foi possivel anexar o comprovante: ${translatedErrorMessage(err, "Falha no anexo.")}`);
+      return toast.error(
+        `Nao foi possivel anexar o comprovante: ${translatedErrorMessage(err, "Falha no anexo.")}`,
+      );
     }
 
     const { error } = await updateRentalPayment(p.id, patch);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel registrar a devolucao do caucao."));
+    if (error)
+      return toast.error(
+        translatedErrorMessage(error, "Nao foi possivel registrar a devolucao do caucao."),
+      );
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success("Devolução do caução registrada");
     closeDepositRefund();
@@ -647,7 +742,9 @@ function RentalsPage() {
         patch.receipt_uploaded_at = new Date().toISOString();
       }
     } catch (err: any) {
-      return toast.error(`Nao foi possivel anexar o recibo: ${translatedErrorMessage(err, "Falha no anexo.")}`);
+      return toast.error(
+        `Nao foi possivel anexar o recibo: ${translatedErrorMessage(err, "Falha no anexo.")}`,
+      );
     }
     const { error, usedFallback } = await updateRentalPayment(
       p.id,
@@ -660,10 +757,13 @@ function RentalsPage() {
           }
         : undefined,
     );
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel registrar o pagamento."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel registrar o pagamento."));
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     if (usedFallback) {
-      toast.warning("Pagamento registrado, mas o recibo não foi vinculado porque o schema do Supabase ainda não expõe os campos de recibo.");
+      toast.warning(
+        "Pagamento registrado, mas o recibo não foi vinculado porque o schema do Supabase ainda não expõe os campos de recibo.",
+      );
     }
     toast.success(`Pagamento registrado em ${formatDateBR(payDate)} (R$ ${total.toFixed(2)})`);
     closeMarkPaid();
@@ -692,7 +792,8 @@ function RentalsPage() {
       },
       basePatch,
     );
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel reverter o lancamento."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel reverter o lancamento."));
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success("Lançamento revertido para pendente");
   }
@@ -700,7 +801,8 @@ function RentalsPage() {
   async function deletePayment(id: string) {
     if (!confirm("Excluir este lançamento?")) return;
     const { error } = await supabase.from("rental_payments").delete().eq("id", id);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o lancamento."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o lancamento."));
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success("Lançamento excluído");
   }
@@ -708,17 +810,28 @@ function RentalsPage() {
   async function saveEdit() {
     if (!editingPayment) return;
     const { id, due_date, amount_due, reference_month, notes } = editingPayment;
+    const discount = calculateDiscount(
+      amount_due,
+      editingPayment.discount_type,
+      editingPayment.discount_value,
+    );
     const normalizedReferenceMonth = normalizeReferenceMonth(reference_month);
     const kind = paymentKind(editingPayment);
     const label = paymentKindLabel(kind);
     if (referenceMonthExists(editingPayment.contract_id, normalizedReferenceMonth, id, kind)) {
-      return toast.error(`Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
+      return toast.error(
+        `Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`,
+      );
     }
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("rental_payments")
       .update({
         due_date,
-        amount_due: Number(amount_due),
+        amount_due: discount.net,
+        gross_amount_due: discount.gross,
+        discount_type: discount.type,
+        discount_value: discount.value,
+        discount_amount: discount.amount,
         reference_month: normalizedReferenceMonth,
         notes,
       })
@@ -729,7 +842,9 @@ function RentalsPage() {
         error.message.includes("rental_payments_contract_id_reference_month_key") ||
         error.message.includes("rental_payments_contract_id_reference_month_payment_kind_key")
       ) {
-        return toast.error(`Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
+        return toast.error(
+          `Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`,
+        );
       }
       return toast.error(translatedErrorMessage(error, "Nao foi possivel atualizar o lancamento."));
     }
@@ -751,13 +866,24 @@ function RentalsPage() {
     const kind = newPayment.payment_kind ?? "rent";
     const label = paymentKindLabel(kind);
     if (referenceMonthExists(addingFor.id, normalizedReferenceMonth, undefined, kind)) {
-      return toast.error(`Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
+      return toast.error(
+        `Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`,
+      );
     }
-    const { error } = await supabase.from("rental_payments").insert({
+    const discount = calculateDiscount(
+      newPayment.amount_due,
+      newPayment.discount_type,
+      newPayment.discount_value,
+    );
+    const { error } = await (supabase as any).from("rental_payments").insert({
       contract_id: addingFor.id,
       reference_month: normalizedReferenceMonth,
       due_date: newPayment.due_date,
-      amount_due: Number(newPayment.amount_due),
+      amount_due: discount.net,
+      gross_amount_due: discount.gross,
+      discount_type: discount.type,
+      discount_value: discount.value,
+      discount_amount: discount.amount,
       notes: newPayment.notes ?? null,
       payment_kind: kind,
     });
@@ -767,7 +893,9 @@ function RentalsPage() {
         error.message.includes("rental_payments_contract_id_reference_month_key") ||
         error.message.includes("rental_payments_contract_id_reference_month_payment_kind_key")
       ) {
-        return toast.error(`Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`);
+        return toast.error(
+          `Ja existe ${label} de ${referenceLabel(normalizedReferenceMonth)} neste contrato`,
+        );
       }
       return toast.error(translatedErrorMessage(error, "Nao foi possivel adicionar o lancamento."));
     }
@@ -779,7 +907,8 @@ function RentalsPage() {
 
   async function bulkDeletePayments(ids: string[]) {
     if (ids.length === 0) return;
-    if (!confirm(`Tem certeza que deseja excluir ${ids.length} lançamento(s) selecionado(s)?`)) return;
+    if (!confirm(`Tem certeza que deseja excluir ${ids.length} lançamento(s) selecionado(s)?`))
+      return;
     try {
       const { error } = await supabase.from("rental_payments").delete().in("id", ids);
       if (error) throw error;
@@ -848,7 +977,10 @@ function RentalsPage() {
     )
       return;
     const { error: e1 } = await supabase.from("rental_payments").delete().in("contract_id", ids);
-    if (e1) return toast.error(translatedErrorMessage(e1, "Nao foi possivel excluir as parcelas do contrato."));
+    if (e1)
+      return toast.error(
+        translatedErrorMessage(e1, "Nao foi possivel excluir as parcelas do contrato."),
+      );
     const { error: e2 } = await supabase.from("rental_contracts").delete().in("id", ids);
     if (e2) return toast.error(translatedErrorMessage(e2, "Nao foi possivel excluir o contrato."));
     setSelected({});
@@ -862,30 +994,38 @@ function RentalsPage() {
       .from("rental_contracts")
       .update({ status: newStatus as any })
       .eq("id", id);
-    if (error) return toast.error(translatedErrorMessage(error, "Não foi possível atualizar o status do contrato."));
+    if (error)
+      return toast.error(
+        translatedErrorMessage(error, "Não foi possível atualizar o status do contrato."),
+      );
     qc.invalidateQueries({ queryKey: ["rental_contracts"] });
     toast.success("Status do contrato atualizado com sucesso!");
   }
 
   async function exportContractExtract(c: any, list: any[]) {
     const { doc } = await newReportPdf(`Extrato do Contrato — ${c.code}`);
-    
+
     doc.setFontSize(10);
     doc.text(`Imóvel: ${c.properties?.code ?? ""} — ${c.properties?.title ?? ""}`, 14, 40);
     doc.text(`Inquilino: ${c.tenant?.full_name ?? ""}`, 14, 46);
-    const statusMap: any = { active: "Vigente/Iniciado", ended: "Concluído", suspended: "Pendente", cancelled: "Cancelado" };
+    const statusMap: any = {
+      active: "Vigente/Iniciado",
+      ended: "Concluído",
+      suspended: "Pendente",
+      cancelled: "Cancelado",
+    };
     doc.text(`Status atual: ${statusMap[c.status] ?? c.status}`, 14, 52);
-    
+
     let totalPaid = 0;
     let totalBasePaid = 0;
     let totalLateFeesPaid = 0;
     let depositPaid = 0;
     let depositRefunded = 0;
 
-    const rows = list.map(p => {
+    const rows = list.map((p) => {
       const r = recalc(p);
       const isDeposit = paymentKind(p) === "deposit";
-      
+
       if (p.status === "paid") {
         totalPaid += r.total;
         if (isDeposit) {
@@ -903,18 +1043,27 @@ function RentalsPage() {
         isDeposit ? "Caução" : "Aluguel",
         referenceLabel(p.reference_month),
         formatDateBR(p.due_date),
-        p.paid_at ? formatDateBR(p.paid_at.slice(0,10)) : "—",
+        p.paid_at ? formatDateBR(p.paid_at.slice(0, 10)) : "—",
         `R$ ${r.base.toFixed(2)}`,
         `R$ ${(r.fee + r.interest).toFixed(2)}`,
         `R$ ${(isDeposit && p.status === "paid" ? r.totalRefund : r.total).toFixed(2)}`,
-        p.status === "paid" ? "Pago" : "Pendente"
+        p.status === "paid" ? "Pago" : "Pendente",
       ];
     });
 
     autoTable(doc, {
       startY: 60,
       head: [
-        ["Tipo", "Ref.", "Vencimento", "Pagamento", "Valor Base", "Encargos", "Total/Devolução", "Status"]
+        [
+          "Tipo",
+          "Ref.",
+          "Vencimento",
+          "Pagamento",
+          "Valor Base",
+          "Encargos",
+          "Total/Devolução",
+          "Status",
+        ],
       ],
       body: rows,
       styles: { fontSize: 8 },
@@ -926,7 +1075,11 @@ function RentalsPage() {
     doc.text(`Resumo do Contrato:`, 14, finalY);
     doc.setFontSize(9);
     doc.text(`Total de Aluguéis Recebidos (Base): R$ ${totalBasePaid.toFixed(2)}`, 14, finalY + 6);
-    doc.text(`Total de Encargos Recebidos (Atrasos): R$ ${totalLateFeesPaid.toFixed(2)}`, 14, finalY + 12);
+    doc.text(
+      `Total de Encargos Recebidos (Atrasos): R$ ${totalLateFeesPaid.toFixed(2)}`,
+      14,
+      finalY + 12,
+    );
     doc.text(`Caução Recebido: R$ ${depositPaid.toFixed(2)}`, 14, finalY + 18);
     doc.text(`Caução Devolvido: R$ ${depositRefunded.toFixed(2)}`, 14, finalY + 24);
 
@@ -938,14 +1091,16 @@ function RentalsPage() {
       _contract_id: contractId,
       _months: 12,
     });
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel gerar as parcelas."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel gerar as parcelas."));
     toast.success(`${data} parcela(s) geradas`);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
   }
 
   async function markLate() {
     const { data, error } = await supabase.rpc("mark_late_rental_payments");
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel marcar os atrasados."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel marcar os atrasados."));
     toast.success(`${data} parcela(s) marcada(s) como atrasadas`);
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
   }
@@ -1057,7 +1212,9 @@ function RentalsPage() {
     const paidIso = p.paid_at ? p.paid_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
     const isDeposit = paymentKind(p) === "deposit";
     const receiptLabel = isDeposit ? "caução" : "aluguel";
-    const titleLabel = isDeposit ? "RECIBO DE PAGAMENTO DE CAUÇÃO" : "RECIBO DE PAGAMENTO DE ALUGUEL";
+    const titleLabel = isDeposit
+      ? "RECIBO DE PAGAMENTO DE CAUÇÃO"
+      : "RECIBO DE PAGAMENTO DE ALUGUEL";
     const fmt = (n: number) =>
       `R$ ${Number(n ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const breakdownLines = [
@@ -1178,7 +1335,11 @@ function RentalsPage() {
                       </SelectTrigger>
                       <SelectContent className="max-w-[calc(100vw-2rem)]">
                         {properties.map((p: any) => (
-                          <SelectItem key={p.id} value={p.id} className="max-w-[calc(100vw-3rem)] truncate">
+                          <SelectItem
+                            key={p.id}
+                            value={p.id}
+                            className="max-w-[calc(100vw-3rem)] truncate"
+                          >
                             {p.code} — {p.title}
                           </SelectItem>
                         ))}
@@ -1196,7 +1357,11 @@ function RentalsPage() {
                       </SelectTrigger>
                       <SelectContent className="max-w-[calc(100vw-2rem)]">
                         {clients.map((c: any) => (
-                          <SelectItem key={c.id} value={c.id} className="max-w-[calc(100vw-3rem)] truncate">
+                          <SelectItem
+                            key={c.id}
+                            value={c.id}
+                            className="max-w-[calc(100vw-3rem)] truncate"
+                          >
                             {c.full_name}
                           </SelectItem>
                         ))}
@@ -1229,6 +1394,37 @@ function RentalsPage() {
                         onChange={(e) => setForm({ ...form, monthly_rent: e.target.value })}
                       />
                     </div>
+                    {isAdmin && (
+                      <>
+                        <div className="min-w-0">
+                          <Label className="text-xs">Desconto</Label>
+                          <Select
+                            value={form.discount_type ?? "none"}
+                            onValueChange={(value) => setForm({ ...form, discount_type: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Sem desconto</SelectItem>
+                              <SelectItem value="percent">Percentual (%)</SelectItem>
+                              <SelectItem value="amount">Valor fixo (R$)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="min-w-0">
+                          <Label className="text-xs">Valor do desconto</Label>
+                          <Input
+                            className="w-full min-w-0"
+                            type="number"
+                            step="0.01"
+                            disabled={(form.discount_type ?? "none") === "none"}
+                            value={form.discount_value ?? ""}
+                            onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
+                          />
+                        </div>
+                      </>
+                    )}
                     <div className="min-w-0">
                       <Label className="text-xs">Caução (depósito)</Label>
                       <Input
@@ -1291,9 +1487,25 @@ function RentalsPage() {
                       />
                     </div>
                   </div>
+                  {isAdmin &&
+                    formatDiscountLabel(
+                      calculateDiscount(form.monthly_rent, form.discount_type, form.discount_value),
+                    ) && (
+                      <div className="rounded border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                        {formatDiscountLabel(
+                          calculateDiscount(
+                            form.monthly_rent,
+                            form.discount_type,
+                            form.discount_value,
+                          ),
+                        )}
+                      </div>
+                    )}
                 </div>
                 <DialogFooter className="gap-2 sm:justify-end">
-                  <Button className="w-full sm:w-auto" onClick={createContract}>Criar e gerar parcelas</Button>
+                  <Button className="w-full sm:w-auto" onClick={createContract}>
+                    Criar e gerar parcelas
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -1481,10 +1693,7 @@ function RentalsPage() {
                       R$ {totals.paid.toFixed(2)}
                     </strong>
                   </span>
-                  <Select
-                    value={c.status}
-                    onValueChange={(val) => updateContractStatus(c.id, val)}
-                  >
+                  <Select value={c.status} onValueChange={(val) => updateContractStatus(c.id, val)}>
                     <SelectTrigger className="h-6 w-32 bg-secondary border-none text-[10px] uppercase font-bold rounded-full px-2 py-0">
                       <SelectValue />
                     </SelectTrigger>
@@ -1579,20 +1788,12 @@ function RentalsPage() {
                         +12 meses
                       </Button>
                       {!hasDepositPayment && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openAddDeposit(c)}
-                        >
+                        <Button size="sm" variant="outline" onClick={() => openAddDeposit(c)}>
                           <BadgeDollarSign className="mr-1 h-3.5 w-3.5" />
                           Adicionar caução
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openAddPayment(c)}
-                      >
+                      <Button size="sm" variant="outline" onClick={() => openAddPayment(c)}>
                         <Plus className="mr-1 h-3.5 w-3.5" />
                         Adicionar parcela
                       </Button>
@@ -1642,7 +1843,10 @@ function RentalsPage() {
                             ? p.status !== "paid" && p.due_date < today
                             : r.daysLate > 0;
                           return (
-                            <tr key={p.id} className={`border-t ${isDeposit ? "bg-sky-50/50" : ""}`}>
+                            <tr
+                              key={p.id}
+                              className={`border-t ${isDeposit ? "bg-sky-50/50" : ""}`}
+                            >
                               <td className="px-4 py-2 text-left w-10">
                                 <input
                                   type="checkbox"
@@ -1684,8 +1888,8 @@ function RentalsPage() {
                                 {r.interest ? `R$ ${r.interest.toFixed(2)}` : "—"}
                                 {isDeposit && r.savingsGain > 0 && (
                                   <div className="mt-1 text-[11px] text-sky-700 leading-tight">
-                                    rend. R$ {r.savingsGain.toFixed(2)}<br />
-                                    ({r.savingsMonths}m)
+                                    rend. R$ {r.savingsGain.toFixed(2)}
+                                    <br />({r.savingsMonths}m)
                                   </div>
                                 )}
                               </td>
@@ -1739,7 +1943,12 @@ function RentalsPage() {
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      onClick={() => setEditingPayment({ ...p })}
+                                      onClick={() =>
+                                        setEditingPayment({
+                                          ...p,
+                                          amount_due: p.gross_amount_due ?? p.amount_due,
+                                        })
+                                      }
                                       title="Editar"
                                     >
                                       <Pencil className="h-3.5 w-3.5" />
@@ -1777,7 +1986,10 @@ function RentalsPage() {
                                         size="sm"
                                         variant="ghost"
                                         onClick={() => openDepositRefundReceipt(p)}
-                                        title={p.deposit_refund_receipt_file_name ?? "Abrir comprovante da devolução"}
+                                        title={
+                                          p.deposit_refund_receipt_file_name ??
+                                          "Abrir comprovante da devolução"
+                                        }
                                       >
                                         <Paperclip className="h-3.5 w-3.5 text-sky-700" />
                                       </Button>
@@ -1796,7 +2008,11 @@ function RentalsPage() {
                                         size="sm"
                                         variant="outline"
                                         onClick={() => openDepositRefund(c, p)}
-                                        title={p.deposit_refunded_at ? "Editar devolução do caução" : "Registrar devolução do caução"}
+                                        title={
+                                          p.deposit_refunded_at
+                                            ? "Editar devolução do caução"
+                                            : "Registrar devolução do caução"
+                                        }
                                       >
                                         <BadgeDollarSign className="mr-1 h-3.5 w-3.5" />
                                         {p.deposit_refunded_at ? "Devolução" : "Devolver"}
@@ -1813,7 +2029,12 @@ function RentalsPage() {
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      onClick={() => setEditingPayment({ ...p })}
+                                      onClick={() =>
+                                        setEditingPayment({
+                                          ...p,
+                                          amount_due: p.gross_amount_due ?? p.amount_due,
+                                        })
+                                      }
                                       title="Editar"
                                     >
                                       <Pencil className="h-3.5 w-3.5" />
@@ -1847,7 +2068,8 @@ function RentalsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Editar {editingPayment && paymentKind(editingPayment) === "deposit" ? "caução" : "parcela"}
+              Editar{" "}
+              {editingPayment && paymentKind(editingPayment) === "deposit" ? "caução" : "parcela"}
             </DialogTitle>
           </DialogHeader>
           {editingPayment && (
@@ -1855,13 +2077,23 @@ function RentalsPage() {
               <div>
                 <Label className="text-xs">Mês de referência</Label>
                 <Select
-                  value={editingPayment.reference_month ? `${editingPayment.reference_month.slice(0, 7)}-01` : ""}
-                  onValueChange={(value) => setEditingPayment({ ...editingPayment, reference_month: value })}
+                  value={
+                    editingPayment.reference_month
+                      ? `${editingPayment.reference_month.slice(0, 7)}-01`
+                      : ""
+                  }
+                  onValueChange={(value) =>
+                    setEditingPayment({ ...editingPayment, reference_month: value })
+                  }
                 >
-                  <SelectTrigger><SelectValue placeholder="Selecione o mês" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o mês" />
+                  </SelectTrigger>
                   <SelectContent>
                     {monthOptions.map((month) => (
-                      <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+                      <SelectItem key={month.value} value={month.value}>
+                        {month.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1889,6 +2121,40 @@ function RentalsPage() {
               </div>
               <div>
                 <Label className="text-xs">Observações</Label>
+                {isAdmin && (
+                  <div className="mb-3 grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Desconto</Label>
+                      <Select
+                        value={editingPayment.discount_type ?? "none"}
+                        onValueChange={(value) =>
+                          setEditingPayment({ ...editingPayment, discount_type: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem desconto</SelectItem>
+                          <SelectItem value="percent">Percentual (%)</SelectItem>
+                          <SelectItem value="amount">Valor fixo (R$)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Valor do desconto</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        disabled={(editingPayment.discount_type ?? "none") === "none"}
+                        value={editingPayment.discount_value ?? ""}
+                        onChange={(e) =>
+                          setEditingPayment({ ...editingPayment, discount_value: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
                 <Input
                   value={editingPayment.notes ?? ""}
                   onChange={(e) => setEditingPayment({ ...editingPayment, notes: e.target.value })}
@@ -1907,24 +2173,38 @@ function RentalsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Adicionar {newPayment.payment_kind === "deposit" ? "caução" : "parcela"} {addingFor?.code}
+              Adicionar {newPayment.payment_kind === "deposit" ? "caução" : "parcela"}{" "}
+              {addingFor?.code}
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-3">
             <div>
               <Label className="text-xs">Mês de referência</Label>
               <Select
-                value={newPayment.reference_month ? `${newPayment.reference_month.slice(0, 7)}-01` : ""}
+                value={
+                  newPayment.reference_month ? `${newPayment.reference_month.slice(0, 7)}-01` : ""
+                }
                 onValueChange={(value) => setNewPayment({ ...newPayment, reference_month: value })}
               >
-                <SelectTrigger><SelectValue placeholder="Selecione o mês" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o mês" />
+                </SelectTrigger>
                 <SelectContent>
-                  {addingFor && availableMonthOptionsForAdd(addingFor.id, newPayment.payment_kind ?? "rent").length > 0 ? (
-                    availableMonthOptionsForAdd(addingFor.id, newPayment.payment_kind ?? "rent").map((month) => (
-                      <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
+                  {addingFor &&
+                  availableMonthOptionsForAdd(addingFor.id, newPayment.payment_kind ?? "rent")
+                    .length > 0 ? (
+                    availableMonthOptionsForAdd(
+                      addingFor.id,
+                      newPayment.payment_kind ?? "rent",
+                    ).map((month) => (
+                      <SelectItem key={month.value} value={month.value}>
+                        {month.label}
+                      </SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="none" disabled>Nenhuma competência livre</SelectItem>
+                    <SelectItem value="none" disabled>
+                      Nenhuma competência livre
+                    </SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -1948,6 +2228,40 @@ function RentalsPage() {
             </div>
             <div>
               <Label className="text-xs">Observações</Label>
+              {isAdmin && (
+                <div className="mb-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Desconto</Label>
+                    <Select
+                      value={newPayment.discount_type ?? "none"}
+                      onValueChange={(value) =>
+                        setNewPayment({ ...newPayment, discount_type: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem desconto</SelectItem>
+                        <SelectItem value="percent">Percentual (%)</SelectItem>
+                        <SelectItem value="amount">Valor fixo (R$)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Valor do desconto</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      disabled={(newPayment.discount_type ?? "none") === "none"}
+                      value={newPayment.discount_value ?? ""}
+                      onChange={(e) =>
+                        setNewPayment({ ...newPayment, discount_value: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              )}
               <Input
                 value={newPayment.notes ?? ""}
                 onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
@@ -1968,8 +2282,9 @@ function RentalsPage() {
           {payingPayment && (
             <div className="grid gap-3 text-sm">
               <div className="text-xs text-muted-foreground">
-                Contrato <strong>{payingPayment.c.code}</strong> • Ref. {referenceLabel(payingPayment.p.reference_month)} •
-                Vencimento {formatDateBR(payingPayment.p.due_date)}
+                Contrato <strong>{payingPayment.c.code}</strong> • Ref.{" "}
+                {referenceLabel(payingPayment.p.reference_month)} • Vencimento{" "}
+                {formatDateBR(payingPayment.p.due_date)}
               </div>
               <div>
                 <Label className="text-xs">Data do pagamento</Label>
@@ -1980,7 +2295,8 @@ function RentalsPage() {
                 const isDeposit = paymentKind(payingPayment.p) === "deposit";
                 return (
                   <div className="rounded-md border bg-muted/30 p-2 text-xs">
-                    Total a registrar: <strong className="tabular-nums">R$ {preview.total.toFixed(2)}</strong>
+                    Total a registrar:{" "}
+                    <strong className="tabular-nums">R$ {preview.total.toFixed(2)}</strong>
                     {isDeposit && preview.savingsMonths > 0 && (
                       <span className="ml-1 text-muted-foreground">
                         (inclui correção pela poupança por {preview.savingsMonths} mês(es))
@@ -2008,7 +2324,9 @@ function RentalsPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={closeMarkPaid}>Cancelar</Button>
+            <Button variant="outline" onClick={closeMarkPaid}>
+              Cancelar
+            </Button>
             <Button onClick={confirmMarkPaid}>Registrar pagamento</Button>
           </DialogFooter>
         </DialogContent>
@@ -2022,8 +2340,11 @@ function RentalsPage() {
           {depositRefundFor && (
             <div className="grid gap-3 text-sm">
               <div className="text-xs text-muted-foreground">
-                Contrato <strong>{depositRefundFor.c.code}</strong> • Ref. {referenceLabel(depositRefundFor.p.reference_month)} •
-                Caução recebido em {depositRefundFor.p.paid_at ? formatDateBR(depositRefundFor.p.paid_at.slice(0, 10)) : "—"}
+                Contrato <strong>{depositRefundFor.c.code}</strong> • Ref.{" "}
+                {referenceLabel(depositRefundFor.p.reference_month)} • Caução recebido em{" "}
+                {depositRefundFor.p.paid_at
+                  ? formatDateBR(depositRefundFor.p.paid_at.slice(0, 10))
+                  : "—"}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
@@ -2032,7 +2353,10 @@ function RentalsPage() {
                     type="date"
                     value={depositRefundForm.refund_due_date}
                     onChange={(e) =>
-                      setDepositRefundForm({ ...depositRefundForm, refund_due_date: e.target.value })
+                      setDepositRefundForm({
+                        ...depositRefundForm,
+                        refund_due_date: e.target.value,
+                      })
                     }
                   />
                 </div>
@@ -2077,11 +2401,14 @@ function RentalsPage() {
                     </div>
                     <div className="flex flex-wrap justify-between gap-2">
                       <span>Corrigido até a data real</span>
-                      <strong className="tabular-nums text-sky-700">R$ {info.actualAmount.toFixed(2)}</strong>
+                      <strong className="tabular-nums text-sky-700">
+                        R$ {info.actualAmount.toFixed(2)}
+                      </strong>
                     </div>
                     {info.daysAfterDue > 0 && (
                       <div className="text-muted-foreground">
-                        Devolvido {info.daysAfterDue} dia(s) após a data prevista, sem multa contratual, com correção pela poupança até a data real.
+                        Devolvido {info.daysAfterDue} dia(s) após a data prevista, sem multa
+                        contratual, com correção pela poupança até a data real.
                         {info.additionalGain > 0 && (
                           <span className="ml-1">
                             Correção adicional: R$ {info.additionalGain.toFixed(2)}.
@@ -2107,7 +2434,9 @@ function RentalsPage() {
                 <Label className="text-xs">Observações</Label>
                 <Input
                   value={depositRefundForm.notes}
-                  onChange={(e) => setDepositRefundForm({ ...depositRefundForm, notes: e.target.value })}
+                  onChange={(e) =>
+                    setDepositRefundForm({ ...depositRefundForm, notes: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -2118,13 +2447,17 @@ function RentalsPage() {
                   onChange={(e) => setDepositRefundReceiptFile(e.target.files?.[0] ?? null)}
                 />
                 {depositRefundReceiptFile && (
-                  <p className="mt-1 text-xs text-muted-foreground">{depositRefundReceiptFile.name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {depositRefundReceiptFile.name}
+                  </p>
                 )}
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={closeDepositRefund}>Cancelar</Button>
+            <Button variant="outline" onClick={closeDepositRefund}>
+              Cancelar
+            </Button>
             <Button onClick={saveDepositRefund}>Salvar devolução</Button>
           </DialogFooter>
         </DialogContent>
@@ -2136,43 +2469,58 @@ function RentalsPage() {
           <DialogHeader>
             <DialogTitle>Enviar recibo do pagamento</DialogTitle>
           </DialogHeader>
-          {receiptFor && (() => {
-            // Always resolve the freshest payment from the payments query cache
-            const freshP = payments.find((x: any) => x.id === receiptFor.p.id) ?? receiptFor.p;
-            const receiptForFresh = { ...receiptFor, p: freshP };
-            return (
-            <div className="grid gap-3 text-sm">
-              <div className="text-xs text-muted-foreground">
-                Contrato <strong>{receiptForFresh.c.code}</strong> • Ref. {referenceLabel(receiptForFresh.p.reference_month)} •
-                Pago em {receiptForFresh.p.paid_at ? formatDateBR(receiptForFresh.p.paid_at.slice(0, 10)) : "—"}
-              </div>
-              <div className="text-xs">
-                Inquilino: <strong>{receiptForFresh.c.tenant?.full_name ?? "—"}</strong>
-                <br />
-                E-mail:{" "}
-                {receiptForFresh.c.tenant?.email ?? (
-                  <span className="text-muted-foreground">não cadastrado</span>
-                )}
-                <br />
-                Telefone:{" "}
-                {receiptForFresh.c.tenant?.phone ?? (
-                  <span className="text-muted-foreground">não cadastrado</span>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                O recibo em PDF será baixado neste dispositivo. Em seguida, abriremos o e-mail ou o
-                WhatsApp já com a mensagem pronta — basta anexar o arquivo baixado antes de enviar.
-              </p>
-              {receiptForFresh.p.receipt_file_path && (
-                <Button variant="outline" size="sm" className="w-fit" onClick={() => openAttachedReceipt(receiptForFresh.p)}>
-                  <Paperclip className="mr-1.5 h-4 w-4" />Abrir comprovante anexado
-                </Button>
-              )}
-            </div>
-            );
-          })()}
+          {receiptFor &&
+            (() => {
+              // Always resolve the freshest payment from the payments query cache
+              const freshP = payments.find((x: any) => x.id === receiptFor.p.id) ?? receiptFor.p;
+              const receiptForFresh = { ...receiptFor, p: freshP };
+              return (
+                <div className="grid gap-3 text-sm">
+                  <div className="text-xs text-muted-foreground">
+                    Contrato <strong>{receiptForFresh.c.code}</strong> • Ref.{" "}
+                    {referenceLabel(receiptForFresh.p.reference_month)} • Pago em{" "}
+                    {receiptForFresh.p.paid_at
+                      ? formatDateBR(receiptForFresh.p.paid_at.slice(0, 10))
+                      : "—"}
+                  </div>
+                  <div className="text-xs">
+                    Inquilino: <strong>{receiptForFresh.c.tenant?.full_name ?? "—"}</strong>
+                    <br />
+                    E-mail:{" "}
+                    {receiptForFresh.c.tenant?.email ?? (
+                      <span className="text-muted-foreground">não cadastrado</span>
+                    )}
+                    <br />
+                    Telefone:{" "}
+                    {receiptForFresh.c.tenant?.phone ?? (
+                      <span className="text-muted-foreground">não cadastrado</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    O recibo em PDF será baixado neste dispositivo. Em seguida, abriremos o e-mail
+                    ou o WhatsApp já com a mensagem pronta — basta anexar o arquivo baixado antes de
+                    enviar.
+                  </p>
+                  {receiptForFresh.p.receipt_file_path && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      onClick={() => openAttachedReceipt(receiptForFresh.p)}
+                    >
+                      <Paperclip className="mr-1.5 h-4 w-4" />
+                      Abrir comprovante anexado
+                    </Button>
+                  )}
+                </div>
+              );
+            })()}
           <div className="grid gap-2 sm:grid-cols-3">
-            <Button variant="outline" className="min-w-0 justify-center whitespace-nowrap" onClick={downloadReceipt}>
+            <Button
+              variant="outline"
+              className="min-w-0 justify-center whitespace-nowrap"
+              onClick={downloadReceipt}
+            >
               <FileDown className="mr-1.5 h-4 w-4" />
               Apenas baixar PDF
             </Button>
