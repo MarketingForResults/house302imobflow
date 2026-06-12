@@ -128,6 +128,11 @@ function SalesPage() {
     queryFn: async () =>
       (await supabase.from("clients").select("id, full_name").order("full_name")).data ?? [],
   });
+  const { data: economicIndexes = [] } = useQuery({
+    queryKey: ["economic-indexes-min"],
+    queryFn: async () =>
+      (await (supabase as any).from("economic_indexes").select("code, name").order("code")).data ?? [],
+  });
   const { data: brokers = [] } = useQuery({
     queryKey: ["brokers-min"],
     queryFn: async () =>
