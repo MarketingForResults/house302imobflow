@@ -506,15 +506,49 @@ function SalesPage() {
                       )}
                     </div>
                   )}
-                <Field label="Entrada">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={contractForm.down_payment_amount ?? ""}
-                    onChange={(event) =>
-                      setContractForm({ ...contractForm, down_payment_amount: event.target.value })
-                    }
-                  />
+                <Field label={`Entrada (${contractForm.down_payment_mode === "percent" ? "%" : "R$"})`}>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={
+                        contractForm.down_payment_mode === "percent"
+                          ? (contractForm.down_payment_pct ?? "")
+                          : (contractForm.down_payment_amount ?? "")
+                      }
+                      onChange={(event) =>
+                        setContractForm({
+                          ...contractForm,
+                          [contractForm.down_payment_mode === "percent"
+                            ? "down_payment_pct"
+                            : "down_payment_amount"]: event.target.value,
+                        })
+                      }
+                    />
+                    <Select
+                      value={contractForm.down_payment_mode ?? "amount"}
+                      onValueChange={(value) =>
+                        setContractForm({ ...contractForm, down_payment_mode: value })
+                      }
+                    >
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="amount">R$</SelectItem>
+                        <SelectItem value="percent">%</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {contractForm.total_amount && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {contractForm.down_payment_mode === "percent"
+                        ? `≈ ${money((Number(contractForm.total_amount) * Number(contractForm.down_payment_pct || 0)) / 100)}`
+                        : contractForm.down_payment_amount
+                          ? `≈ ${((Number(contractForm.down_payment_amount) / Number(contractForm.total_amount)) * 100).toFixed(2)}%`
+                          : ""}
+                    </div>
+                  )}
                 </Field>
                 <Field label="Data do contrato *">
                   <Input
