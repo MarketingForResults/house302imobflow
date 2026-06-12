@@ -538,6 +538,7 @@ export type Database = {
           archived_at: string | null
           body_rendered: string
           broker_id: string | null
+          buyer_id: string | null
           client_id: string | null
           code: string
           created_at: string
@@ -545,14 +546,18 @@ export type Database = {
           id: string
           kind: string
           notes: string | null
+          owner_id: string | null
           partner_id: string | null
           payload_snapshot: Json
           property_id: string | null
           rental_contract_id: string | null
+          sale_contract_id: string | null
+          seller_id: string | null
           signed_at: string | null
           signed_file_url: string | null
           status: Database["public"]["Enums"]["document_status"]
           template_id: string | null
+          tenant_id: string | null
           title: string | null
           updated_at: string
         }
@@ -560,6 +565,7 @@ export type Database = {
           archived_at?: string | null
           body_rendered?: string
           broker_id?: string | null
+          buyer_id?: string | null
           client_id?: string | null
           code?: string
           created_at?: string
@@ -567,14 +573,18 @@ export type Database = {
           id?: string
           kind: string
           notes?: string | null
+          owner_id?: string | null
           partner_id?: string | null
           payload_snapshot?: Json
           property_id?: string | null
           rental_contract_id?: string | null
+          sale_contract_id?: string | null
+          seller_id?: string | null
           signed_at?: string | null
           signed_file_url?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           template_id?: string | null
+          tenant_id?: string | null
           title?: string | null
           updated_at?: string
         }
@@ -582,6 +592,7 @@ export type Database = {
           archived_at?: string | null
           body_rendered?: string
           broker_id?: string | null
+          buyer_id?: string | null
           client_id?: string | null
           code?: string
           created_at?: string
@@ -589,14 +600,18 @@ export type Database = {
           id?: string
           kind?: string
           notes?: string | null
+          owner_id?: string | null
           partner_id?: string | null
           payload_snapshot?: Json
           property_id?: string | null
           rental_contract_id?: string | null
+          sale_contract_id?: string | null
+          seller_id?: string | null
           signed_at?: string | null
           signed_file_url?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           template_id?: string | null
+          tenant_id?: string | null
           title?: string | null
           updated_at?: string
         }
@@ -609,8 +624,22 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "documents_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "documents_client_id_fkey"
             columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_owner_id_fkey"
+            columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
@@ -630,10 +659,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "documents_sale_contract_id_fkey"
+            columns: ["sale_contract_id"]
+            isOneToOne: false
+            referencedRelation: "sale_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "documents_template_id_fkey"
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -1955,6 +2005,227 @@ export type Database = {
           },
         ]
       }
+      sale_contracts: {
+        Row: {
+          bank_amortization_system: string | null
+          bank_approval_status: string | null
+          bank_financing_amount: number | null
+          bank_financing_term_months: number | null
+          bank_name: string | null
+          bank_notes: string | null
+          broker_id: string | null
+          buyer_client_id: string
+          closed_at: string | null
+          code: string | null
+          commission_pct: number | null
+          contract_date: string
+          created_at: string
+          created_by: string | null
+          daily_interest_pct: number | null
+          down_payment_amount: number | null
+          down_payment_method: string | null
+          down_payment_mode: string | null
+          down_payment_paid_at: string | null
+          down_payment_pct: number | null
+          expected_closing_date: string | null
+          first_installment_date: string | null
+          guarantor_client_id: string | null
+          id: string
+          installment_amount: number | null
+          installments_count: number | null
+          late_fee_pct: number | null
+          monthly_interest_pct: number | null
+          notes: string | null
+          payment_mode: string
+          property_id: string
+          readjustment_index: string | null
+          readjustment_period_months: number | null
+          seller_client_id: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          bank_amortization_system?: string | null
+          bank_approval_status?: string | null
+          bank_financing_amount?: number | null
+          bank_financing_term_months?: number | null
+          bank_name?: string | null
+          bank_notes?: string | null
+          broker_id?: string | null
+          buyer_client_id: string
+          closed_at?: string | null
+          code?: string | null
+          commission_pct?: number | null
+          contract_date: string
+          created_at?: string
+          created_by?: string | null
+          daily_interest_pct?: number | null
+          down_payment_amount?: number | null
+          down_payment_method?: string | null
+          down_payment_mode?: string | null
+          down_payment_paid_at?: string | null
+          down_payment_pct?: number | null
+          expected_closing_date?: string | null
+          first_installment_date?: string | null
+          guarantor_client_id?: string | null
+          id?: string
+          installment_amount?: number | null
+          installments_count?: number | null
+          late_fee_pct?: number | null
+          monthly_interest_pct?: number | null
+          notes?: string | null
+          payment_mode?: string
+          property_id: string
+          readjustment_index?: string | null
+          readjustment_period_months?: number | null
+          seller_client_id?: string | null
+          status?: string
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          bank_amortization_system?: string | null
+          bank_approval_status?: string | null
+          bank_financing_amount?: number | null
+          bank_financing_term_months?: number | null
+          bank_name?: string | null
+          bank_notes?: string | null
+          broker_id?: string | null
+          buyer_client_id?: string
+          closed_at?: string | null
+          code?: string | null
+          commission_pct?: number | null
+          contract_date?: string
+          created_at?: string
+          created_by?: string | null
+          daily_interest_pct?: number | null
+          down_payment_amount?: number | null
+          down_payment_method?: string | null
+          down_payment_mode?: string | null
+          down_payment_paid_at?: string | null
+          down_payment_pct?: number | null
+          expected_closing_date?: string | null
+          first_installment_date?: string | null
+          guarantor_client_id?: string | null
+          id?: string
+          installment_amount?: number | null
+          installments_count?: number | null
+          late_fee_pct?: number | null
+          monthly_interest_pct?: number | null
+          notes?: string | null
+          payment_mode?: string
+          property_id?: string
+          readjustment_index?: string | null
+          readjustment_period_months?: number | null
+          seller_client_id?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_contracts_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_contracts_buyer_client_id_fkey"
+            columns: ["buyer_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_contracts_guarantor_client_id_fkey"
+            columns: ["guarantor_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_contracts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_contracts_seller_client_id_fkey"
+            columns: ["seller_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sale_payments: {
+        Row: {
+          amount_due: number
+          amount_paid: number | null
+          contract_id: string
+          created_at: string
+          created_by: string | null
+          description: string
+          due_date: string
+          id: string
+          installment_number: number | null
+          interest: number | null
+          late_fee: number | null
+          notes: string | null
+          paid_at: string | null
+          payment_method: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount_due: number
+          amount_paid?: number | null
+          contract_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          due_date: string
+          id?: string
+          installment_number?: number | null
+          interest?: number | null
+          late_fee?: number | null
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_due?: number
+          amount_paid?: number | null
+          contract_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          due_date?: string
+          id?: string
+          installment_number?: number | null
+          interest?: number | null
+          late_fee?: number | null
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_payments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "sale_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2023,6 +2294,10 @@ export type Database = {
     }
     Functions: {
       generate_rental_payments: {
+        Args: { _contract_id: string; _months?: number }
+        Returns: number
+      }
+      generate_sale_installments: {
         Args: { _contract_id: string; _months?: number }
         Returns: number
       }
