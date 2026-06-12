@@ -181,19 +181,57 @@ function SalesPage() {
       contractForm.discount_type,
       contractForm.discount_value,
     );
+    const totalNum = Number(contractForm.total_amount);
+    const dpMode = contractForm.down_payment_mode === "percent" ? "percent" : "amount";
+    const dpRaw = Number(contractForm.down_payment_amount || 0);
+    const dpPctRaw = Number(contractForm.down_payment_pct || 0);
+    const dpAmount = dpMode === "percent" ? +(totalNum * (dpPctRaw / 100)).toFixed(2) : dpRaw;
+    const dpPct = dpMode === "percent" ? dpPctRaw : totalNum > 0 ? +((dpRaw / totalNum) * 100).toFixed(3) : null;
     const payload = {
-      ...contractForm,
+      property_id: contractForm.property_id,
+      buyer_client_id: contractForm.buyer_client_id,
       seller_client_id: contractForm.seller_client_id || null,
       broker_id: contractForm.broker_id || null,
+      guarantor_client_id: contractForm.guarantor_client_id || null,
+      contract_date: contractForm.contract_date,
       expected_closing_date: contractForm.expected_closing_date || null,
+      commission_pct: contractForm.commission_pct ? Number(contractForm.commission_pct) : null,
+      notes: contractForm.notes || null,
+      status: contractForm.status,
       total_amount: discount.net,
       gross_total_amount: discount.gross,
       discount_type: discount.type,
       discount_value: discount.value,
       discount_amount: discount.amount,
-      down_payment_amount: Number(contractForm.down_payment_amount || 0),
-      commission_pct: contractForm.commission_pct ? Number(contractForm.commission_pct) : null,
+      down_payment_amount: dpAmount,
+      down_payment_pct: dpPct,
+      down_payment_mode: dpMode,
+      payment_mode: contractForm.payment_mode,
+      installments_count: contractForm.installments_count ? Number(contractForm.installments_count) : null,
+      first_installment_date: contractForm.first_installment_date || null,
+      readjustment_index: contractForm.readjustment_index || null,
+      late_fee_pct: contractForm.late_fee_pct ? Number(contractForm.late_fee_pct) : null,
+      monthly_interest_pct: contractForm.monthly_interest_pct ? Number(contractForm.monthly_interest_pct) : null,
+      bank_name: contractForm.bank_name || null,
+      bank_financing_amount: contractForm.bank_financing_amount ? Number(contractForm.bank_financing_amount) : null,
+      bank_financing_term_months: contractForm.bank_financing_term_months ? Number(contractForm.bank_financing_term_months) : null,
+      bank_amortization_system: contractForm.bank_amortization_system || null,
+      bank_approval_status: contractForm.bank_approval_status || "pending",
+      bank_notes: contractForm.bank_notes || null,
     };
+    const { data, error } = await db
+      .from("sale_contracts")
+      .insert(payload)
+      .select("*")
+      .maybeSingle();
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel cadastrar a venda."));
+    if (!data?.id) return toast.error("Venda criada, mas nao foi possivel confirmar o registro.");
+
+    if (payload.payment_mode === "owner_financing" && payload.installments_count) {
+      await db.rpc("generate_sale_installments", { _contract_id: data.id, _months: payload.installments_count });
+    }
+
     const { data, error } = await db
       .from("sale_contracts")
       .insert(payload)
