@@ -10,9 +10,9 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
 function LoginPage() {
-  const { user, signIn, signUp, loading } = useAuth();
+  const { user, signIn, signUp, resetPassword, loading } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "recovery">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -30,10 +30,17 @@ function LoginPage() {
       const { error } = await signIn(email, password);
       if (error) toast.error(error);
       else navigate({ to: "/dashboard" });
-    } else {
+    } else if (mode === "signup") {
       const { error } = await signUp(email, password, fullName);
       if (error) toast.error(error);
       else toast.success("Conta criada! Verifique seu email para confirmar.");
+    } else {
+      const { error } = await resetPassword(email);
+      if (error) toast.error(error);
+      else {
+        toast.success("Se o e-mail estiver cadastrado, enviaremos um link para redefinir a senha.");
+        setMode("login");
+      }
     }
     setSubmitting(false);
   }
@@ -48,9 +55,15 @@ function LoginPage() {
           <span className="text-lg font-semibold">ImobiFlow</span>
         </Link>
         <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h1 className="text-xl font-semibold">{mode === "login" ? "Entrar" : "Criar conta"}</h1>
+          <h1 className="text-xl font-semibold">
+            {mode === "login" ? "Entrar" : mode === "signup" ? "Criar conta" : "Recuperar senha"}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "login" ? "Acesse seu painel" : "Comece a gerenciar imóveis"}
+            {mode === "login"
+              ? "Acesse seu painel"
+              : mode === "signup"
+                ? "Comece a gerenciar imoveis"
+                : "Informe seu e-mail para receber o link de redefinicao"}
           </p>
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             {mode === "signup" && (
@@ -74,7 +87,8 @@ function LoginPage() {
                 required
               />
             </div>
-            <div>
+            {mode !== "recovery" && (
+              <div>
               <Label htmlFor="password">Senha</Label>
               <div className="relative">
                 <Input
@@ -98,9 +112,25 @@ function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
-            </div>
+              </div>
+            )}
+            {mode === "login" && (
+              <button
+                type="button"
+                onClick={() => setMode("recovery")}
+                className="text-sm text-primary hover:underline"
+              >
+                Esqueci minha senha
+              </button>
+            )}
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
+              {submitting
+                ? "Aguarde..."
+                : mode === "login"
+                  ? "Entrar"
+                  : mode === "signup"
+                    ? "Criar conta"
+                    : "Enviar link de recuperacao"}
             </Button>
           </form>
           <button

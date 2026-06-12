@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PartnerRegistrationRouteImport } from './routes/partner-registration'
 import { Route as PRouteImport } from './routes/p'
 import { Route as LoginRouteImport } from './routes/login'
@@ -35,6 +36,11 @@ import { Route as AppPropertiesIdRouteImport } from './routes/_app/properties/$i
 import { Route as AppDocumentsTemplatesRouteImport } from './routes/_app/documents/templates'
 import { Route as AppDocumentsNewRouteImport } from './routes/_app/documents/new'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PartnerRegistrationRoute = PartnerRegistrationRouteImport.update({
   id: '/partner-registration',
   path: '/partner-registration',
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/p': typeof PRoute
   '/partner-registration': typeof PartnerRegistrationRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/backups': typeof AppBackupsRoute
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/p': typeof PRoute
   '/partner-registration': typeof PartnerRegistrationRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/backups': typeof AppBackupsRoute
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
@@ -219,6 +227,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/p': typeof PRoute
   '/partner-registration': typeof PartnerRegistrationRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/_app/backups': typeof AppBackupsRoute
   '/_app/brokers': typeof AppBrokersRoute
   '/_app/clients': typeof AppClientsRoute
@@ -247,6 +256,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/p'
     | '/partner-registration'
+    | '/reset-password'
     | '/backups'
     | '/brokers'
     | '/clients'
@@ -273,6 +283,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/p'
     | '/partner-registration'
+    | '/reset-password'
     | '/backups'
     | '/brokers'
     | '/clients'
@@ -300,6 +311,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/p'
     | '/partner-registration'
+    | '/reset-password'
     | '/_app/backups'
     | '/_app/brokers'
     | '/_app/clients'
@@ -328,10 +340,18 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PRoute: typeof PRoute
   PartnerRegistrationRoute: typeof PartnerRegistrationRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/partner-registration': {
       id: '/partner-registration'
       path: '/partner-registration'
@@ -564,6 +584,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PRoute: PRoute,
   PartnerRegistrationRoute: PartnerRegistrationRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
