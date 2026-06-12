@@ -51,8 +51,23 @@ const EMPTY_CONTRACT = {
   discount_type: "none",
   discount_value: "",
   down_payment_amount: "",
+  down_payment_pct: "",
+  down_payment_mode: "amount" as "amount" | "percent",
   contract_date: new Date().toISOString().slice(0, 10),
   status: "active",
+  payment_mode: "cash" as "cash" | "owner_financing" | "bank_financing",
+  installments_count: "",
+  first_installment_date: "",
+  readjustment_index: "",
+  late_fee_pct: "2",
+  monthly_interest_pct: "1",
+  bank_name: "",
+  bank_financing_amount: "",
+  bank_financing_term_months: "",
+  bank_amortization_system: "",
+  bank_approval_status: "pending",
+  bank_notes: "",
+  guarantor_client_id: "",
 };
 const EMPTY_PAYMENT = {
   description: "Parcela",
@@ -113,6 +128,11 @@ function SalesPage() {
     queryFn: async () =>
       (await supabase.from("clients").select("id, full_name").order("full_name")).data ?? [],
   });
+  const { data: economicIndexes = [] } = useQuery({
+    queryKey: ["economic-indexes-min"],
+    queryFn: async () =>
+      (await (supabase as any).from("economic_indexes").select("code, name").order("code")).data ?? [],
+  });
   const { data: brokers = [] } = useQuery({
     queryKey: ["brokers-min"],
     queryFn: async () =>
@@ -166,18 +186,43 @@ function SalesPage() {
       contractForm.discount_type,
       contractForm.discount_value,
     );
+    const totalNum = Number(contractForm.total_amount);
+    const dpMode = contractForm.down_payment_mode === "percent" ? "percent" : "amount";
+    const dpRaw = Number(contractForm.down_payment_amount || 0);
+    const dpPctRaw = Number(contractForm.down_payment_pct || 0);
+    const dpAmount = dpMode === "percent" ? +(totalNum * (dpPctRaw / 100)).toFixed(2) : dpRaw;
+    const dpPct = dpMode === "percent" ? dpPctRaw : totalNum > 0 ? +((dpRaw / totalNum) * 100).toFixed(3) : null;
     const payload = {
-      ...contractForm,
+      property_id: contractForm.property_id,
+      buyer_client_id: contractForm.buyer_client_id,
       seller_client_id: contractForm.seller_client_id || null,
       broker_id: contractForm.broker_id || null,
+      guarantor_client_id: contractForm.guarantor_client_id || null,
+      contract_date: contractForm.contract_date,
       expected_closing_date: contractForm.expected_closing_date || null,
+      commission_pct: contractForm.commission_pct ? Number(contractForm.commission_pct) : null,
+      notes: contractForm.notes || null,
+      status: contractForm.status,
       total_amount: discount.net,
       gross_total_amount: discount.gross,
       discount_type: discount.type,
       discount_value: discount.value,
       discount_amount: discount.amount,
-      down_payment_amount: Number(contractForm.down_payment_amount || 0),
-      commission_pct: contractForm.commission_pct ? Number(contractForm.commission_pct) : null,
+      down_payment_amount: dpAmount,
+      down_payment_pct: dpPct,
+      down_payment_mode: dpMode,
+      payment_mode: contractForm.payment_mode,
+      installments_count: contractForm.installments_count ? Number(contractForm.installments_count) : null,
+      first_installment_date: contractForm.first_installment_date || null,
+      readjustment_index: contractForm.readjustment_index || null,
+      late_fee_pct: contractForm.late_fee_pct ? Number(contractForm.late_fee_pct) : null,
+      monthly_interest_pct: contractForm.monthly_interest_pct ? Number(contractForm.monthly_interest_pct) : null,
+      bank_name: contractForm.bank_name || null,
+      bank_financing_amount: contractForm.bank_financing_amount ? Number(contractForm.bank_financing_amount) : null,
+      bank_financing_term_months: contractForm.bank_financing_term_months ? Number(contractForm.bank_financing_term_months) : null,
+      bank_amortization_system: contractForm.bank_amortization_system || null,
+      bank_approval_status: contractForm.bank_approval_status || "pending",
+      bank_notes: contractForm.bank_notes || null,
     };
     const { data, error } = await db
       .from("sale_contracts")
@@ -187,6 +232,11 @@ function SalesPage() {
     if (error)
       return toast.error(translatedErrorMessage(error, "Nao foi possivel cadastrar a venda."));
     if (!data?.id) return toast.error("Venda criada, mas nao foi possivel confirmar o registro.");
+
+    if (payload.payment_mode === "owner_financing" && payload.installments_count) {
+      await db.rpc("generate_sale_installments", { _contract_id: data.id, _months: payload.installments_count });
+    }
+
 
     if (contractFile) {
       try {
@@ -456,15 +506,49 @@ function SalesPage() {
                       )}
                     </div>
                   )}
-                <Field label="Entrada">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={contractForm.down_payment_amount ?? ""}
-                    onChange={(event) =>
-                      setContractForm({ ...contractForm, down_payment_amount: event.target.value })
-                    }
-                  />
+                <Field label={`Entrada (${contractForm.down_payment_mode === "percent" ? "%" : "R$"})`}>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={
+                        contractForm.down_payment_mode === "percent"
+                          ? (contractForm.down_payment_pct ?? "")
+                          : (contractForm.down_payment_amount ?? "")
+                      }
+                      onChange={(event) =>
+                        setContractForm({
+                          ...contractForm,
+                          [contractForm.down_payment_mode === "percent"
+                            ? "down_payment_pct"
+                            : "down_payment_amount"]: event.target.value,
+                        })
+                      }
+                    />
+                    <Select
+                      value={contractForm.down_payment_mode ?? "amount"}
+                      onValueChange={(value) =>
+                        setContractForm({ ...contractForm, down_payment_mode: value })
+                      }
+                    >
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="amount">R$</SelectItem>
+                        <SelectItem value="percent">%</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {contractForm.total_amount && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {contractForm.down_payment_mode === "percent"
+                        ? `≈ ${money((Number(contractForm.total_amount) * Number(contractForm.down_payment_pct || 0)) / 100)}`
+                        : contractForm.down_payment_amount
+                          ? `≈ ${((Number(contractForm.down_payment_amount) / Number(contractForm.total_amount)) * 100).toFixed(2)}%`
+                          : ""}
+                    </div>
+                  )}
                 </Field>
                 <Field label="Data do contrato *">
                   <Input
@@ -504,6 +588,195 @@ function SalesPage() {
                     onChange={(event) => setContractFile(event.target.files?.[0] ?? null)}
                   />
                 </Field>
+
+                <div className="sm:col-span-2 mt-2 rounded-md border p-3">
+                  <div className="mb-2 text-sm font-semibold">Modalidade de pagamento</div>
+                  <Select
+                    value={contractForm.payment_mode ?? "cash"}
+                    onValueChange={(value) =>
+                      setContractForm({ ...contractForm, payment_mode: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">À vista</SelectItem>
+                      <SelectItem value="owner_financing">Financiamento próprio (parcelado)</SelectItem>
+                      <SelectItem value="bank_financing">Financiamento bancário</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {contractForm.payment_mode === "owner_financing" && (
+                  <div className="sm:col-span-2 rounded-md border p-3 grid gap-3 sm:grid-cols-2">
+                    <div className="sm:col-span-2 text-sm font-semibold">Financiamento próprio</div>
+                    <Field label="Nº de parcelas">
+                      <Input
+                        type="number"
+                        value={contractForm.installments_count ?? ""}
+                        onChange={(e) =>
+                          setContractForm({ ...contractForm, installments_count: e.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="Data da 1ª parcela">
+                      <Input
+                        type="date"
+                        value={contractForm.first_installment_date ?? ""}
+                        onChange={(e) =>
+                          setContractForm({ ...contractForm, first_installment_date: e.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="Índice de reajuste">
+                      <Select
+                        value={contractForm.readjustment_index || "none"}
+                        onValueChange={(value) =>
+                          setContractForm({ ...contractForm, readjustment_index: value === "none" ? "" : value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem reajuste</SelectItem>
+                          {economicIndexes.map((idx: any) => (
+                            <SelectItem key={idx.code} value={idx.code}>
+                              {idx.code} — {idx.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Multa por atraso (%)">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={contractForm.late_fee_pct ?? ""}
+                        onChange={(e) =>
+                          setContractForm({ ...contractForm, late_fee_pct: e.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="Juros mensais (%)">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={contractForm.monthly_interest_pct ?? ""}
+                        onChange={(e) =>
+                          setContractForm({ ...contractForm, monthly_interest_pct: e.target.value })
+                        }
+                      />
+                    </Field>
+                  </div>
+                )}
+
+                {contractForm.payment_mode === "bank_financing" && (
+                  <div className="sm:col-span-2 rounded-md border p-3 grid gap-3 sm:grid-cols-2">
+                    <div className="sm:col-span-2 text-sm font-semibold">Financiamento bancário</div>
+                    <Field label="Banco">
+                      <Select
+                        value={contractForm.bank_name || ""}
+                        onValueChange={(value) => setContractForm({ ...contractForm, bank_name: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["Caixa Econômica Federal", "Banco do Brasil", "Itaú", "Bradesco", "Santander", "Outro"].map((b) => (
+                            <SelectItem key={b} value={b}>{b}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Valor financiado">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={contractForm.bank_financing_amount ?? ""}
+                        onChange={(e) =>
+                          setContractForm({ ...contractForm, bank_financing_amount: e.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="Prazo (meses)">
+                      <Input
+                        type="number"
+                        value={contractForm.bank_financing_term_months ?? ""}
+                        onChange={(e) =>
+                          setContractForm({ ...contractForm, bank_financing_term_months: e.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="Sistema de amortização">
+                      <Select
+                        value={contractForm.bank_amortization_system || ""}
+                        onValueChange={(value) =>
+                          setContractForm({ ...contractForm, bank_amortization_system: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="SAC / PRICE" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SAC">SAC</SelectItem>
+                          <SelectItem value="PRICE">PRICE</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Status da aprovação">
+                      <Select
+                        value={contractForm.bank_approval_status ?? "pending"}
+                        onValueChange={(value) =>
+                          setContractForm({ ...contractForm, bank_approval_status: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pendente</SelectItem>
+                          <SelectItem value="submitted">Submetido</SelectItem>
+                          <SelectItem value="approved">Aprovado</SelectItem>
+                          <SelectItem value="rejected">Rejeitado</SelectItem>
+                          <SelectItem value="disbursed">Liberado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <div className="sm:col-span-2">
+                      <Field label="Observações para o banco (renda, FGTS, score, etc.)">
+                        <Textarea
+                          value={contractForm.bank_notes ?? ""}
+                          onChange={(e) =>
+                            setContractForm({ ...contractForm, bank_notes: e.target.value })
+                          }
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                )}
+
+                <div className="sm:col-span-2">
+                  <Field label="Fiador (opcional)">
+                    <Select
+                      value={contractForm.guarantor_client_id || "none"}
+                      onValueChange={(value) =>
+                        setContractForm({ ...contractForm, guarantor_client_id: value === "none" ? "" : value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sem fiador" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem fiador</SelectItem>
+                        {clients.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
                 <div className="sm:col-span-2">
                   <Field label="Observações">
                     <Textarea
