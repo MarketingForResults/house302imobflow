@@ -232,14 +232,6 @@ function SalesPage() {
       await db.rpc("generate_sale_installments", { _contract_id: data.id, _months: payload.installments_count });
     }
 
-    const { data, error } = await db
-      .from("sale_contracts")
-      .insert(payload)
-      .select("*")
-      .maybeSingle();
-    if (error)
-      return toast.error(translatedErrorMessage(error, "Nao foi possivel cadastrar a venda."));
-    if (!data?.id) return toast.error("Venda criada, mas nao foi possivel confirmar o registro.");
 
     if (contractFile) {
       try {
