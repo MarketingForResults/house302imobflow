@@ -1,52 +1,74 @@
-# Plano de execução
 
-## 1. Bug — Anexar documentos (erro 400 "Registro nao encontrado ou sem permissao de leitura")
-- Investigar `src/components/entity-documents.tsx` + `src/lib/entity-documents.ts`. O insert em `documents` provavelmente está falhando por RLS ou por coluna obrigatória (após as migrations recentes que adicionaram `rental_contract_id`, `signed_at`, `archived_at`).
-- Verificar políticas RLS de `documents` e ajustar payload de insert (campos faltantes/extras) e o bucket de storage usado.
-- Garantir que `client_id`/`broker_id`/`property_id` estão sendo passados corretamente do formulário.
+## Diagnóstico
 
-## 2. Bug — Gerar acesso (e-mail e WhatsApp)
-- Revisar `src/lib/access-management.functions.ts` e `src/components/portal-access-manager.tsx`.
-- Capturar a mensagem real retornada pelo servidor (toast). Provável causa: `inviteUserByEmail` falhando porque o domínio de e-mail não está configurado, ou `portal_access_links` não tem GRANT/policies para o admin executar via auth-middleware.
-- Adicionar tratamento que sempre retorne o `actionLink` manual quando o invite falhar, e melhorar a mensagem mostrada ao usuário.
-- Para "Link WhatsApp", garantir que chama a função de gerar link manual e abre o `wa.me` com o link encurtado.
+**1. Erro PGRST204 ao gerar PDF de contrato**
+O formulário `documents/new.tsx` faz `insert` em `owner_id`, `tenant_id`, `buyer_id`, `seller_id` — colunas que não existem na tabela `documents` (que só tem `client_id`, `broker_id`, `partner_id`, `property_id`, `rental_contract_id`). Daí o erro de cache de schema.
 
-## 3. Bug — Recibos com dados errados
-- Revisar geração do recibo em `src/routes/_app/rentals/index.tsx` (botão "Recibo"). Provavelmente está pegando o registro errado por causa de chave reusada/`map` por índice em vez de id, ou usando o último pagamento ao invés do clicado.
-- Corrigir para usar o `payment.id` específico e renderizar os dados corretos (valor, mês, multa, juros, total).
+**2. Tags automáticas desatualizadas**
+Novos campos foram criados em `clients` (`marital_status`, `nationality`, `profession`, `father_name`, `mother_name`, `bank_name`, `bank_agency`, `bank_account`, `pix_key`) e em `brokers`/`capture_partners` (estado civil, nacionalidade, profissão). Os placeholders em `src/lib/doc-placeholders.ts` ainda não expõem esses campos.
 
-## 4. Nova aba "Usuários" com senha temporária
-- Adicionar entrada **Usuários** no menu lateral (apenas admin).
-- Página `src/routes/_app/users.tsx`:
-  - Listar usuários cadastrados (join `auth.users` + `profiles` + `user_roles`).
-  - "Adicionar usuário": e-mail, nome, categoria (role: admin/manager/financial/broker/owner/tenant) → cria usuário via `supabase.auth.admin.createUser` com senha temporária padrão (ex.: `House302@temp`) + flag `must_change_password=true` em `profiles`.
-  - Ações: redefinir senha temporária, alterar categoria, desativar.
-- Migration: adicionar coluna `must_change_password boolean default false` em `profiles`.
-- Fluxo de primeiro login:
-  - Após login, `AuthProvider` lê `profiles.must_change_password`. Se true → renderiza modal bloqueante (não fecha) pedindo nova senha + confirmação.
-  - Ao salvar: `supabase.auth.updateUser({ password })` + envia e-mail de confirmação (`supabase.auth.reauthenticate` ou simples notificação). Marca `must_change_password=false`.
-  - Só libera a UI após sucesso.
+**3. Contratos de venda incompletos**
+As tabelas `sale_contracts` e `sale_payments` **não existem** no banco (a página `/sales` quebra silenciosamente nas queries). Além disso, o formulário é mínimo — sem entrada por %/valor, sem modalidades (à vista, financiamento próprio, financiamento bancário), sem fiador, sem geração de parcelas com índice/multa/juros.
 
-## 5. Reorganização do layout — barra superior
-- Criar componente `src/components/app-topbar.tsx` visível em todas as páginas autenticadas (desktop e mobile), no topo:
-  - **Esquerda**: sino de alertas (movido do dashboard "Pendencias da operacao" — manter o card no dashboard mas espelhar contador no sino do topo).
-  - **Direita**: botão-menu (avatar/iniciais) com dropdown estilo Lovable contendo:
-    - Perfil (nome + e-mail no topo)
-    - Configurações (move de `src/routes/_app/settings.tsx`)
-    - Suporte (ícone bóia `LifeBuoy`) → rota placeholder `/support`
-    - Sair
-- Remover itens **Configurações** e **Sair** do menu lateral (`src/routes/_app.tsx`).
-- Criar rota placeholder `src/routes/_app/support.tsx` ("em construção").
+---
 
-## Detalhes técnicos
-- Reusar shadcn `DropdownMenu` para o menu superior.
-- Sino: novo componente `NotificationsBell` que consulta vistorias pendentes (mesma query do dashboard) e exibe popover com lista + link.
-- Senha temporária: gerada server-side e exibida uma única vez ao admin (com botão copiar + link WhatsApp).
-- Todas as ações de gerenciar usuários ficam em server function com `requireSupabaseAuth` + checagem `has_role(admin)`.
+## Plano de execução
 
-## Ordem de execução
-1. Migration (`must_change_password`) — aguarda aprovação.
-2. Corrigir bugs (anexo, gerar acesso, recibo).
-3. Implementar topbar + dropdown + remover do sidebar.
-4. Criar área Usuários + fluxo de troca de senha forçada.
-5. Rota placeholder de Suporte.
+### A) Migration (banco)
+
+1. **`documents`** — acrescentar `owner_id`, `tenant_id`, `buyer_id`, `seller_id`, `sale_contract_id` (uuid, FK opcional) para suportar múltiplas partes no mesmo documento.
+2. **`sale_contracts`** (nova) — campos:
+   - `code` (auto, ex. `VEN-0001`), `property_id`, `buyer_client_id`, `seller_client_id`, `broker_id`
+   - `total_amount`, `down_payment_amount`, `down_payment_pct`, `down_payment_mode` (`percent`/`amount`)
+   - `payment_mode` (`cash`/`owner_financing`/`bank_financing`)
+   - `installments_count`, `first_installment_date`, `installment_amount`
+   - `readjustment_index` (IGPM/IPCA/INCC/none — reaproveita os mesmos do contrato de aluguel)
+   - `late_fee_pct`, `daily_interest_pct`, `monthly_interest_pct`
+   - `bank_name`, `bank_financing_amount`, `bank_financing_term_months`, `bank_approval_status`
+   - `guarantor_client_id` (FK clientes) p/ fiador
+   - `contract_date`, `expected_closing_date`, `closed_at`
+   - `commission_pct`, `status`, `notes`
+3. **`sale_payments`** (nova) — `contract_id`, `installment_number`, `description`, `due_date`, `amount_due`, `amount_paid`, `paid_at`, `status`, `payment_method`, `late_fee`, `interest`, `notes`.
+4. Função `generate_sale_installments(contract_id, n)` espelho da `generate_rental_payments` para gerar parcelas mensais.
+5. GRANTs + RLS (`is_operational_user` p/ leitura/escrita, `is_finance_user` p/ pagamentos) seguindo o padrão dos contratos de aluguel.
+
+### B) Frontend — correções pontuais
+
+1. **`documents/new.tsx`**: ajustar payload do `insert` para os novos campos (após migração). Sem migração, o erro persiste.
+2. **`doc-placeholders.ts`**: adicionar nas seções Locador/Inquilino/Comprador/Vendedor as tags `marital_status`, `nationality`, `profession`, `father_name`, `mother_name`, `bank_name`, `bank_agency`, `bank_account`, `pix_key`. Em Corretor adicionar estado civil/nacionalidade/profissão. Atualizar `PLACEHOLDER_LABELS` e `buildPlaceholderContext` para preencher.
+
+### C) Frontend — formulário de venda (`sales/index.tsx`)
+
+Reestruturar o diálogo "Novo contrato de venda" em **abas**:
+
+```text
+[ Dados básicos ] [ Pagamento ] [ Financiamento bancário ] [ Fiador ] [ Documentos ]
+```
+
+- **Dados básicos**: imóvel, comprador, vendedor, corretor, data, previsão de conclusão, comissão, observações.
+- **Pagamento**:
+  - Toggle "Modalidade": À vista / Financiamento próprio / Financiamento bancário.
+  - Valor total + **Entrada**: input com botões `%` / `R$` (recalcula automaticamente o outro).
+  - Se *Financiamento próprio*: nº de parcelas, data 1ª parcela, índice de reajuste (reaproveita lista de `economic_indexes`), multa (%), juros diários/mensais. Botão "Gerar parcelas" chama `generate_sale_installments`.
+  - Se *À vista*: apenas valor, data e forma (PIX/TED/dinheiro).
+  - Se *Financiamento bancário*: ver aba dedicada.
+- **Financiamento bancário** (visível só se modo = bancário): banco, valor financiado, prazo (meses), status de aprovação, observações p/ envio. Layout segue padrões usados em CAIXA/BB/Itaú/Santander/Bradesco (campos: renda, score, tipo de imóvel, FGTS, sistema SAC/PRICE).
+- **Fiador**: select de cliente existente OU botão "Cadastrar novo" (abre fluxo curto que cria registro em `clients` com `client_roles` contendo `guarantor`).
+- **Documentos**: usa `EntityDocuments` (já existente).
+
+Na listagem (página `/sales`) acrescentar colunas: modalidade, entrada (%/R$), parcelas pagas/total, status do financiamento bancário.
+
+### D) Ordem
+
+1. Migration (A) — exige aprovação.
+2. Após aprovada: atualizar `doc-placeholders.ts` (B2), corrigir insert em `documents/new.tsx` (B1).
+3. Reestruturar formulário de venda (C).
+4. QA: gerar PDF, gerar parcelas de venda, alternar modalidades.
+
+---
+
+## Perguntas antes de prosseguir
+
+1. **Fiador** — quer fluxo de cadastro novo dentro do diálogo, ou apenas vincular cliente já existente?
+2. **Geração de parcelas** — gerar todas de uma vez na criação do contrato, ou sob demanda como nos aluguéis (botão "Gerar próximos N meses")?
+3. **Recibos de venda** — replicar o mesmo modelo de recibo do aluguel para cada parcela paga?
