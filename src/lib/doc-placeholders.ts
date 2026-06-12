@@ -376,6 +376,33 @@ export function sanitizeRichTextHtml(body: string): string {
   }
   return container.innerHTML;
 }
+function personCtx(p: any, fmtDate: (v: any) => string) {
+  return {
+    full_name: p?.full_name ?? "",
+    cpf: p?.cpf ?? "",
+    email: p?.email ?? "",
+    phone: p?.phone ?? "",
+    address: p?.address ?? "",
+    zip_code: p?.zip_code ?? "",
+    street: p?.street ?? "",
+    number: p?.number ?? "",
+    complement: p?.complement ?? "",
+    neighborhood: p?.neighborhood ?? "",
+    city: p?.city ?? "",
+    state: p?.state ?? "",
+    birth_date: fmtDate(p?.birth_date),
+    marital_status: p?.marital_status ?? "",
+    nationality: p?.nationality ?? "",
+    profession: p?.profession ?? "",
+    father_name: p?.father_name ?? "",
+    mother_name: p?.mother_name ?? "",
+    bank_name: p?.bank_name ?? "",
+    bank_agency: p?.bank_agency ?? "",
+    bank_account: p?.bank_account ?? "",
+    pix_key: p?.pix_key ?? "",
+  };
+}
+
 
 export function buildPlaceholderContext(input: {
   property?: any;
