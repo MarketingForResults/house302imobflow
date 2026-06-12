@@ -2022,6 +2022,9 @@ export type Database = {
           created_at: string
           created_by: string | null
           daily_interest_pct: number | null
+          discount_amount: number | null
+          discount_type: string | null
+          discount_value: number | null
           down_payment_amount: number | null
           down_payment_method: string | null
           down_payment_mode: string | null
@@ -2029,6 +2032,7 @@ export type Database = {
           down_payment_pct: number | null
           expected_closing_date: string | null
           first_installment_date: string | null
+          gross_total_amount: number | null
           guarantor_client_id: string | null
           id: string
           installment_amount: number | null
@@ -2061,6 +2065,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           daily_interest_pct?: number | null
+          discount_amount?: number | null
+          discount_type?: string | null
+          discount_value?: number | null
           down_payment_amount?: number | null
           down_payment_method?: string | null
           down_payment_mode?: string | null
@@ -2068,6 +2075,7 @@ export type Database = {
           down_payment_pct?: number | null
           expected_closing_date?: string | null
           first_installment_date?: string | null
+          gross_total_amount?: number | null
           guarantor_client_id?: string | null
           id?: string
           installment_amount?: number | null
@@ -2100,6 +2108,9 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           daily_interest_pct?: number | null
+          discount_amount?: number | null
+          discount_type?: string | null
+          discount_value?: number | null
           down_payment_amount?: number | null
           down_payment_method?: string | null
           down_payment_mode?: string | null
@@ -2107,6 +2118,7 @@ export type Database = {
           down_payment_pct?: number | null
           expected_closing_date?: string | null
           first_installment_date?: string | null
+          gross_total_amount?: number | null
           guarantor_client_id?: string | null
           id?: string
           installment_amount?: number | null
@@ -2169,7 +2181,11 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string
+          discount_amount: number | null
+          discount_type: string | null
+          discount_value: number | null
           due_date: string
+          gross_amount_due: number | null
           id: string
           installment_number: number | null
           interest: number | null
@@ -2187,7 +2203,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string
+          discount_amount?: number | null
+          discount_type?: string | null
+          discount_value?: number | null
           due_date: string
+          gross_amount_due?: number | null
           id?: string
           installment_number?: number | null
           interest?: number | null
@@ -2205,7 +2225,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string
+          discount_amount?: number | null
+          discount_type?: string | null
+          discount_value?: number | null
           due_date?: string
+          gross_amount_due?: number | null
           id?: string
           installment_number?: number | null
           interest?: number | null
