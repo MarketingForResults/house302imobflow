@@ -17,6 +17,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppSupportRouteImport } from './routes/_app/support'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppSecurityRouteImport } from './routes/_app/security'
 import { Route as AppPartnersRouteImport } from './routes/_app/partners'
 import { Route as AppIntegrationRouteImport } from './routes/_app/integration'
 import { Route as AppInspectionsRouteImport } from './routes/_app/inspections'
@@ -24,6 +25,7 @@ import { Route as AppFinanceRouteImport } from './routes/_app/finance'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppClientsRouteImport } from './routes/_app/clients'
 import { Route as AppBrokersRouteImport } from './routes/_app/brokers'
+import { Route as AppBackupsRouteImport } from './routes/_app/backups'
 import { Route as AppSalesIndexRouteImport } from './routes/_app/sales/index'
 import { Route as AppRentalsIndexRouteImport } from './routes/_app/rentals/index'
 import { Route as AppPropertiesIndexRouteImport } from './routes/_app/properties/index'
@@ -72,6 +74,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSecurityRoute = AppSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPartnersRoute = AppPartnersRouteImport.update({
   id: '/partners',
   path: '/partners',
@@ -105,6 +112,11 @@ const AppClientsRoute = AppClientsRouteImport.update({
 const AppBrokersRoute = AppBrokersRouteImport.update({
   id: '/brokers',
   path: '/brokers',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBackupsRoute = AppBackupsRouteImport.update({
+  id: '/backups',
+  path: '/backups',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSalesIndexRoute = AppSalesIndexRouteImport.update({
@@ -153,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/p': typeof PRoute
   '/partner-registration': typeof PartnerRegistrationRoute
+  '/backups': typeof AppBackupsRoute
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
@@ -160,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/inspections': typeof AppInspectionsRoute
   '/integration': typeof AppIntegrationRoute
   '/partners': typeof AppPartnersRoute
+  '/security': typeof AppSecurityRoute
   '/settings': typeof AppSettingsRoute
   '/support': typeof AppSupportRoute
   '/users': typeof AppUsersRoute
@@ -177,6 +191,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/p': typeof PRoute
   '/partner-registration': typeof PartnerRegistrationRoute
+  '/backups': typeof AppBackupsRoute
   '/brokers': typeof AppBrokersRoute
   '/clients': typeof AppClientsRoute
   '/dashboard': typeof AppDashboardRoute
@@ -184,6 +199,7 @@ export interface FileRoutesByTo {
   '/inspections': typeof AppInspectionsRoute
   '/integration': typeof AppIntegrationRoute
   '/partners': typeof AppPartnersRoute
+  '/security': typeof AppSecurityRoute
   '/settings': typeof AppSettingsRoute
   '/support': typeof AppSupportRoute
   '/users': typeof AppUsersRoute
@@ -203,6 +219,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/p': typeof PRoute
   '/partner-registration': typeof PartnerRegistrationRoute
+  '/_app/backups': typeof AppBackupsRoute
   '/_app/brokers': typeof AppBrokersRoute
   '/_app/clients': typeof AppClientsRoute
   '/_app/dashboard': typeof AppDashboardRoute
@@ -210,6 +227,7 @@ export interface FileRoutesById {
   '/_app/inspections': typeof AppInspectionsRoute
   '/_app/integration': typeof AppIntegrationRoute
   '/_app/partners': typeof AppPartnersRoute
+  '/_app/security': typeof AppSecurityRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/support': typeof AppSupportRoute
   '/_app/users': typeof AppUsersRoute
@@ -229,6 +247,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/p'
     | '/partner-registration'
+    | '/backups'
     | '/brokers'
     | '/clients'
     | '/dashboard'
@@ -236,6 +255,7 @@ export interface FileRouteTypes {
     | '/inspections'
     | '/integration'
     | '/partners'
+    | '/security'
     | '/settings'
     | '/support'
     | '/users'
@@ -253,6 +273,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/p'
     | '/partner-registration'
+    | '/backups'
     | '/brokers'
     | '/clients'
     | '/dashboard'
@@ -260,6 +281,7 @@ export interface FileRouteTypes {
     | '/inspections'
     | '/integration'
     | '/partners'
+    | '/security'
     | '/settings'
     | '/support'
     | '/users'
@@ -278,6 +300,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/p'
     | '/partner-registration'
+    | '/_app/backups'
     | '/_app/brokers'
     | '/_app/clients'
     | '/_app/dashboard'
@@ -285,6 +308,7 @@ export interface FileRouteTypes {
     | '/_app/inspections'
     | '/_app/integration'
     | '/_app/partners'
+    | '/_app/security'
     | '/_app/settings'
     | '/_app/support'
     | '/_app/users'
@@ -364,6 +388,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/security': {
+      id: '/_app/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof AppSecurityRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/partners': {
       id: '/_app/partners'
       path: '/partners'
@@ -411,6 +442,13 @@ declare module '@tanstack/react-router' {
       path: '/brokers'
       fullPath: '/brokers'
       preLoaderRoute: typeof AppBrokersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/backups': {
+      id: '/_app/backups'
+      path: '/backups'
+      fullPath: '/backups'
+      preLoaderRoute: typeof AppBackupsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/sales/': {
@@ -473,6 +511,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppBackupsRoute: typeof AppBackupsRoute
   AppBrokersRoute: typeof AppBrokersRoute
   AppClientsRoute: typeof AppClientsRoute
   AppDashboardRoute: typeof AppDashboardRoute
@@ -480,6 +519,7 @@ interface AppRouteChildren {
   AppInspectionsRoute: typeof AppInspectionsRoute
   AppIntegrationRoute: typeof AppIntegrationRoute
   AppPartnersRoute: typeof AppPartnersRoute
+  AppSecurityRoute: typeof AppSecurityRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSupportRoute: typeof AppSupportRoute
   AppUsersRoute: typeof AppUsersRoute
@@ -494,6 +534,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppBackupsRoute: AppBackupsRoute,
   AppBrokersRoute: AppBrokersRoute,
   AppClientsRoute: AppClientsRoute,
   AppDashboardRoute: AppDashboardRoute,
@@ -501,6 +542,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppInspectionsRoute: AppInspectionsRoute,
   AppIntegrationRoute: AppIntegrationRoute,
   AppPartnersRoute: AppPartnersRoute,
+  AppSecurityRoute: AppSecurityRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSupportRoute: AppSupportRoute,
   AppUsersRoute: AppUsersRoute,
@@ -526,3 +568,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

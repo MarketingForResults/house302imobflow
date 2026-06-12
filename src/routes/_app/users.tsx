@@ -37,7 +37,16 @@ import {
 
 export const Route = createFileRoute("/_app/users")({ component: UsersPage });
 
-const ROLE_OPTIONS: AppRole[] = ["admin", "manager", "financial", "broker", "owner", "tenant"];
+const ROLE_OPTIONS: AppRole[] = [
+  "master",
+  "it_support",
+  "admin",
+  "manager",
+  "financial",
+  "broker",
+  "owner",
+  "tenant",
+];
 
 function generateTempPassword() {
   const part = Math.random().toString(36).slice(-6);
@@ -46,7 +55,7 @@ function generateTempPassword() {
 
 function UsersPage() {
   const { roles } = useAuth();
-  const isAdmin = roles.includes("admin");
+  const isAdmin = roles.some((role) => ["master", "admin"].includes(role));
   const qc = useQueryClient();
   const list = useServerFn(listAppUsers);
   const createUser = useServerFn(createAppUser);

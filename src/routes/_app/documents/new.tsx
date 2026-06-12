@@ -36,6 +36,7 @@ function NewDocumentPage() {
   const [tenantId, setTenantId] = useState<string>("");
   const [buyerId, setBuyerId] = useState<string>("");
   const [sellerId, setSellerId] = useState<string>("");
+  const [guarantorId, setGuarantorId] = useState<string>("");
   const [brokerId, setBrokerId] = useState<string>("");
   const [propertyId, setPropertyId] = useState<string>("");
   const [rentalContractId, setRentalContractId] = useState<string>("");
@@ -43,6 +44,10 @@ function NewDocumentPage() {
   const [discountType, setDiscountType] = useState<string>("none");
   const [discountValue, setDiscountValue] = useState<string>("");
   const [deadlineDays, setDeadlineDays] = useState<string>("");
+  const [witness1Name, setWitness1Name] = useState("");
+  const [witness1Cpf, setWitness1Cpf] = useState("");
+  const [witness2Name, setWitness2Name] = useState("");
+  const [witness2Cpf, setWitness2Cpf] = useState("");
   const [saving, setSaving] = useState(false);
 
   const { data: templates = [] } = useQuery({
@@ -115,6 +120,10 @@ function NewDocumentPage() {
   const tenant = useMemo(() => clients.find((c: any) => c.id === tenantId), [clients, tenantId]);
   const buyer = useMemo(() => clients.find((c: any) => c.id === buyerId), [clients, buyerId]);
   const seller = useMemo(() => clients.find((c: any) => c.id === sellerId), [clients, sellerId]);
+  const guarantor = useMemo(
+    () => clients.find((c: any) => c.id === guarantorId),
+    [clients, guarantorId],
+  );
   const broker = useMemo(() => brokers.find((b: any) => b.id === brokerId), [brokers, brokerId]);
 
   const ctx = useMemo(() => {
@@ -125,7 +134,10 @@ function NewDocumentPage() {
       tenant,
       buyer,
       seller,
+      guarantor,
       broker,
+      witness1: { name: witness1Name, cpf: witness1Cpf },
+      witness2: { name: witness2Name, cpf: witness2Cpf },
       settings,
       values: {
         amount: discount.net || undefined,
@@ -143,7 +155,12 @@ function NewDocumentPage() {
     tenant,
     buyer,
     seller,
+    guarantor,
     broker,
+    witness1Name,
+    witness1Cpf,
+    witness2Name,
+    witness2Cpf,
     settings,
     amount,
     discountType,
@@ -201,6 +218,11 @@ function NewDocumentPage() {
         tenant_id: tenantId || null,
         buyer_id: buyerId || null,
         seller_id: sellerId || null,
+        guarantor_id: guarantorId || null,
+        witness1_name: witness1Name.trim() || null,
+        witness1_cpf: witness1Cpf.trim() || null,
+        witness2_name: witness2Name.trim() || null,
+        witness2_cpf: witness2Cpf.trim() || null,
         broker_id: brokerId || null,
         payload_snapshot: {
           ctx,
@@ -210,6 +232,11 @@ function NewDocumentPage() {
           discountValue: discount.value,
           discountAmount: discount.amount,
           deadlineDays,
+          guarantorId,
+          witnesses: [
+            { name: witness1Name.trim(), cpf: witness1Cpf.trim() },
+            { name: witness2Name.trim(), cpf: witness2Cpf.trim() },
+          ].filter((witness) => witness.name || witness.cpf),
         },
         body_rendered: rendered,
         created_by: user?.id,
@@ -233,6 +260,17 @@ function NewDocumentPage() {
         tenant && { label: "LOCATÁRIO", name: tenant.full_name, doc: tenant.cpf },
         buyer && { label: "COMPRADOR", name: buyer.full_name, doc: buyer.cpf },
         seller && { label: "VENDEDOR", name: seller.full_name, doc: seller.cpf },
+        guarantor && { label: "FIADOR", name: guarantor.full_name, doc: guarantor.cpf },
+        witness1Name.trim() && {
+          label: "TESTEMUNHA 1",
+          name: witness1Name.trim(),
+          doc: witness1Cpf.trim(),
+        },
+        witness2Name.trim() && {
+          label: "TESTEMUNHA 2",
+          name: witness2Name.trim(),
+          doc: witness2Cpf.trim(),
+        },
         broker && {
           label: "CORRETOR",
           name: broker.full_name,
@@ -364,6 +402,57 @@ function NewDocumentPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="rounded-md border p-3 space-y-3">
+              <div>
+                <Label className="mb-1.5 block text-xs">Fiador</Label>
+                <Select value={guarantorId} onValueChange={setGuarantorId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Opcional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-3 grid-cols-2">
+                <div>
+                  <Label className="mb-1.5 block text-xs">Testemunha 1</Label>
+                  <Input
+                    value={witness1Name}
+                    onChange={(event) => setWitness1Name(event.target.value)}
+                    placeholder="Nome completo"
+                  />
+                </div>
+                <div>
+                  <Label className="mb-1.5 block text-xs">CPF testemunha 1</Label>
+                  <Input
+                    value={witness1Cpf}
+                    onChange={(event) => setWitness1Cpf(event.target.value)}
+                    placeholder="Opcional"
+                  />
+                </div>
+                <div>
+                  <Label className="mb-1.5 block text-xs">Testemunha 2</Label>
+                  <Input
+                    value={witness2Name}
+                    onChange={(event) => setWitness2Name(event.target.value)}
+                    placeholder="Nome completo"
+                  />
+                </div>
+                <div>
+                  <Label className="mb-1.5 block text-xs">CPF testemunha 2</Label>
+                  <Input
+                    value={witness2Cpf}
+                    onChange={(event) => setWitness2Cpf(event.target.value)}
+                    placeholder="Opcional"
+                  />
+                </div>
               </div>
             </div>
             <div>

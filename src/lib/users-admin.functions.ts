@@ -3,7 +3,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const RoleEnum = z.enum(["admin", "manager", "financial", "broker", "owner", "tenant"]);
+const RoleEnum = z.enum([
+  "master",
+  "it_support",
+  "admin",
+  "manager",
+  "financial",
+  "broker",
+  "owner",
+  "tenant",
+]);
 
 const CreateSchema = z.object({
   email: z.string().email(),
@@ -31,8 +40,17 @@ async function getAdmin() {
 
 async function assertAdmin(userId: string) {
   const admin = await getAdmin();
-  const { data, error } = await admin.rpc("has_role", { _user_id: userId, _role: "admin" });
-  if (error || !data) throw new Error("Apenas administradores podem gerenciar usuarios");
+  const { data: isMaster, error: masterError } = await admin.rpc("has_role", {
+    _user_id: userId,
+    _role: "master",
+  });
+  const { data: isAdmin, error: adminError } = await admin.rpc("has_role", {
+    _user_id: userId,
+    _role: "admin",
+  });
+  if ((masterError || adminError) || (!isMaster && !isAdmin)) {
+    throw new Error("Apenas administradores podem gerenciar usuarios");
+  }
 }
 
 export const listAppUsers = createServerFn({ method: "POST" })

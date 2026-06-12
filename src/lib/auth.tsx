@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const fetchedRoles = error ? [] : (data ?? []).map((r) => r.role as AppRole);
     if (fetchedRoles.length > 0) return fetchedRoles;
 
-    if (OWNER_EMAILS.has((user.email ?? "").toLowerCase())) return ["admin"];
+    if (OWNER_EMAILS.has((user.email ?? "").toLowerCase())) return ["master", "admin"];
     return [];
   }
 
@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     roles,
     loading,
-    isStaff: roles.some((role) => ["admin", "manager"].includes(role)),
+    isStaff: roles.some((role) => ["master", "admin", "manager", "it_support"].includes(role)),
     mustChangePassword,
     refreshPasswordState,
     signIn: async (email, password) => {

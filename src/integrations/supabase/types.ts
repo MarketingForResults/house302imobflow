@@ -543,6 +543,7 @@ export type Database = {
           code: string
           created_at: string
           created_by: string | null
+          guarantor_id: string | null
           id: string
           kind: string
           notes: string | null
@@ -560,6 +561,10 @@ export type Database = {
           tenant_id: string | null
           title: string | null
           updated_at: string
+          witness1_cpf: string | null
+          witness1_name: string | null
+          witness2_cpf: string | null
+          witness2_name: string | null
         }
         Insert: {
           archived_at?: string | null
@@ -570,6 +575,7 @@ export type Database = {
           code?: string
           created_at?: string
           created_by?: string | null
+          guarantor_id?: string | null
           id?: string
           kind: string
           notes?: string | null
@@ -587,6 +593,10 @@ export type Database = {
           tenant_id?: string | null
           title?: string | null
           updated_at?: string
+          witness1_cpf?: string | null
+          witness1_name?: string | null
+          witness2_cpf?: string | null
+          witness2_name?: string | null
         }
         Update: {
           archived_at?: string | null
@@ -597,6 +607,7 @@ export type Database = {
           code?: string
           created_at?: string
           created_by?: string | null
+          guarantor_id?: string | null
           id?: string
           kind?: string
           notes?: string | null
@@ -614,8 +625,19 @@ export type Database = {
           tenant_id?: string | null
           title?: string | null
           updated_at?: string
+          witness1_cpf?: string | null
+          witness1_name?: string | null
+          witness2_cpf?: string | null
+          witness2_name?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "documents_guarantor_id_fkey"
+            columns: ["guarantor_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documents_broker_id_fkey"
             columns: ["broker_id"]

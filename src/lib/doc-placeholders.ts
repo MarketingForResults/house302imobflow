@@ -127,6 +127,30 @@ export const PLACEHOLDER_GROUPS = {
     "broker.nationality",
     "broker.profession",
   ],
+  Fiador: [
+    "guarantor.full_name",
+    "guarantor.cpf",
+    "guarantor.email",
+    "guarantor.phone",
+    "guarantor.address",
+    "guarantor.zip_code",
+    "guarantor.street",
+    "guarantor.number",
+    "guarantor.complement",
+    "guarantor.neighborhood",
+    "guarantor.city",
+    "guarantor.state",
+    "guarantor.birth_date",
+    "guarantor.marital_status",
+    "guarantor.nationality",
+    "guarantor.profession",
+  ],
+  Testemunhas: [
+    "witness1.name",
+    "witness1.cpf",
+    "witness2.name",
+    "witness2.cpf",
+  ],
   Institucional: [
     "company.person_type",
     "company.document_type",
@@ -240,6 +264,26 @@ export const PLACEHOLDER_LABELS: Record<string, string> = {
   "broker.marital_status": "Estado civil do corretor",
   "broker.nationality": "Nacionalidade do corretor",
   "broker.profession": "Profissão do corretor",
+  "guarantor.full_name": "Nome completo do fiador",
+  "guarantor.cpf": "CPF do fiador",
+  "guarantor.email": "E-mail do fiador",
+  "guarantor.phone": "Telefone do fiador",
+  "guarantor.address": "Endereco do fiador",
+  "guarantor.zip_code": "CEP do fiador",
+  "guarantor.street": "Rua do fiador",
+  "guarantor.number": "Numero do endereco do fiador",
+  "guarantor.complement": "Complemento do endereco do fiador",
+  "guarantor.neighborhood": "Bairro do fiador",
+  "guarantor.city": "Cidade do fiador",
+  "guarantor.state": "Estado (UF) do fiador",
+  "guarantor.birth_date": "Data de nascimento do fiador",
+  "guarantor.marital_status": "Estado civil do fiador",
+  "guarantor.nationality": "Nacionalidade do fiador",
+  "guarantor.profession": "Profissao do fiador",
+  "witness1.name": "Nome da testemunha 1",
+  "witness1.cpf": "CPF da testemunha 1",
+  "witness2.name": "Nome da testemunha 2",
+  "witness2.cpf": "CPF da testemunha 2",
   "owner.marital_status": "Estado civil do locador",
   "owner.nationality": "Nacionalidade do locador",
   "owner.profession": "Profissão do locador",
@@ -433,6 +477,9 @@ export function buildPlaceholderContext(input: {
   buyer?: any;
   seller?: any;
   broker?: any;
+  guarantor?: any;
+  witness1?: { name?: string; cpf?: string };
+  witness2?: { name?: string; cpf?: string };
   settings?: any;
   values?: {
     amount?: number;
@@ -485,6 +532,15 @@ export function buildPlaceholderContext(input: {
     tenant: personCtx(input.tenant, fmtDate),
     buyer: personCtx(input.buyer, fmtDate),
     seller: personCtx(input.seller, fmtDate),
+    guarantor: personCtx(input.guarantor, fmtDate),
+    witness1: {
+      name: input.witness1?.name ?? "",
+      cpf: input.witness1?.cpf ?? "",
+    },
+    witness2: {
+      name: input.witness2?.name ?? "",
+      cpf: input.witness2?.cpf ?? "",
+    },
     broker: {
       full_name: input.broker?.full_name ?? "",
       cpf: input.broker?.cpf ?? "",

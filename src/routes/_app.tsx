@@ -19,6 +19,8 @@ import {
   Landmark,
   BadgeDollarSign,
   UsersRound,
+  ShieldAlert,
+  DatabaseBackup,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canAccessPath, formatRoles, hasAnyRole, ROUTE_ROLES } from "@/lib/permissions";
@@ -44,6 +46,8 @@ const nav = [
   { to: "/sales", label: "Vendas", icon: BadgeDollarSign },
   { to: "/finance", label: "Financeiro", icon: Landmark },
   { to: "/integration", label: "Integração WP", icon: Plug },
+  { to: "/security", label: "Seguranca", icon: ShieldAlert },
+  { to: "/backups", label: "Backups", icon: DatabaseBackup },
   { to: "/users", label: "Usuários", icon: UsersRound },
 ] as const;
 
@@ -58,7 +62,14 @@ function AppLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loginAt] = useState(() => new Date());
   const [now, setNow] = useState(() => new Date());
-  const canUseBackoffice = hasAnyRole(roles, ["admin", "manager", "financial", "broker"]);
+  const canUseBackoffice = hasAnyRole(roles, [
+    "master",
+    "it_support",
+    "admin",
+    "manager",
+    "financial",
+    "broker",
+  ]);
   const portalOnly = !canUseBackoffice && hasAnyRole(roles, PORTAL_ROLES);
 
   useEffect(() => {
