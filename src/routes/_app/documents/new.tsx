@@ -38,6 +38,7 @@ function NewDocumentPage() {
   const [sellerId, setSellerId] = useState<string>("");
   const [brokerId, setBrokerId] = useState<string>("");
   const [propertyId, setPropertyId] = useState<string>("");
+  const [rentalContractId, setRentalContractId] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [discountType, setDiscountType] = useState<string>("none");
   const [discountValue, setDiscountValue] = useState<string>("");
@@ -73,6 +74,18 @@ function NewDocumentPage() {
             "id, code, title, address, neighborhood, city, state, type, status, area_m2, bedrooms, bathrooms, suites, parking_spaces, price",
           )
           .order("code", { ascending: false })
+      ).data ?? [],
+  });
+  const { data: rentalContracts = [] } = useQuery({
+    queryKey: ["rental-contracts-doc"],
+    queryFn: async () =>
+      (
+        await (supabase as any)
+          .from("rental_contracts")
+          .select(
+            "id, code, property_id, tenant_client_id, landlord_client_id, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name)",
+          )
+          .order("created_at", { ascending: false })
       ).data ?? [],
   });
   const { data: clients = [] } = useQuery({
@@ -152,6 +165,24 @@ function NewDocumentPage() {
   );
   const kindLabel = (kind: string) => kindLabelById[kind] ?? DOCUMENT_KIND_LABEL[kind] ?? kind;
 
+  function safeFilePart(value: string, max = 48) {
+    return value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\\/:*?"<>|]+/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, max);
+  }
+
+  function buildPdfFileName(code: string) {
+    const date = new Date().toLocaleDateString("pt-BR").replace(/\//g, "-");
+    const modelName = safeFilePart(template?.name || kindLabel(template?.kind ?? ""), 42);
+    const left = owner?.full_name || seller?.full_name || broker?.full_name || "Parte 1";
+    const right = tenant?.full_name || buyer?.full_name || "Parte 2";
+    return `Cod. ${safeFilePart(code, 24)} - ${date} - ${modelName} - ${safeFilePart(left, 32)} x ${safeFilePart(right, 32)}.pdf`;
+  }
+
   async function generate() {
     if (!template) return toast.error("Selecione um modelo");
     setSaving(true);
@@ -165,6 +196,7 @@ function NewDocumentPage() {
         kind: template.kind,
         title,
         property_id: propertyId || null,
+        rental_contract_id: rentalContractId || null,
         owner_id: ownerId || null,
         tenant_id: tenantId || null,
         buyer_id: buyerId || null,
@@ -208,7 +240,7 @@ function NewDocumentPage() {
         },
       ].filter(Boolean) as any,
     });
-    pdf.save(`${inserted.code}.pdf`);
+    pdf.save(buildPdfFileName(inserted.code));
     setSaving(false);
     toast.success("Documento gerado");
     navigate({ to: "/documents" });
@@ -344,6 +376,22 @@ function NewDocumentPage() {
                   {brokers.map((b: any) => (
                     <SelectItem key={b.id} value={b.id}>
                       {b.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="mb-1.5 block text-xs">Contrato vinculado</Label>
+              <Select value={rentalContractId} onValueChange={setRentalContractId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Opcional" />
+                </SelectTrigger>
+                <SelectContent>
+                  {rentalContracts.map((contract: any) => (
+                    <SelectItem key={contract.id} value={contract.id}>
+                      {contract.code} - {contract.properties?.code ?? "Imovel"} -{" "}
+                      {contract.tenant?.full_name ?? "Inquilino"}
                     </SelectItem>
                   ))}
                 </SelectContent>

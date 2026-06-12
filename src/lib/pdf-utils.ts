@@ -55,6 +55,9 @@ type RichTextBlock = {
   align: TextAlign;
   before: number;
   after: number;
+  imageSrc?: string;
+  imageAlt?: string;
+  tableRows?: string[][];
 };
 
 function fontStyleName(run: InlineStyle) {
@@ -70,11 +73,7 @@ function applyTextStyle(doc: jsPDF, run: InlineStyle) {
 }
 
 function isBoldWeight(fontWeight: string) {
-  return (
-    fontWeight === "bold" ||
-    fontWeight === "bolder" ||
-    Number.parseInt(fontWeight, 10) >= 600
-  );
+  return fontWeight === "bold" || fontWeight === "bolder" || Number.parseInt(fontWeight, 10) >= 600;
 }
 
 function textAlignFromElement(element: Element): TextAlign {
@@ -98,7 +97,9 @@ function collectInlineRuns(node: Node, inherited: InlineStyle): InlineRun[] {
       ["B", "STRONG"].includes(element.tagName) ||
       isBoldWeight(element.style.fontWeight),
     italic:
-      inherited.italic || ["I", "EM"].includes(element.tagName) || element.style.fontStyle === "italic",
+      inherited.italic ||
+      ["I", "EM"].includes(element.tagName) ||
+      element.style.fontStyle === "italic",
     underline:
       inherited.underline ||
       element.tagName === "U" ||
@@ -144,7 +145,8 @@ function richTextBlocksFromHtml(html: string): RichTextBlock[] {
   for (const node of Array.from(container.childNodes)) {
     if (node.nodeType === Node.TEXT_NODE) {
       const text = (node.textContent ?? "").trim();
-      if (text) blocks.push({ runs: [{ ...defaultStyle, text }], align: "left", before: 0, after: 2 });
+      if (text)
+        blocks.push({ runs: [{ ...defaultStyle, text }], align: "left", before: 0, after: 2 });
       continue;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) continue;
@@ -159,6 +161,24 @@ function richTextBlocksFromHtml(html: string): RichTextBlock[] {
           blocks.push(blockFromElement(item, element.tagName === "OL" ? `${index + 1}. ` : "- "));
         }
       });
+      continue;
+    }
+    if (element.tagName === "IMG") {
+      blocks.push({
+        runs: [],
+        align: "center",
+        before: 2,
+        after: 3,
+        imageSrc: (element as HTMLImageElement).src,
+        imageAlt: (element as HTMLImageElement).alt,
+      });
+      continue;
+    }
+    if (element.tagName === "TABLE") {
+      const rows = Array.from(element.querySelectorAll("tr")).map((row) =>
+        Array.from(row.querySelectorAll("th,td")).map((cell) => (cell.textContent ?? "").trim()),
+      );
+      blocks.push({ runs: [], align: "left", before: 2, after: 4, tableRows: rows });
       continue;
     }
     blocks.push(blockFromElement(element));
@@ -214,7 +234,11 @@ function drawRunLine(
 ) {
   const lineWidth = line.reduce((sum, run) => sum + runWidth(doc, run), 0);
   const startX =
-    align === "center" ? x + (maxWidth - lineWidth) / 2 : align === "right" ? x + maxWidth - lineWidth : x;
+    align === "center"
+      ? x + (maxWidth - lineWidth) / 2
+      : align === "right"
+        ? x + maxWidth - lineWidth
+        : x;
   let cursorX = startX;
 
   for (const run of line) {
@@ -248,6 +272,40 @@ function renderRichTextBody(
 
   for (const block of richTextBlocksFromHtml(html)) {
     y += block.before;
+    if (block.imageSrc) {
+      ensurePage(45);
+      try {
+        const format = block.imageSrc.startsWith("data:image/png") ? "PNG" : "JPEG";
+        const width = Math.min(120, maxWidth);
+        doc.addImage(block.imageSrc, format, margin, y, width, 45);
+        y += 45;
+      } catch {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(9);
+        doc.text(block.imageAlt ? `[Imagem: ${block.imageAlt}]` : "[Imagem]", margin, y);
+        y += 6;
+      }
+      y += block.after;
+      continue;
+    }
+    if (block.tableRows?.length) {
+      const columns = Math.max(...block.tableRows.map((row) => row.length), 1);
+      const cellW = maxWidth / columns;
+      const cellH = 8;
+      for (const row of block.tableRows) {
+        ensurePage(cellH);
+        row.forEach((cell, index) => {
+          const cellX = margin + index * cellW;
+          doc.rect(cellX, y - 4.8, cellW, cellH);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.text(doc.splitTextToSize(cell, cellW - 3), cellX + 1.5, y, { maxWidth: cellW - 3 });
+        });
+        y += cellH;
+      }
+      y += block.after;
+      continue;
+    }
     if (block.runs.length === 0) {
       y += block.after;
       continue;

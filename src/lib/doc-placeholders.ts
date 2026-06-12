@@ -335,6 +335,14 @@ export function sanitizeRichTextHtml(body: string): string {
     "EM",
     "I",
     "U",
+    "A",
+    "IMG",
+    "TABLE",
+    "THEAD",
+    "TBODY",
+    "TR",
+    "TH",
+    "TD",
     "OL",
     "UL",
     "LI",
@@ -353,7 +361,21 @@ export function sanitizeRichTextHtml(body: string): string {
     }
 
     for (const attribute of Array.from(element.attributes)) {
-      if (attribute.name !== "style") element.removeAttribute(attribute.name);
+      const name = attribute.name.toLowerCase();
+      const value = attribute.value;
+      const isSafeUrl = /^(https?:|mailto:|tel:|data:image\/)/i.test(value);
+      const keep =
+        name === "style" ||
+        (element.tagName === "A" && name === "href" && isSafeUrl) ||
+        (element.tagName === "IMG" &&
+          ["src", "alt"].includes(name) &&
+          (name === "alt" || isSafeUrl)) ||
+        (["TD", "TH"].includes(element.tagName) && ["colspan", "rowspan"].includes(name));
+      if (!keep) element.removeAttribute(attribute.name);
+    }
+    if (element.tagName === "A") {
+      element.setAttribute("target", "_blank");
+      element.setAttribute("rel", "noreferrer");
     }
     const style = (element as HTMLElement).style;
     const textAlign = style.textAlign;

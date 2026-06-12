@@ -1730,12 +1730,14 @@ function RentalsPage() {
 
               {isOpen && (
                 <>
-                  <div className="border-b p-4">
+                  <div className="border-b bg-muted/5 p-3">
                     <EntityDocuments
                       entityType="rental_contract"
                       entityId={c.id}
                       title="Contrato digitalizado e anexos"
                       accept=".pdf,application/pdf"
+                      collapsible
+                      defaultOpen={false}
                     />
                   </div>
                   <div className="flex items-center justify-between border-b bg-muted/10 px-4 py-2 text-xs">

@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -37,11 +43,15 @@ export function EntityDocuments({
   entityId,
   title = "Documentos digitalizados",
   accept = ".pdf,image/*,.doc,.docx",
+  collapsible = false,
+  defaultOpen = true,
 }: {
   entityType: EntityDocumentType;
   entityId?: string | null;
   title?: string;
   accept?: string;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }) {
   const qc = useQueryClient();
   const [kind, setKind] = useState("identity");
@@ -100,9 +110,8 @@ export function EntityDocuments({
     }
   }
 
-  return (
-    <section className="rounded-lg border bg-muted/20 p-3">
-      <Label className="mb-2 block font-semibold">{title}</Label>
+  const content = (
+    <>
       {!entityId ? (
         <p className="text-xs text-muted-foreground">
           Salve o cadastro para anexar documentos separadamente.
@@ -178,6 +187,36 @@ export function EntityDocuments({
           </div>
         </>
       )}
+    </>
+  );
+
+  if (collapsible) {
+    return (
+      <Accordion
+        type="single"
+        collapsible
+        defaultValue={defaultOpen ? "documents" : undefined}
+        className="rounded-lg border bg-muted/10"
+      >
+        <AccordionItem value="documents" className="border-b-0">
+          <AccordionTrigger className="px-3 py-3 hover:no-underline">
+            <div className="flex min-w-0 flex-col text-left">
+              <span className="font-semibold">{title}</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                {documents.length} arquivo(s) anexado(s). Expanda para anexar, abrir ou excluir.
+              </span>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-3 pb-3">{content}</AccordionContent>
+        </AccordionItem>
+      </Accordion>
+    );
+  }
+
+  return (
+    <section className="rounded-lg border bg-muted/20 p-3">
+      <Label className="mb-2 block font-semibold">{title}</Label>
+      {content}
     </section>
   );
 }

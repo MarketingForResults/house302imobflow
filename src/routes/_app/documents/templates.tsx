@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChangeEvent, useRef, useState } from "react";
+import { ChangeEvent, KeyboardEvent, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -29,13 +29,20 @@ import {
   AlignRight,
   ArrowLeft,
   Bold,
+  Check,
   FileUp,
+  Heading1,
+  Heading2,
+  Image as ImageIcon,
   Italic,
+  Link2,
   List,
   ListOrdered,
+  Pencil,
   Plus,
   Redo2,
   Sparkles,
+  Table2,
   Trash2,
   Underline,
   Undo2,
@@ -86,13 +93,15 @@ function TemplatesPage() {
   const qc = useQueryClient();
   const editorRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const imageRef = useRef<HTMLInputElement>(null);
   const bodyDraftRef = useRef("");
   const [editing, setEditing] = useState<any | null>(null);
   const [editorVersion, setEditorVersion] = useState(0);
   const [importing, setImporting] = useState(false);
   const [newKindName, setNewKindName] = useState("");
+  const [editingKind, setEditingKind] = useState<any | null>(null);
   const [activePlaceholderGroup, setActivePlaceholderGroup] = useState<string>(
-    Object.keys(PLACEHOLDER_GROUPS)[0]
+    Object.keys(PLACEHOLDER_GROUPS)[0],
   );
 
   const { data: templates = [], refetch } = useQuery({
@@ -172,10 +181,14 @@ function TemplatesPage() {
       .insert(payload)
       .select("*")
       .maybeSingle();
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel adicionar a modalidade."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel adicionar a modalidade."));
     const createdKind = data ?? payload;
     qc.setQueryData(["document_kinds"], (current: any[] | undefined) =>
-      sortDocumentKinds([...(current ?? documentKinds).filter((kind: any) => kind.id !== id), createdKind]),
+      sortDocumentKinds([
+        ...(current ?? documentKinds).filter((kind: any) => kind.id !== id),
+        createdKind,
+      ]),
     );
     setNewKindName("");
     setEditing((current: any) => (current ? { ...current, kind: id } : current));
@@ -183,18 +196,42 @@ function TemplatesPage() {
     toast.success("Modalidade adicionada");
   }
 
+  async function updateDocumentKind() {
+    if (!editingKind?.label?.trim()) return toast.error("Informe o nome da modalidade");
+    const { data, error } = await supabase
+      .from("document_kinds")
+      .update({
+        label: editingKind.label.trim(),
+        sort_order: Number(editingKind.sort_order ?? 100),
+        active: editingKind.active ?? true,
+      })
+      .eq("id", editingKind.id)
+      .select("*")
+      .maybeSingle();
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel atualizar a modalidade."));
+    qc.setQueryData(["document_kinds"], (current: any[] | undefined) =>
+      sortDocumentKinds(
+        (current ?? documentKinds).map((kind: any) =>
+          kind.id === editingKind.id ? (data ?? editingKind) : kind,
+        ),
+      ),
+    );
+    setEditingKind(null);
+    await refetchDocumentKinds();
+    toast.success("Modalidade atualizada");
+  }
+
   async function removeDocumentKind(kind: any) {
-    if (kind.system_kind) {
-      return toast.error("Modalidades do sistema não podem ser excluídas");
-    }
-    if (isDocumentKindInUse(kind.id)) {
-      return toast.error(
-        "Esta modalidade está em uso por um modelo. Altere ou exclua o modelo antes de remover a modalidade.",
-      );
-    }
     if (!confirm(`Excluir a modalidade ${kind.label}?`)) return;
-    const { error } = await supabase.from("document_kinds").delete().eq("id", kind.id);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir a modalidade."));
+    const inUse = isDocumentKindInUse(kind.id);
+    const query =
+      inUse || kind.system_kind
+        ? supabase.from("document_kinds").update({ active: false }).eq("id", kind.id)
+        : supabase.from("document_kinds").delete().eq("id", kind.id);
+    const { error } = await query;
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir a modalidade."));
     qc.setQueryData(["document_kinds"], (current: any[] | undefined) =>
       (current ?? documentKinds).filter((candidate: any) => candidate.id !== kind.id),
     );
@@ -203,7 +240,7 @@ function TemplatesPage() {
       setEditing({ ...editing, kind: fallbackKind?.id ?? "custom" });
     }
     await refetchDocumentKinds();
-    toast.success("Modalidade excluida");
+    toast.success(inUse || kind.system_kind ? "Modalidade desativada" : "Modalidade excluida");
   }
 
   async function save() {
@@ -219,10 +256,12 @@ function TemplatesPage() {
         .from("document_templates")
         .update(payload)
         .eq("id", payload.id);
-      if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar o modelo."));
+      if (error)
+        return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar o modelo."));
     } else {
       const { error } = await supabase.from("document_templates").insert(payload);
-      if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar o modelo."));
+      if (error)
+        return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar o modelo."));
     }
     toast.success("Modelo salvo");
     setEditing(null);
@@ -233,7 +272,8 @@ function TemplatesPage() {
   async function remove(id: string) {
     if (!confirm("Excluir este modelo?")) return;
     const { error } = await supabase.from("document_templates").delete().eq("id", id);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o modelo."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o modelo."));
     refetch();
   }
 
@@ -241,6 +281,65 @@ function TemplatesPage() {
     editorRef.current?.focus();
     document.execCommand(command, false, value);
     bodyDraftRef.current = editorRef.current?.innerHTML ?? bodyDraftRef.current;
+  }
+
+  function insertLink() {
+    const url = prompt("Informe o link completo (https://...)");
+    if (!url) return;
+    runEditorCommand("createLink", url);
+  }
+
+  async function insertImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast.error("Selecione uma imagem valida.");
+    const dataUrl = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(String(reader.result ?? ""));
+      reader.readAsDataURL(file);
+    });
+    runEditorCommand(
+      "insertHTML",
+      `<p style="text-align:center"><img src="${dataUrl}" alt="${file.name}" style="max-width:100%;height:auto" /></p>`,
+    );
+  }
+
+  function insertTable() {
+    const rows = Math.max(1, Number(prompt("Quantidade de linhas", "3")) || 3);
+    const cols = Math.max(1, Number(prompt("Quantidade de colunas", "3")) || 3);
+    const cells = Array.from({ length: rows })
+      .map(
+        (_, rowIndex) =>
+          `<tr>${Array.from({ length: cols })
+            .map(() =>
+              rowIndex === 0
+                ? '<th style="border:1px solid #ddd;padding:6px;text-align:left">Cabecalho</th>'
+                : '<td style="border:1px solid #ddd;padding:6px">Texto</td>',
+            )
+            .join("")}</tr>`,
+      )
+      .join("");
+    runEditorCommand(
+      "insertHTML",
+      `<table style="width:100%;border-collapse:collapse;margin:8px 0"><tbody>${cells}</tbody></table><p><br></p>`,
+    );
+  }
+
+  function handleEditorKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!event.ctrlKey && !event.metaKey) return;
+    const key = event.key.toLowerCase();
+    const commandByKey: Record<string, string> = {
+      b: "bold",
+      i: "italic",
+      u: "underline",
+      z: event.shiftKey ? "redo" : "undo",
+      y: "redo",
+    };
+    const command = commandByKey[key];
+    if (!command) return;
+    event.preventDefault();
+    runEditorCommand(command);
   }
 
   function insertPlaceholder(placeholder: string) {
@@ -378,25 +477,51 @@ function TemplatesPage() {
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {documentKinds.map((kind: any) => {
-                    const inUse = isDocumentKindInUse(kind.id);
-                    const canDelete = !kind.system_kind && !inUse;
-                    const title = kind.system_kind
-                      ? "Modalidade do sistema"
-                      : inUse
-                        ? "Modalidade em uso por um modelo"
-                        : "Excluir modalidade";
+                    const isEditingKind = editingKind?.id === kind.id;
                     return (
                       <span
                         key={kind.id}
                         className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-1 text-xs"
                       >
-                        {kind.label}
+                        {isEditingKind ? (
+                          <Input
+                            className="h-6 w-48 rounded-full px-2 text-xs"
+                            value={editingKind.label ?? ""}
+                            onChange={(event) =>
+                              setEditingKind({ ...editingKind, label: event.target.value })
+                            }
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") updateDocumentKind();
+                              if (event.key === "Escape") setEditingKind(null);
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          kind.label
+                        )}
                         <button
                           type="button"
-                          className="text-muted-foreground hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted-foreground"
-                          onClick={() => removeDocumentKind(kind)}
-                          disabled={!canDelete}
-                          title={title}
+                          className="text-muted-foreground hover:text-primary"
+                          onClick={() =>
+                            isEditingKind ? updateDocumentKind() : setEditingKind({ ...kind })
+                          }
+                          title={isEditingKind ? "Salvar modalidade" : "Editar modalidade"}
+                        >
+                          {isEditingKind ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            <Pencil className="h-3 w-3" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() =>
+                            isEditingKind ? setEditingKind(null) : removeDocumentKind(kind)
+                          }
+                          title={
+                            isEditingKind ? "Cancelar edição" : "Excluir ou desativar modalidade"
+                          }
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -438,6 +563,13 @@ function TemplatesPage() {
               <div className="mt-4">
                 <Label className="mb-1.5 block text-xs">Corpo do modelo</Label>
                 <div className="overflow-hidden rounded-md border">
+                  <input
+                    ref={imageRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={insertImage}
+                  />
                   <div
                     className="flex flex-wrap gap-1 border-b bg-muted/30 p-1.5"
                     onMouseDown={(event) => event.preventDefault()}
@@ -459,6 +591,34 @@ function TemplatesPage() {
                       onClick={() => runEditorCommand("redo")}
                     >
                       <Redo2 className="h-4 w-4" />
+                    </Button>
+                    <span className="mx-1 border-l" />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Paragrafo"
+                      onClick={() => runEditorCommand("formatBlock", "p")}
+                    >
+                      P
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Titulo 1"
+                      onClick={() => runEditorCommand("formatBlock", "h1")}
+                    >
+                      <Heading1 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Titulo 2"
+                      onClick={() => runEditorCommand("formatBlock", "h2")}
+                    >
+                      <Heading2 className="h-4 w-4" />
                     </Button>
                     <span className="mx-1 border-l" />
                     <Button
@@ -487,6 +647,34 @@ function TemplatesPage() {
                       onClick={() => runEditorCommand("underline")}
                     >
                       <Underline className="h-4 w-4" />
+                    </Button>
+                    <span className="mx-1 border-l" />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Inserir link"
+                      onClick={insertLink}
+                    >
+                      <Link2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Inserir imagem"
+                      onClick={() => imageRef.current?.click()}
+                    >
+                      <ImageIcon className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      title="Inserir tabela"
+                      onClick={insertTable}
+                    >
+                      <Table2 className="h-4 w-4" />
                     </Button>
                     <span className="mx-1 border-l" />
                     <Button
@@ -550,8 +738,9 @@ function TemplatesPage() {
                     ref={editorRef}
                     contentEditable
                     suppressContentEditableWarning
-                    className="min-h-[420px] bg-background p-4 text-sm leading-relaxed outline-none [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-bold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-2 [&_ul]:list-disc"
+                    className="min-h-[420px] bg-background p-4 text-sm leading-relaxed outline-none [&_a]:text-primary [&_a]:underline [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-bold [&_img]:my-3 [&_img]:max-w-full [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mb-2 [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:bg-muted/40 [&_th]:p-2 [&_ul]:list-disc"
                     dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(bodyDraftRef.current) }}
+                    onKeyDown={handleEditorKeyDown}
                     onInput={(event) => {
                       bodyDraftRef.current = event.currentTarget.innerHTML;
                     }}
@@ -627,7 +816,7 @@ function TemplatesPage() {
                 </button>
               ))}
             </div>
-            
+
             <div className="grid gap-1.5 pb-2 max-h-[600px] overflow-y-auto pr-1">
               {(PLACEHOLDER_GROUPS as any)[activePlaceholderGroup].map((placeholder: string) => (
                 <button
@@ -638,9 +827,7 @@ function TemplatesPage() {
                   className="group flex flex-col items-start rounded-md border bg-muted/20 px-2.5 py-2 text-left transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-50 disabled:hover:bg-muted/20 disabled:hover:text-foreground"
                   title={`Insere {{${placeholder}}}`}
                 >
-                  <span className="text-xs font-medium">
-                    {PLACEHOLDER_LABELS[placeholder]}
-                  </span>
+                  <span className="text-xs font-medium">{PLACEHOLDER_LABELS[placeholder]}</span>
                   <code className="mt-0.5 text-[10px] text-muted-foreground transition-colors group-hover:text-primary-foreground/85">
                     {`{{${placeholder}}}`}
                   </code>

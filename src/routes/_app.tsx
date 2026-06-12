@@ -1,6 +1,8 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard,
   Home,
@@ -25,6 +27,8 @@ import logo from "@/assets/logo-house302.png";
 import logoIcon from "@/assets/logo-house302-icon.png";
 import { AppTopbar } from "@/components/app-topbar";
 import { ForcePasswordChange } from "@/components/force-password-change";
+import { generateDocumentPdf } from "@/lib/pdf-utils";
+import { richTextToPlainText } from "@/lib/doc-placeholders";
 
 export const Route = createFileRoute("/_app")({ component: AppLayout });
 
@@ -284,7 +288,193 @@ function PortalOnlyLayout({
             <span className="rounded-md border px-2 py-1">{roles.join(", ")}</span>
           </div>
         </section>
+        <PortalContractsArea />
       </main>
     </div>
+  );
+}
+
+function PortalContractsArea() {
+  const { user, roles } = useAuth();
+  const { data, isLoading } = useQuery({
+    queryKey: ["portal-contracts", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data: access } = await (supabase as any)
+        .from("portal_access_links")
+        .select("client_id, broker_id")
+        .eq("user_id", user!.id)
+        .limit(1)
+        .maybeSingle();
+      const clientId = access?.client_id;
+      if (!clientId) return { contracts: [], paymentsByContract: {}, documentsByContract: {} };
+
+      const { data: contracts = [] } = await (supabase as any)
+        .from("rental_contracts")
+        .select(
+          "*, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name), landlord:clients!rental_contracts_landlord_client_id_fkey(full_name)",
+        )
+        .or(`tenant_client_id.eq.${clientId},landlord_client_id.eq.${clientId}`)
+        .order("created_at", { ascending: false });
+
+      const contractIds = contracts.map((contract: any) => contract.id);
+      if (contractIds.length === 0)
+        return { contracts, paymentsByContract: {}, documentsByContract: {} };
+
+      const [{ data: payments = [] }, { data: documents = [] }] = await Promise.all([
+        (supabase as any)
+          .from("rental_payments")
+          .select("*")
+          .in("contract_id", contractIds)
+          .order("due_date", { ascending: true }),
+        (supabase as any)
+          .from("documents")
+          .select("*")
+          .in("rental_contract_id", contractIds)
+          .order("created_at", { ascending: false }),
+      ]);
+
+      return {
+        contracts,
+        paymentsByContract: payments.reduce((map: Record<string, any[]>, payment: any) => {
+          (map[payment.contract_id] ??= []).push(payment);
+          return map;
+        }, {}),
+        documentsByContract: documents.reduce((map: Record<string, any[]>, document: any) => {
+          (map[document.rental_contract_id] ??= []).push(document);
+          return map;
+        }, {}),
+      };
+    },
+  });
+
+  async function downloadDocument(document: any, contract: any) {
+    const pdf = await generateDocumentPdf({
+      code: document.code,
+      locator: contract.properties?.code ?? contract.code,
+      title: document.title ?? document.code,
+      bodyHtml: document.body_rendered ?? "",
+      bodyText: richTextToPlainText(document.body_rendered ?? ""),
+    });
+    pdf.save(`${document.code}.pdf`);
+  }
+
+  const roleLabel = roles.includes("owner")
+    ? "proprietario"
+    : roles.includes("tenant")
+      ? "inquilino"
+      : "usuario";
+
+  return (
+    <section className="rounded-md border bg-card p-5">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">
+            Contratos e documentos
+          </div>
+          <h2 className="text-lg font-semibold">Area do {roleLabel}</h2>
+        </div>
+        <a
+          className="text-sm text-primary hover:underline"
+          href="mailto:house302imob@gmail.com?subject=Solicitacao%20de%20correcao%20de%20documento"
+        >
+          Solicitar correcao
+        </a>
+      </div>
+      {isLoading ? (
+        <p className="mt-4 text-sm text-muted-foreground">Carregando contratos vinculados...</p>
+      ) : !data?.contracts.length ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Nenhum contrato vinculado ao seu acesso ainda.
+        </p>
+      ) : (
+        <div className="mt-4 space-y-4">
+          {data.contracts.map((contract: any) => {
+            const payments = data.paymentsByContract[contract.id] ?? [];
+            const documents = data.documentsByContract[contract.id] ?? [];
+            return (
+              <article key={contract.id} className="rounded-md border p-3">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="font-semibold">{contract.code}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {contract.properties?.code} - {contract.properties?.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Locador: {contract.landlord?.full_name ?? "-"} | Locatario:{" "}
+                      {contract.tenant?.full_name ?? "-"}
+                    </p>
+                  </div>
+                  <span className="rounded-full border px-2 py-1 text-xs">{contract.status}</span>
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div>
+                    <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                      Mensalidades
+                    </h4>
+                    <div className="max-h-40 overflow-auto rounded border">
+                      {payments.slice(0, 8).map((payment: any) => (
+                        <div
+                          key={payment.id}
+                          className="flex justify-between gap-2 border-b px-2 py-1 text-xs last:border-b-0"
+                        >
+                          <span>{payment.reference_month}</span>
+                          <span>
+                            {Number(payment.amount_due ?? 0).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                          </span>
+                          <span>{payment.status}</span>
+                        </div>
+                      ))}
+                      {payments.length === 0 && (
+                        <div className="px-2 py-2 text-xs text-muted-foreground">
+                          Nenhuma mensalidade gerada.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                      Documentos gerados
+                    </h4>
+                    <div className="max-h-40 overflow-auto rounded border">
+                      {documents.map((document: any) => (
+                        <div
+                          key={document.id}
+                          className="flex items-center justify-between gap-2 border-b px-2 py-1 text-xs last:border-b-0"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate font-medium">
+                              {document.title ?? document.code}
+                            </div>
+                            <div className="text-muted-foreground">
+                              {document.code} - {document.status}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="shrink-0 rounded border px-2 py-1 text-[11px] text-primary hover:bg-muted"
+                            onClick={() => downloadDocument(document, contract)}
+                          >
+                            Baixar PDF
+                          </button>
+                        </div>
+                      ))}
+                      {documents.length === 0 && (
+                        <div className="px-2 py-2 text-xs text-muted-foreground">
+                          Nenhum documento vinculado.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
