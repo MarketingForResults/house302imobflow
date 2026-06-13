@@ -491,23 +491,44 @@ function RentalsPage() {
       form.discount_type,
       form.discount_value,
     );
-    const { term_months: _t, ...rest } = form;
-    const { data: created, error } = await (supabase as any)
+    const {
+      term_months: _t,
+      discount_type: _discountType,
+      discount_value: _discountValue,
+      ...rest
+    } = form;
+    const compatibleContractPayload = {
+      ...rest,
+      monthly_rent: rentDiscount.net,
+      due_day: dueDay,
+      deposit_amount: form.deposit_amount ? Number(form.deposit_amount) : null,
+      end_date,
+      created_by: user?.id,
+    };
+    const completeContractPayload = {
+      ...compatibleContractPayload,
+      gross_monthly_rent: rentDiscount.gross,
+      discount_type: rentDiscount.type,
+      discount_value: rentDiscount.value,
+      discount_amount: rentDiscount.amount,
+    };
+
+    let contractFallback = false;
+    let { data: created, error } = await (supabase as any)
       .from("rental_contracts")
-      .insert({
-        ...rest,
-        monthly_rent: rentDiscount.net,
-        gross_monthly_rent: rentDiscount.gross,
-        discount_type: rentDiscount.type,
-        discount_value: rentDiscount.value,
-        discount_amount: rentDiscount.amount,
-        due_day: dueDay,
-        deposit_amount: form.deposit_amount ? Number(form.deposit_amount) : null,
-        end_date,
-        created_by: user?.id,
-      })
+      .insert(completeContractPayload)
       .select("id")
       .maybeSingle();
+    if (error && isSchemaCacheColumnError(error)) {
+      const retry = await (supabase as any)
+        .from("rental_contracts")
+        .insert(compatibleContractPayload)
+        .select("id")
+        .maybeSingle();
+      created = retry.data;
+      error = retry.error;
+      contractFallback = !retry.error;
+    }
     if (error)
       return toast.error(translatedErrorMessage(error, "Nao foi possivel criar o contrato."));
     if (!created?.id)
@@ -523,7 +544,7 @@ function RentalsPage() {
         `Contrato criado, mas não foi possível gerar as parcelas: ${paymentsError.message}`,
       );
     }
-    await (supabase as any)
+    const { error: discountUpdateError } = await (supabase as any)
       .from("rental_payments")
       .update({
         gross_amount_due: rentDiscount.gross,
@@ -533,23 +554,41 @@ function RentalsPage() {
       })
       .eq("contract_id", created.id)
       .eq("payment_kind", "rent");
+    if (discountUpdateError && !isSchemaCacheColumnError(discountUpdateError)) {
+      toast.error(
+        translatedErrorMessage(
+          discountUpdateError,
+          "Contrato criado, mas os descontos nao foram refletidos nas parcelas.",
+        ),
+      );
+    }
 
     const depositAmount = Number(form.deposit_amount ?? 0);
     if (depositAmount > 0) {
-      const { error: depositPaymentError } = await (supabase as any)
+      const compatibleDepositPayload = {
+        contract_id: created.id,
+        reference_month: normalizeReferenceMonth(form.start_date),
+        due_date: form.start_date,
+        amount_due: depositAmount,
+        notes: "Caucao",
+        payment_kind: "deposit",
+      };
+      const completeDepositPayload = {
+        ...compatibleDepositPayload,
+        gross_amount_due: depositAmount,
+        discount_type: "none",
+        discount_value: 0,
+        discount_amount: 0,
+      };
+      let { error: depositPaymentError } = await (supabase as any)
         .from("rental_payments")
-        .insert({
-          contract_id: created.id,
-          reference_month: normalizeReferenceMonth(form.start_date),
-          due_date: form.start_date,
-          amount_due: depositAmount,
-          gross_amount_due: depositAmount,
-          discount_type: "none",
-          discount_value: 0,
-          discount_amount: 0,
-          notes: "Caucao",
-          payment_kind: "deposit",
-        });
+        .insert(completeDepositPayload);
+      if (depositPaymentError && isSchemaCacheColumnError(depositPaymentError)) {
+        const retryDeposit = await (supabase as any)
+          .from("rental_payments")
+          .insert(compatibleDepositPayload);
+        depositPaymentError = retryDeposit.error;
+      }
       if (depositPaymentError) {
         toast.error(
           `Contrato criado, mas nao foi possivel gerar o caucao: ${translatedErrorMessage(depositPaymentError, "Falha ao gerar o caucao.")}`,
@@ -571,7 +610,13 @@ function RentalsPage() {
         );
       }
     }
-    toast.success("Contrato criado e lancamentos gerados");
+    if (contractFallback || isSchemaCacheColumnError(discountUpdateError)) {
+      toast.warning(
+        "Contrato criado, mas alguns dados de desconto ficaram pendentes porque o Supabase ainda precisa aplicar as migrations.",
+      );
+    } else {
+      toast.success("Contrato criado e lancamentos gerados");
+    }
     setOpenContract(false);
     setForm({
       kind: "residential",
@@ -819,16 +864,14 @@ function RentalsPage() {
         `Nao foi possivel anexar o recibo: ${translatedErrorMessage(err, "Falha no anexo.")}`,
       );
     }
-    const { error, usedFallback } = await updateRentalPayment(
-      p.id,
-      patch,
-      legacyReceiptPatch,
-    );
+    const { error, usedFallback } = await updateRentalPayment(p.id, patch, legacyReceiptPatch);
     if (error)
       return toast.error(translatedErrorMessage(error, "Nao foi possivel registrar o pagamento."));
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     if (usedFallback) {
-      toast.warning("Pagamento registrado, mas somente o primeiro anexo foi vinculado porque o schema do Supabase ainda não expõe a lista de anexos.");
+      toast.warning(
+        "Pagamento registrado, mas somente o primeiro anexo foi vinculado porque o schema do Supabase ainda não expõe a lista de anexos.",
+      );
     }
     toast.success(`Pagamento registrado em ${formatDateBR(payDate)} (R$ ${total.toFixed(2)})`);
     closeMarkPaid();

@@ -183,8 +183,13 @@ function isSchemaCacheError(error: unknown) {
     details?: string | null;
     hint?: string | null;
   };
-  const text = [current.message, current.details, current.hint].filter(Boolean).join(" ").toLowerCase();
-  return current.code === "PGRST204" || text.includes("schema cache") || text.includes("could not find");
+  const text = [current.message, current.details, current.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return (
+    current.code === "PGRST204" || text.includes("schema cache") || text.includes("could not find")
+  );
 }
 
 async function upsertInspection(
@@ -192,7 +197,7 @@ async function upsertInspection(
   options: { select?: boolean } = {},
 ) {
   const run = async (currentPayload: Record<string, unknown>) => {
-    const query = supabase
+    const query = (supabase as any)
       .from("property_inspections")
       .upsert(currentPayload, { onConflict: "property_id" });
     return options.select ? await query.select("*").maybeSingle() : await query;
@@ -284,7 +289,8 @@ function InspectionsPage() {
             : "pending",
     };
     const { data, error, usedFallback } = await upsertInspection(payload, { select: true });
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar a vistoria."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar a vistoria."));
     const workflow_status =
       payload.status === "scheduled" ? "inspection_scheduled" : "inspection_pending";
     const { error: propertyError } = await supabase
@@ -338,7 +344,8 @@ function InspectionsPage() {
       status: "completed",
     };
     const { error, usedFallback } = await upsertInspection(payload);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel concluir a vistoria."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel concluir a vistoria."));
     const { error: propertyError } = await supabase
       .from("properties")
       .update({
@@ -379,7 +386,8 @@ function InspectionsPage() {
       reviewed_by: user?.id,
       reviewed_at: new Date().toISOString(),
     });
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel revisar a vistoria."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel revisar a vistoria."));
     const { error: propertyError } = await supabase
       .from("properties")
       .update({ workflow_status })
