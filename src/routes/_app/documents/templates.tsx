@@ -4,6 +4,19 @@ import { ChangeEvent, KeyboardEvent, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -30,6 +43,7 @@ import {
   ArrowLeft,
   Bold,
   Check,
+  Eye,
   FileUp,
   Heading1,
   Heading2,
@@ -89,6 +103,12 @@ function suggestPlaceholders(value: string) {
     .replace(/(data|data atual)\s*:\s*[_\s./-]{3,}/gi, "$1: {{date.today}}");
 }
 
+type ImportPreview = {
+  fileName: string;
+  body: string;
+  text: string;
+};
+
 function TemplatesPage() {
   const qc = useQueryClient();
   const editorRef = useRef<HTMLDivElement>(null);
@@ -98,6 +118,7 @@ function TemplatesPage() {
   const [editing, setEditing] = useState<any | null>(null);
   const [editorVersion, setEditorVersion] = useState(0);
   const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [newKindName, setNewKindName] = useState("");
   const [editingKind, setEditingKind] = useState<any | null>(null);
   const [activePlaceholderGroup, setActivePlaceholderGroup] = useState<string>(
@@ -135,6 +156,7 @@ function TemplatesPage() {
 
   function openEditor(template: any) {
     bodyDraftRef.current = template.body ?? "";
+    setImportPreview(null);
     setEditing(template);
     setEditorVersion((version) => version + 1);
   }
@@ -389,19 +411,27 @@ function TemplatesPage() {
         .trim();
       if (!extracted) throw new Error("Não foi possível reconhecer texto neste arquivo.");
       const body = textToEditorHtml(suggestPlaceholders(extracted));
-      bodyDraftRef.current = body;
-      setEditing((current: any) => ({
-        ...current,
-        name: current.name || file.name.replace(/\.[^.]+$/, ""),
-        body,
-      }));
-      setEditorVersion((version) => version + 1);
-      toast.success("Documento importado e pré-formatado. Revise o conteúdo antes de salvar.");
+      setImportPreview({ fileName: file.name, body, text: extracted });
+      toast.success("Documento reconhecido. Confira a pré-visualização antes de aplicar.");
     } catch (error: any) {
       toast.error(translatedErrorMessage(error, "Nao foi possivel importar o documento."));
     } finally {
       setImporting(false);
     }
+  }
+
+  function applyImportPreview() {
+    if (!importPreview) return;
+    const body = importPreview.body;
+    bodyDraftRef.current = body;
+    setEditing((current: any) => ({
+      ...(current ?? {}),
+      name: current?.name || importPreview.fileName.replace(/\.[^.]+$/, ""),
+      body,
+    }));
+    setEditorVersion((version) => version + 1);
+    setImportPreview(null);
+    toast.success("Documento aplicado ao modelo. Revise o conteúdo antes de salvar.");
   }
 
   return (
@@ -548,16 +578,24 @@ function TemplatesPage() {
                   className="hidden"
                   onChange={importDocument}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={importing}
-                  onClick={() => fileRef.current?.click()}
-                >
-                  <FileUp className="mr-1.5 h-4 w-4" />
-                  {importing ? "Reconhecendo..." : "Importar documento"}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  {importPreview && (
+                    <Button type="button" variant="secondary" size="sm">
+                      <Eye className="mr-1.5 h-4 w-4" />
+                      Prévia aberta
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={importing}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <FileUp className="mr-1.5 h-4 w-4" />
+                    {importing ? "Reconhecendo..." : "Importar documento"}
+                  </Button>
+                </div>
               </div>
 
               <div className="mt-4">
@@ -837,6 +875,47 @@ function TemplatesPage() {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={!!importPreview}
+        onOpenChange={(open) => {
+          if (!open) setImportPreview(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Pré-visualização do documento
+            </DialogTitle>
+          </DialogHeader>
+          {importPreview && (
+            <div className="min-h-0 space-y-3">
+              <div className="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">{importPreview.fileName}</span>
+                <span className="mx-2">•</span>
+                {importPreview.text.length.toLocaleString("pt-BR")} caracteres reconhecidos
+              </div>
+              <div className="max-h-[58vh] overflow-auto rounded-md border bg-background p-5 text-sm leading-relaxed shadow-inner [&_p]:mb-2">
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeRichTextHtml(importPreview.body),
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setImportPreview(null)}>
+              Cancelar importação
+            </Button>
+            <Button onClick={applyImportPreview}>
+              <Check className="mr-1.5 h-4 w-4" />
+              Aplicar ao modelo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

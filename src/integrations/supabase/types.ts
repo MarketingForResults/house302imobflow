@@ -1739,6 +1739,73 @@ export type Database = {
           },
         ]
       }
+      property_inspections: {
+        Row: {
+          assigned_broker_id: string | null
+          contact_notes: string | null
+          created_at: string
+          id: string
+          property_id: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scheduled_at: string | null
+          status: string
+          technical_notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_broker_id?: string | null
+          contact_notes?: string | null
+          created_at?: string
+          id?: string
+          property_id: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduled_at?: string | null
+          status?: string
+          technical_notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_broker_id?: string | null
+          contact_notes?: string | null
+          created_at?: string
+          id?: string
+          property_id?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduled_at?: string | null
+          status?: string
+          technical_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_inspections_assigned_broker_id_fkey"
+            columns: ["assigned_broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_inspections_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_inspections_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_images: {
         Row: {
           created_at: string
@@ -1958,6 +2025,7 @@ export type Database = {
           notes: string | null
           paid_at: string | null
           payment_kind: string
+          receipt_attachments: Json
           receipt_file_name: string | null
           receipt_file_path: string | null
           receipt_uploaded_at: string | null
@@ -1984,6 +2052,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           payment_kind?: string
+          receipt_attachments?: Json
           receipt_file_name?: string | null
           receipt_file_path?: string | null
           receipt_uploaded_at?: string | null
@@ -2010,6 +2079,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           payment_kind?: string
+          receipt_attachments?: Json
           receipt_file_name?: string | null
           receipt_file_path?: string | null
           receipt_uploaded_at?: string | null

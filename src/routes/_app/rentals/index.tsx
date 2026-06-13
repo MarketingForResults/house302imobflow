@@ -50,6 +50,14 @@ import { calculateDiscount, formatDiscountLabel } from "@/lib/discounts";
 
 export const Route = createFileRoute("/_app/rentals/")({ component: RentalsPage });
 
+type PaymentReceiptAttachment = {
+  file_path: string;
+  file_name: string;
+  content_type?: string | null;
+  size?: number | null;
+  uploaded_at?: string | null;
+};
+
 function RentalsPage() {
   const qc = useQueryClient();
   const { roles } = useAuth();
@@ -76,7 +84,7 @@ function RentalsPage() {
   // Pagamento — confirmar com data
   const [payingPayment, setPayingPayment] = useState<{ p: any; c: any } | null>(null);
   const [payDate, setPayDate] = useState<string>("");
-  const [payReceiptFile, setPayReceiptFile] = useState<File | null>(null);
+  const [payReceiptFiles, setPayReceiptFiles] = useState<File[]>([]);
   // Recibo — enviar PDF por e-mail/WhatsApp
   const [receiptFor, setReceiptFor] = useState<{ p: any; c: any } | null>(null);
   const [depositRefundFor, setDepositRefundFor] = useState<{ p: any; c: any } | null>(null);
@@ -581,12 +589,12 @@ function RentalsPage() {
   function openMarkPaid(c: any, p: any) {
     setPayingPayment({ p, c });
     setPayDate(new Date().toISOString().slice(0, 10));
-    setPayReceiptFile(null);
+    setPayReceiptFiles([]);
   }
 
   function closeMarkPaid() {
     setPayingPayment(null);
-    setPayReceiptFile(null);
+    setPayReceiptFiles([]);
   }
 
   function openDepositRefund(c: any, p: any) {
@@ -615,24 +623,73 @@ function RentalsPage() {
       .replace(/[^a-zA-Z0-9._-]+/g, "-");
   }
 
-  async function uploadPaymentReceipt(paymentId: string, file: File) {
-    const path = `${paymentId}/${Date.now()}-${safeFileName(file.name)}`;
+  async function uploadPaymentReceipt(
+    paymentId: string,
+    file: File,
+  ): Promise<PaymentReceiptAttachment> {
+    const uniqueId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const path = `${paymentId}/${uniqueId}-${safeFileName(file.name)}`;
     const { error: uploadError } = await supabase.storage
       .from("rental-payment-receipts")
       .upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
     if (uploadError) throw uploadError;
-    return path;
+    return {
+      file_path: path,
+      file_name: file.name,
+      content_type: file.type || null,
+      size: file.size,
+      uploaded_at: new Date().toISOString(),
+    };
+  }
+
+  function paymentReceiptAttachments(p: any): PaymentReceiptAttachment[] {
+    const stored = Array.isArray(p.receipt_attachments) ? p.receipt_attachments : [];
+    const attachments = stored
+      .map((item: any) => ({
+        file_path: item?.file_path ?? item?.path,
+        file_name: item?.file_name ?? item?.name ?? "Comprovante",
+        content_type: item?.content_type ?? null,
+        size: item?.size ?? null,
+        uploaded_at: item?.uploaded_at ?? null,
+      }))
+      .filter((item: PaymentReceiptAttachment) => Boolean(item.file_path));
+
+    if (
+      p.receipt_file_path &&
+      !attachments.some((item: PaymentReceiptAttachment) => item.file_path === p.receipt_file_path)
+    ) {
+      attachments.unshift({
+        file_path: p.receipt_file_path,
+        file_name: p.receipt_file_name ?? "Comprovante",
+        uploaded_at: p.receipt_uploaded_at ?? null,
+      });
+    }
+
+    return attachments;
   }
 
   async function openAttachedReceipt(p: any) {
-    if (!p.receipt_file_path) return toast.error("Esta parcela não possui recibo anexado.");
-    const { data, error } = await supabase.storage
-      .from("rental-payment-receipts")
-      .createSignedUrl(p.receipt_file_path, 60 * 10);
-    if (error || !data?.signedUrl) {
-      return toast.error(translatedErrorMessage(error, "Nao foi possivel abrir o recibo anexado."));
+    const attachments = paymentReceiptAttachments(p);
+    if (attachments.length === 0) return toast.error("Esta parcela não possui recibo anexado.");
+
+    const signed = await Promise.all(
+      attachments.map(async (attachment) => {
+        const { data, error } = await supabase.storage
+          .from("rental-payment-receipts")
+          .createSignedUrl(attachment.file_path, 60 * 10);
+        return { signedUrl: data?.signedUrl, error };
+      }),
+    );
+    const failed = signed.find((item) => item.error || !item.signedUrl);
+    if (failed) {
+      return toast.error(
+        translatedErrorMessage(failed.error, "Nao foi possivel abrir um dos recibos anexados."),
+      );
     }
-    window.open(data.signedUrl, "_blank");
+    signed.forEach((item) => window.open(item.signedUrl!, "_blank"));
   }
 
   async function openDepositRefundReceipt(p: any) {
@@ -699,10 +756,10 @@ function RentalsPage() {
 
     try {
       if (depositRefundReceiptFile) {
-        const receiptPath = await uploadPaymentReceipt(p.id, depositRefundReceiptFile);
-        patch.deposit_refund_receipt_file_path = receiptPath;
+        const receiptAttachment = await uploadPaymentReceipt(p.id, depositRefundReceiptFile);
+        patch.deposit_refund_receipt_file_path = receiptAttachment.file_path;
         patch.deposit_refund_receipt_file_name = depositRefundReceiptFile.name;
-        patch.deposit_refund_uploaded_at = new Date().toISOString();
+        patch.deposit_refund_uploaded_at = receiptAttachment.uploaded_at;
       }
     } catch (err: any) {
       return toast.error(
@@ -734,12 +791,28 @@ function RentalsPage() {
       late_fee_amount: calc.fee,
       interest_amount: calc.interest,
     };
+    let legacyReceiptPatch: Record<string, any> | undefined;
     try {
-      if (payReceiptFile) {
-        const receiptPath = await uploadPaymentReceipt(p.id, payReceiptFile);
-        patch.receipt_file_path = receiptPath;
-        patch.receipt_file_name = payReceiptFile.name;
-        patch.receipt_uploaded_at = new Date().toISOString();
+      if (payReceiptFiles.length > 0) {
+        const uploadedReceipts = await Promise.all(
+          payReceiptFiles.map((file) => uploadPaymentReceipt(p.id, file)),
+        );
+        const receiptAttachments = [...paymentReceiptAttachments(p), ...uploadedReceipts];
+        const primaryReceipt = receiptAttachments[0];
+        const lastUploaded = uploadedReceipts[uploadedReceipts.length - 1];
+
+        patch.receipt_attachments = receiptAttachments;
+        patch.receipt_file_path = primaryReceipt.file_path;
+        patch.receipt_file_name = primaryReceipt.file_name;
+        patch.receipt_uploaded_at = lastUploaded.uploaded_at;
+        legacyReceiptPatch = {
+          status: "paid",
+          paid_at: paidAtIso,
+          amount_paid: total,
+          receipt_file_path: primaryReceipt.file_path,
+          receipt_file_name: primaryReceipt.file_name,
+          receipt_uploaded_at: lastUploaded.uploaded_at,
+        };
       }
     } catch (err: any) {
       return toast.error(
@@ -749,21 +822,13 @@ function RentalsPage() {
     const { error, usedFallback } = await updateRentalPayment(
       p.id,
       patch,
-      payReceiptFile
-        ? {
-            status: "paid",
-            paid_at: paidAtIso,
-            amount_paid: total,
-          }
-        : undefined,
+      legacyReceiptPatch,
     );
     if (error)
       return toast.error(translatedErrorMessage(error, "Nao foi possivel registrar o pagamento."));
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     if (usedFallback) {
-      toast.warning(
-        "Pagamento registrado, mas o recibo não foi vinculado porque o schema do Supabase ainda não expõe os campos de recibo.",
-      );
+      toast.warning("Pagamento registrado, mas somente o primeiro anexo foi vinculado porque o schema do Supabase ainda não expõe a lista de anexos.");
     }
     toast.success(`Pagamento registrado em ${formatDateBR(payDate)} (R$ ${total.toFixed(2)})`);
     closeMarkPaid();
@@ -782,6 +847,7 @@ function RentalsPage() {
         receipt_file_path: null,
         receipt_file_name: null,
         receipt_uploaded_at: null,
+        receipt_attachments: [],
         deposit_refund_due_date: null,
         deposit_refunded_at: null,
         deposit_refund_amount: null,
@@ -1973,14 +2039,24 @@ function RentalsPage() {
                                   </>
                                 ) : (
                                   <>
-                                    {p.receipt_file_path && (
+                                    {paymentReceiptAttachments(p).length > 0 && (
                                       <Button
                                         size="sm"
                                         variant="ghost"
                                         onClick={() => openAttachedReceipt(p)}
-                                        title={p.receipt_file_name ?? "Abrir recibo anexado"}
+                                        title={
+                                          paymentReceiptAttachments(p).length > 1
+                                            ? `Abrir ${paymentReceiptAttachments(p).length} anexos`
+                                            : (paymentReceiptAttachments(p)[0]?.file_name ??
+                                              "Abrir recibo anexado")
+                                        }
                                       >
                                         <Paperclip className="h-3.5 w-3.5" />
+                                        {paymentReceiptAttachments(p).length > 1 && (
+                                          <span className="ml-1 text-[10px]">
+                                            {paymentReceiptAttachments(p).length}
+                                          </span>
+                                        )}
                                       </Button>
                                     )}
                                     {isDeposit && p.deposit_refund_receipt_file_path && (
@@ -2317,10 +2393,15 @@ function RentalsPage() {
                 <Input
                   type="file"
                   accept="application/pdf,image/*"
-                  onChange={(e) => setPayReceiptFile(e.target.files?.[0] ?? null)}
+                  multiple
+                  onChange={(e) => setPayReceiptFiles(Array.from(e.target.files ?? []))}
                 />
-                {payReceiptFile && (
-                  <p className="mt-1 text-xs text-muted-foreground">{payReceiptFile.name}</p>
+                {payReceiptFiles.length > 0 && (
+                  <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                    {payReceiptFiles.map((file) => (
+                      <li key={`${file.name}-${file.size}`}>{file.name}</li>
+                    ))}
+                  </ul>
                 )}
               </div>
             </div>
@@ -2476,6 +2557,7 @@ function RentalsPage() {
               // Always resolve the freshest payment from the payments query cache
               const freshP = payments.find((x: any) => x.id === receiptFor.p.id) ?? receiptFor.p;
               const receiptForFresh = { ...receiptFor, p: freshP };
+              const attachments = paymentReceiptAttachments(receiptForFresh.p);
               return (
                 <div className="grid gap-3 text-sm">
                   <div className="text-xs text-muted-foreground">
@@ -2503,7 +2585,7 @@ function RentalsPage() {
                     ou o WhatsApp já com a mensagem pronta — basta anexar o arquivo baixado antes de
                     enviar.
                   </p>
-                  {receiptForFresh.p.receipt_file_path && (
+                  {attachments.length > 0 && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -2511,7 +2593,9 @@ function RentalsPage() {
                       onClick={() => openAttachedReceipt(receiptForFresh.p)}
                     >
                       <Paperclip className="mr-1.5 h-4 w-4" />
-                      Abrir comprovante anexado
+                      {attachments.length > 1
+                        ? `Abrir ${attachments.length} comprovantes anexados`
+                        : "Abrir comprovante anexado"}
                     </Button>
                   )}
                 </div>

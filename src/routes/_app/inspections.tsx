@@ -175,6 +175,45 @@ function downloadIcs(property: any, inspection: any) {
   URL.revokeObjectURL(url);
 }
 
+function isSchemaCacheError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const current = error as {
+    code?: string | null;
+    message?: string | null;
+    details?: string | null;
+    hint?: string | null;
+  };
+  const text = [current.message, current.details, current.hint].filter(Boolean).join(" ").toLowerCase();
+  return current.code === "PGRST204" || text.includes("schema cache") || text.includes("could not find");
+}
+
+async function upsertInspection(
+  payload: Record<string, unknown>,
+  options: { select?: boolean } = {},
+) {
+  const run = async (currentPayload: Record<string, unknown>) => {
+    const query = supabase
+      .from("property_inspections")
+      .upsert(currentPayload, { onConflict: "property_id" });
+    return options.select ? await query.select("*").maybeSingle() : await query;
+  };
+
+  const result = await run(payload);
+  if (!isSchemaCacheError(result.error)) return { ...result, usedFallback: false };
+
+  const compatiblePayload = { ...payload };
+  delete compatiblePayload.review_notes;
+  delete compatiblePayload.reviewed_by;
+  delete compatiblePayload.reviewed_at;
+
+  if (Object.keys(compatiblePayload).length === Object.keys(payload).length) {
+    return { ...result, usedFallback: false };
+  }
+
+  const fallbackResult = await run(compatiblePayload);
+  return { ...fallbackResult, usedFallback: !fallbackResult.error };
+}
+
 function InspectionsPage() {
   const qc = useQueryClient();
   const { roles } = useAuth();
@@ -244,13 +283,8 @@ function InspectionsPage() {
             ? "scheduled"
             : "pending",
     };
-    const { data, error } = await (supabase as any)
-      .from("property_inspections")
-      .upsert(payload, { onConflict: "property_id" })
-      .select("*")
-      .maybeSingle();
-    if (error)
-      return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar a vistoria."));
+    const { data, error, usedFallback } = await upsertInspection(payload, { select: true });
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar a vistoria."));
     const workflow_status =
       payload.status === "scheduled" ? "inspection_scheduled" : "inspection_pending";
     const { error: propertyError } = await supabase
@@ -263,7 +297,11 @@ function InspectionsPage() {
       );
     }
     if (data) setInspection({ ...data, scheduled_at: data.scheduled_at?.slice(0, 16) ?? "" });
-    toast.success("Vistoria atualizada");
+    toast.success(
+      usedFallback
+        ? "Atendimento salvo. Aplique as migrations para gravar o parecer administrativo."
+        : "Vistoria atualizada",
+    );
     refresh();
   }
 
@@ -299,11 +337,8 @@ function InspectionsPage() {
       review_notes: inspection.review_notes || null,
       status: "completed",
     };
-    const { error } = await (supabase as any)
-      .from("property_inspections")
-      .upsert(payload, { onConflict: "property_id" });
-    if (error)
-      return toast.error(translatedErrorMessage(error, "Nao foi possivel concluir a vistoria."));
+    const { error, usedFallback } = await upsertInspection(payload);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel concluir a vistoria."));
     const { error: propertyError } = await supabase
       .from("properties")
       .update({
@@ -316,7 +351,11 @@ function InspectionsPage() {
         translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."),
       );
     }
-    toast.success("Vistoria concluída e enviada para aprovação");
+    toast.success(
+      usedFallback
+        ? "Vistoria concluida. Aplique as migrations para gravar o parecer administrativo."
+        : "Vistoria concluída e enviada para aprovação",
+    );
     setEditing(null);
     refresh();
   }
@@ -327,24 +366,20 @@ function InspectionsPage() {
     } = await supabase.auth.getUser();
     const status = approved ? "approved" : "rejected";
     const workflow_status = approved ? "ready_to_publish" : "rejected";
-    const { error } = await (supabase as any).from("property_inspections").upsert(
-      {
-        property_id: editing.id,
-        assigned_broker_id:
-          inspection.assigned_broker_id === "none" ? null : inspection.assigned_broker_id,
-        scheduled_at: inspection.scheduled_at || null,
-        reminder_minutes: Number(inspection.reminder_minutes ?? 60),
-        contact_notes: inspection.contact_notes || null,
-        technical_notes: inspection.technical_notes || null,
-        review_notes: inspection.review_notes || null,
-        status,
-        reviewed_by: user?.id,
-        reviewed_at: new Date().toISOString(),
-      },
-      { onConflict: "property_id" },
-    );
-    if (error)
-      return toast.error(translatedErrorMessage(error, "Nao foi possivel revisar a vistoria."));
+    const { error, usedFallback } = await upsertInspection({
+      property_id: editing.id,
+      assigned_broker_id:
+        inspection.assigned_broker_id === "none" ? null : inspection.assigned_broker_id,
+      scheduled_at: inspection.scheduled_at || null,
+      reminder_minutes: Number(inspection.reminder_minutes ?? 60),
+      contact_notes: inspection.contact_notes || null,
+      technical_notes: inspection.technical_notes || null,
+      review_notes: inspection.review_notes || null,
+      status,
+      reviewed_by: user?.id,
+      reviewed_at: new Date().toISOString(),
+    });
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel revisar a vistoria."));
     const { error: propertyError } = await supabase
       .from("properties")
       .update({ workflow_status })
@@ -354,7 +389,13 @@ function InspectionsPage() {
         translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."),
       );
     }
-    toast.success(approved ? "Imóvel liberado para divulgação" : "Vistoria reprovada");
+    toast.success(
+      usedFallback
+        ? "Revisao salva. Aplique as migrations para gravar os dados do revisor."
+        : approved
+          ? "Imóvel liberado para divulgação"
+          : "Vistoria reprovada",
+    );
     setEditing(null);
     refresh();
   }
