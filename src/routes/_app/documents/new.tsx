@@ -192,12 +192,59 @@ function NewDocumentPage() {
       .slice(0, max);
   }
 
+  function isSchemaCacheError(error: unknown) {
+    if (!error || typeof error !== "object") return false;
+    const current = error as {
+      code?: string | null;
+      message?: string | null;
+      details?: string | null;
+      hint?: string | null;
+    };
+    const text = [current.message, current.details, current.hint]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return current.code === "PGRST204" || text.includes("schema cache") || text.includes("could not find");
+  }
+
   function buildPdfFileName(code: string) {
     const date = new Date().toLocaleDateString("pt-BR").replace(/\//g, "-");
     const modelName = safeFilePart(template?.name || kindLabel(template?.kind ?? ""), 42);
     const left = owner?.full_name || seller?.full_name || broker?.full_name || "Parte 1";
     const right = tenant?.full_name || buyer?.full_name || "Parte 2";
     return `Cod. ${safeFilePart(code, 24)} - ${date} - ${modelName} - ${safeFilePart(left, 32)} x ${safeFilePart(right, 32)}.pdf`;
+  }
+
+  async function insertDocumentWithFallback(payload: Record<string, any>) {
+    const insert = async (currentPayload: Record<string, any>) =>
+      await (supabase.from("documents") as any)
+        .insert(currentPayload)
+        .select("*")
+        .maybeSingle();
+
+    const result = await insert(payload);
+    if (!isSchemaCacheError(result.error)) return { ...result, usedFallback: false };
+
+    const compatiblePayload = {
+      template_id: payload.template_id,
+      kind: payload.kind,
+      title: payload.title,
+      property_id: payload.property_id,
+      client_id:
+        payload.owner_id ??
+        payload.tenant_id ??
+        payload.buyer_id ??
+        payload.seller_id ??
+        payload.guarantor_id ??
+        null,
+      broker_id: payload.broker_id,
+      payload_snapshot: payload.payload_snapshot,
+      body_rendered: payload.body_rendered,
+      created_by: payload.created_by,
+    };
+
+    const fallbackResult = await insert(compatiblePayload);
+    return { ...fallbackResult, usedFallback: !fallbackResult.error };
   }
 
   async function generate() {
@@ -207,42 +254,42 @@ function NewDocumentPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    const { data: inserted, error } = await (supabase.from("documents") as any)
-      .insert({
-        template_id: template.id,
-        kind: template.kind,
-        title,
-        property_id: propertyId || null,
-        rental_contract_id: rentalContractId || null,
-        owner_id: ownerId || null,
-        tenant_id: tenantId || null,
-        buyer_id: buyerId || null,
-        seller_id: sellerId || null,
-        guarantor_id: guarantorId || null,
-        witness1_name: witness1Name.trim() || null,
-        witness1_cpf: witness1Cpf.trim() || null,
-        witness2_name: witness2Name.trim() || null,
-        witness2_cpf: witness2Cpf.trim() || null,
-        broker_id: brokerId || null,
-        payload_snapshot: {
-          ctx,
-          amount: discount.net,
-          grossAmount: discount.gross,
-          discountType: discount.type,
-          discountValue: discount.value,
-          discountAmount: discount.amount,
-          deadlineDays,
-          guarantorId,
-          witnesses: [
-            { name: witness1Name.trim(), cpf: witness1Cpf.trim() },
-            { name: witness2Name.trim(), cpf: witness2Cpf.trim() },
-          ].filter((witness) => witness.name || witness.cpf),
-        },
-        body_rendered: rendered,
-        created_by: user?.id,
-      })
-      .select("*")
-      .maybeSingle();
+    const payload = {
+      template_id: template.id,
+      kind: template.kind,
+      title,
+      property_id: propertyId || null,
+      rental_contract_id: rentalContractId || null,
+      owner_id: ownerId || null,
+      tenant_id: tenantId || null,
+      buyer_id: buyerId || null,
+      seller_id: sellerId || null,
+      guarantor_id: guarantorId || null,
+      witness1_name: witness1Name.trim() || null,
+      witness1_cpf: witness1Cpf.trim() || null,
+      witness2_name: witness2Name.trim() || null,
+      witness2_cpf: witness2Cpf.trim() || null,
+      broker_id: brokerId || null,
+      payload_snapshot: {
+        ctx,
+        amount: discount.net,
+        grossAmount: discount.gross,
+        discountType: discount.type,
+        discountValue: discount.value,
+        discountAmount: discount.amount,
+        deadlineDays,
+        guarantorId,
+        rentalContractId,
+        parties: { ownerId, tenantId, buyerId, sellerId, brokerId },
+        witnesses: [
+          { name: witness1Name.trim(), cpf: witness1Cpf.trim() },
+          { name: witness2Name.trim(), cpf: witness2Cpf.trim() },
+        ].filter((witness) => witness.name || witness.cpf),
+      },
+      body_rendered: rendered,
+      created_by: user?.id,
+    };
+    const { data: inserted, error, usedFallback } = await insertDocumentWithFallback(payload);
 
     if (error || !inserted) {
       setSaving(false);
@@ -280,6 +327,9 @@ function NewDocumentPage() {
     });
     pdf.save(buildPdfFileName(inserted.code));
     setSaving(false);
+    if (usedFallback) {
+      toast.warning("Documento gerado, mas alguns vínculos ficaram apenas no histórico porque o Supabase ainda precisa aplicar as migrations.");
+    }
     toast.success("Documento gerado");
     navigate({ to: "/documents" });
   }
