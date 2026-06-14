@@ -134,13 +134,19 @@ function NewDocumentPage() {
     () => clients.find((c: any) => c.id === guarantorId),
     [clients, guarantorId],
   );
-  const guarantorClients = useMemo(
-    () =>
+  const clientsByRole = useMemo(() => {
+    const byRole = (role: string, selectedId: string) =>
       clients.filter(
-        (client: any) => client.client_roles?.includes("guarantor") || client.id === guarantorId,
-      ),
-    [clients, guarantorId],
-  );
+        (client: any) => client.client_roles?.includes(role) || client.id === selectedId,
+      );
+    return {
+      owners: byRole("owner", ownerId),
+      tenants: byRole("tenant", tenantId),
+      buyers: byRole("buyer", buyerId),
+      sellers: byRole("seller", sellerId),
+      guarantors: byRole("guarantor", guarantorId),
+    };
+  }, [clients, ownerId, tenantId, buyerId, sellerId, guarantorId]);
   const broker = useMemo(() => brokers.find((b: any) => b.id === brokerId), [brokers, brokerId]);
   const rentalContract = useMemo(
     () => rentalContracts.find((contract: any) => contract.id === rentalContractId),
@@ -437,16 +443,16 @@ function NewDocumentPage() {
                     <SelectValue placeholder="Selecione…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {guarantorClients.map((c: any) => (
+                    {clientsByRole.owners.map((c: any) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.full_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {guarantorClients.length === 0 && (
+                {clientsByRole.owners.length === 0 && (
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Marque clientes com perfil Fiador para listá-los aqui.
+                    Marque clientes com perfil Proprietário / Locador para listá-los aqui.
                   </p>
                 )}
               </div>
@@ -457,7 +463,7 @@ function NewDocumentPage() {
                     <SelectValue placeholder="Selecione…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {clients.map((c: any) => (
+                    {clientsByRole.tenants.map((c: any) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.full_name}
                       </SelectItem>
@@ -472,7 +478,7 @@ function NewDocumentPage() {
                     <SelectValue placeholder="Selecione…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {clients.map((c: any) => (
+                    {clientsByRole.buyers.map((c: any) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.full_name}
                       </SelectItem>
@@ -487,7 +493,7 @@ function NewDocumentPage() {
                     <SelectValue placeholder="Selecione…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {clients.map((c: any) => (
+                    {clientsByRole.sellers.map((c: any) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.full_name}
                       </SelectItem>
@@ -504,13 +510,18 @@ function NewDocumentPage() {
                     <SelectValue placeholder="Opcional" />
                   </SelectTrigger>
                   <SelectContent>
-                    {clients.map((c: any) => (
+                    {clientsByRole.guarantors.map((c: any) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.full_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {clientsByRole.guarantors.length === 0 && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Marque clientes com perfil Fiador para listá-los aqui.
+                  </p>
+                )}
               </div>
               <div className="grid gap-3 grid-cols-2">
                 <div>
