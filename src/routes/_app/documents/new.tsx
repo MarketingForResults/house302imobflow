@@ -76,22 +76,32 @@ function NewDocumentPage() {
         await supabase
           .from("properties")
           .select(
-            "id, code, title, address, neighborhood, city, state, type, status, area_m2, bedrooms, bathrooms, suites, parking_spaces, price",
+            "id, code, title, description, address, neighborhood, city, state, type, status, area_m2, bedrooms, bathrooms, suites, parking_spaces, price",
           )
           .order("code", { ascending: false })
       ).data ?? [],
   });
   const { data: rentalContracts = [] } = useQuery({
     queryKey: ["rental-contracts-doc"],
-    queryFn: async () =>
-      (
-        await (supabase as any)
-          .from("rental_contracts")
-          .select(
-            "id, code, property_id, tenant_client_id, landlord_client_id, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name)",
-          )
-          .order("created_at", { ascending: false })
-      ).data ?? [],
+    queryFn: async () => {
+      const fullQuery = await (supabase as any)
+        .from("rental_contracts")
+        .select(
+          "id, code, property_id, tenant_client_id, landlord_client_id, guarantor_client_id, monthly_rent, gross_monthly_rent, discount_type, discount_value, discount_amount, deposit_amount, start_date, end_date, due_day, kind, status, contract_insurance_modalities, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name)",
+        )
+        .order("created_at", { ascending: false });
+      if (!isSchemaCacheError(fullQuery.error)) return fullQuery.data ?? [];
+      return (
+        (
+          await (supabase as any)
+            .from("rental_contracts")
+            .select(
+              "id, code, property_id, tenant_client_id, landlord_client_id, monthly_rent, deposit_amount, start_date, end_date, due_day, kind, status, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name)",
+            )
+            .order("created_at", { ascending: false })
+        ).data ?? []
+      );
+    },
   });
   const { data: clients = [] } = useQuery({
     queryKey: ["clients-min"],
@@ -124,7 +134,18 @@ function NewDocumentPage() {
     () => clients.find((c: any) => c.id === guarantorId),
     [clients, guarantorId],
   );
+  const guarantorClients = useMemo(
+    () =>
+      clients.filter(
+        (client: any) => client.client_roles?.includes("guarantor") || client.id === guarantorId,
+      ),
+    [clients, guarantorId],
+  );
   const broker = useMemo(() => brokers.find((b: any) => b.id === brokerId), [brokers, brokerId]);
+  const rentalContract = useMemo(
+    () => rentalContracts.find((contract: any) => contract.id === rentalContractId),
+    [rentalContracts, rentalContractId],
+  );
 
   const ctx = useMemo(() => {
     const discount = calculateDiscount(amount, discountType, discountValue);
@@ -136,6 +157,7 @@ function NewDocumentPage() {
       seller,
       guarantor,
       broker,
+      rentalContract,
       witness1: { name: witness1Name, cpf: witness1Cpf },
       witness2: { name: witness2Name, cpf: witness2Cpf },
       settings,
@@ -157,6 +179,7 @@ function NewDocumentPage() {
     seller,
     guarantor,
     broker,
+    rentalContract,
     witness1Name,
     witness1Cpf,
     witness2Name,
@@ -204,7 +227,11 @@ function NewDocumentPage() {
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
-    return current.code === "PGRST204" || text.includes("schema cache") || text.includes("could not find");
+    return (
+      current.code === "PGRST204" ||
+      text.includes("schema cache") ||
+      text.includes("could not find")
+    );
   }
 
   function buildPdfFileName(code: string) {
@@ -217,10 +244,7 @@ function NewDocumentPage() {
 
   async function insertDocumentWithFallback(payload: Record<string, any>) {
     const insert = async (currentPayload: Record<string, any>) =>
-      await (supabase.from("documents") as any)
-        .insert(currentPayload)
-        .select("*")
-        .maybeSingle();
+      await (supabase.from("documents") as any).insert(currentPayload).select("*").maybeSingle();
 
     const result = await insert(payload);
     if (!isSchemaCacheError(result.error)) return { ...result, usedFallback: false };
@@ -245,6 +269,17 @@ function NewDocumentPage() {
 
     const fallbackResult = await insert(compatiblePayload);
     return { ...fallbackResult, usedFallback: !fallbackResult.error };
+  }
+
+  function selectRentalContract(contractId: string) {
+    setRentalContractId(contractId);
+    const contract = rentalContracts.find((item: any) => item.id === contractId);
+    if (!contract) return;
+    if (contract.property_id) setPropertyId(contract.property_id);
+    if (contract.landlord_client_id) setOwnerId(contract.landlord_client_id);
+    if (contract.tenant_client_id) setTenantId(contract.tenant_client_id);
+    if (contract.guarantor_client_id) setGuarantorId(contract.guarantor_client_id);
+    if (contract.monthly_rent != null) setAmount(String(contract.monthly_rent));
   }
 
   async function generate() {
@@ -328,7 +363,9 @@ function NewDocumentPage() {
     pdf.save(buildPdfFileName(inserted.code));
     setSaving(false);
     if (usedFallback) {
-      toast.warning("Documento gerado, mas alguns vínculos ficaram apenas no histórico porque o Supabase ainda precisa aplicar as migrations.");
+      toast.warning(
+        "Documento gerado, mas alguns vínculos ficaram apenas no histórico porque o Supabase ainda precisa aplicar as migrations.",
+      );
     }
     toast.success("Documento gerado");
     navigate({ to: "/documents" });
@@ -400,13 +437,18 @@ function NewDocumentPage() {
                     <SelectValue placeholder="Selecione…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {clients.map((c: any) => (
+                    {guarantorClients.map((c: any) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.full_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {guarantorClients.length === 0 && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Marque clientes com perfil Fiador para listá-los aqui.
+                  </p>
+                )}
               </div>
               <div>
                 <Label className="mb-1.5 block text-xs">Locatário / Inquilino</Label>
@@ -522,7 +564,7 @@ function NewDocumentPage() {
             </div>
             <div>
               <Label className="mb-1.5 block text-xs">Contrato vinculado</Label>
-              <Select value={rentalContractId} onValueChange={setRentalContractId}>
+              <Select value={rentalContractId} onValueChange={selectRentalContract}>
                 <SelectTrigger>
                   <SelectValue placeholder="Opcional" />
                 </SelectTrigger>

@@ -47,6 +47,7 @@ import { EntityDocuments } from "@/components/entity-documents";
 import { uploadEntityDocument } from "@/lib/entity-documents";
 import { useAuth } from "@/lib/auth";
 import { calculateDiscount, formatDiscountLabel } from "@/lib/discounts";
+import { CONTRACT_INSURANCE_OPTIONS } from "@/lib/contract-insurance";
 
 export const Route = createFileRoute("/_app/rentals/")({ component: RentalsPage });
 
@@ -70,6 +71,7 @@ function RentalsPage() {
     term_months: 12,
     discount_type: "none",
     discount_value: "",
+    contract_insurance_modalities: [],
   });
   const [contractFile, setContractFile] = useState<File | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -132,8 +134,30 @@ function RentalsPage() {
   const { data: clients = [] } = useQuery({
     queryKey: ["clients-min"],
     queryFn: async () =>
-      (await supabase.from("clients").select("id, full_name, phone").order("full_name")).data ?? [],
+      (
+        await supabase
+          .from("clients")
+          .select("id, full_name, phone, client_roles")
+          .order("full_name")
+      ).data ?? [],
   });
+
+  const guarantorClients = useMemo(
+    () => clients.filter((client: any) => client.client_roles?.includes("guarantor")),
+    [clients],
+  );
+
+  function toggleContractInsurance(value: string) {
+    const selected = Array.isArray(form.contract_insurance_modalities)
+      ? form.contract_insurance_modalities
+      : [];
+    setForm({
+      ...form,
+      contract_insurance_modalities: selected.includes(value)
+        ? selected.filter((item: string) => item !== value)
+        : [...selected, value],
+    });
+  }
 
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = new Date();
@@ -495,6 +519,8 @@ function RentalsPage() {
       term_months: _t,
       discount_type: _discountType,
       discount_value: _discountValue,
+      guarantor_client_id: _guarantorClientId,
+      contract_insurance_modalities: _contractInsuranceModalities,
       ...rest
     } = form;
     const compatibleContractPayload = {
@@ -511,6 +537,10 @@ function RentalsPage() {
       discount_type: rentDiscount.type,
       discount_value: rentDiscount.value,
       discount_amount: rentDiscount.amount,
+      guarantor_client_id: form.guarantor_client_id || null,
+      contract_insurance_modalities: Array.isArray(form.contract_insurance_modalities)
+        ? form.contract_insurance_modalities
+        : [],
     };
 
     let contractFallback = false;
@@ -625,6 +655,7 @@ function RentalsPage() {
       term_months: 12,
       discount_type: "none",
       discount_value: "",
+      contract_insurance_modalities: [],
     });
     setContractFile(null);
     refetch();
@@ -1477,6 +1508,36 @@ function RentalsPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="min-w-0">
+                    <Label className="text-xs">Fiador</Label>
+                    <Select
+                      value={form.guarantor_client_id || "none"}
+                      onValueChange={(v) =>
+                        setForm({ ...form, guarantor_client_id: v === "none" ? "" : v })
+                      }
+                    >
+                      <SelectTrigger className="w-full min-w-0 [&>span]:truncate">
+                        <SelectValue placeholder="Opcional" />
+                      </SelectTrigger>
+                      <SelectContent className="max-w-[calc(100vw-2rem)]">
+                        <SelectItem value="none">Opcional</SelectItem>
+                        {guarantorClients.map((c: any) => (
+                          <SelectItem
+                            key={c.id}
+                            value={c.id}
+                            className="max-w-[calc(100vw-3rem)] truncate"
+                          >
+                            {c.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {guarantorClients.length === 0 && (
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Cadastre ou marque um cliente com perfil Fiador para listar aqui.
+                      </p>
+                    )}
+                  </div>
                   <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
                     <div className="min-w-0">
                       <Label className="text-xs">Tipo</Label>
@@ -1534,6 +1595,23 @@ function RentalsPage() {
                         </div>
                       </>
                     )}
+                    <div className="min-w-0 sm:col-span-2">
+                      <Label className="text-xs">Modalidade de seguro contratual</Label>
+                      <div className="mt-1.5 flex flex-wrap gap-3 rounded-md border bg-muted/10 p-3">
+                        {CONTRACT_INSURANCE_OPTIONS.map((option) => (
+                          <label key={option.value} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={(form.contract_insurance_modalities ?? []).includes(
+                                option.value,
+                              )}
+                              onChange={() => toggleContractInsurance(option.value)}
+                            />
+                            {option.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                     <div className="min-w-0">
                       <Label className="text-xs">Caução (depósito)</Label>
                       <Input

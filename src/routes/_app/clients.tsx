@@ -39,6 +39,7 @@ import {
   maskPhone,
   maskRg,
 } from "@/lib/form-utils";
+import { CONTRACT_INSURANCE_OPTIONS } from "@/lib/contract-insurance";
 
 export const Route = createFileRoute("/_app/clients")({ component: ClientsPage });
 
@@ -53,9 +54,15 @@ const ROLE_OPTIONS = [
   ["tenant", "Inquilino / Locatário"],
   ["buyer", "Comprador"],
   ["seller", "Vendedor"],
+  ["guarantor", "Fiador"],
 ] as const;
 
-const EMPTY = { interest_type: "buy", interest_types: ["buy"], client_roles: [] } as any;
+const EMPTY = {
+  interest_type: "buy",
+  interest_types: ["buy"],
+  client_roles: [],
+  contract_insurance_modalities: [],
+} as any;
 
 function currentInterests(client: any): string[] {
   if (client.interest_types?.length) return client.interest_types;
@@ -68,9 +75,63 @@ function currentRoles(client: any): string[] {
   return [];
 }
 
+function currentContractInsurance(client: any): string[] {
+  if (Array.isArray(client.contract_insurance_modalities)) {
+    return client.contract_insurance_modalities;
+  }
+  return [];
+}
+
+function hasContractInsuranceProfile(client: any): boolean {
+  const roles = currentRoles(client);
+  return roles.some((role) => ["owner", "tenant", "buyer"].includes(role));
+}
+
 function legacyInterestType(interests: string[]) {
   if (interests.includes("buy") && interests.includes("rent")) return "buy_rent";
   return interests[0] ?? null;
+}
+
+function isSchemaCacheError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const current = error as {
+    code?: string | null;
+    message?: string | null;
+    details?: string | null;
+    hint?: string | null;
+  };
+  const text = [current.message, current.details, current.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return (
+    current.code === "PGRST204" || text.includes("schema cache") || text.includes("could not find")
+  );
+}
+
+async function saveClientPayload(
+  mode: "insert" | "update",
+  payload: Record<string, any>,
+  id?: string,
+) {
+  const execute = async (currentPayload: Record<string, any>) => {
+    if (mode === "update") {
+      return await (supabase as any).from("clients").update(currentPayload).eq("id", id);
+    }
+    return await (supabase as any).from("clients").insert(currentPayload);
+  };
+
+  const result = await execute(payload);
+  if (!isSchemaCacheError(result.error)) return { ...result, usedFallback: false };
+
+  const compatiblePayload = { ...payload };
+  delete compatiblePayload.contract_insurance_modalities;
+  delete compatiblePayload.guarantor_for_client_id;
+  if (Object.keys(compatiblePayload).length === Object.keys(payload).length) {
+    return { ...result, usedFallback: false };
+  }
+  const fallbackResult = await execute(compatiblePayload);
+  return { ...fallbackResult, usedFallback: !fallbackResult.error };
 }
 
 function ClientsPage() {
@@ -115,9 +176,32 @@ function ClientsPage() {
 
   function toggleRole(value: string) {
     const selected = currentRoles(form);
+    const nextRoles = selected.includes(value)
+      ? selected.filter((item) => item !== value)
+      : [...selected, value];
     setForm({
       ...form,
-      client_roles: selected.includes(value)
+      client_roles: nextRoles,
+      guarantor_for_client_id: nextRoles.includes("guarantor")
+        ? form.guarantor_for_client_id
+        : null,
+      contract_insurance_modalities: nextRoles.some((role) =>
+        ["owner", "tenant", "buyer"].includes(role),
+      )
+        ? currentContractInsurance(form)
+        : [],
+    });
+  }
+
+  const tenantClients = clients.filter(
+    (client: any) => client.id !== form.id && currentRoles(client).includes("tenant"),
+  );
+
+  function toggleContractInsurance(value: string) {
+    const selected = currentContractInsurance(form);
+    setForm({
+      ...form,
+      contract_insurance_modalities: selected.includes(value)
         ? selected.filter((item) => item !== value)
         : [...selected, value],
     });
@@ -156,16 +240,21 @@ function ClientsPage() {
       interest_types: interests,
       interest_type: legacyInterestType(interests),
       client_roles: roles,
+      contract_insurance_modalities: hasContractInsuranceProfile({ client_roles: roles })
+        ? currentContractInsurance(form)
+        : [],
     };
 
     if (isEdit) {
       const { id, created_at, updated_at, ...patch } = payloadBase;
-      const { error } = await (supabase as any).from("clients").update(patch).eq("id", id);
-      if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel atualizar o cliente."));
+      const { error } = await saveClientPayload("update", patch, id);
+      if (error)
+        return toast.error(translatedErrorMessage(error, "Nao foi possivel atualizar o cliente."));
       toast.success("Cliente atualizado");
     } else {
-      const { error } = await (supabase as any).from("clients").insert(payloadBase);
-      if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel cadastrar o cliente."));
+      const { error } = await saveClientPayload("insert", payloadBase);
+      if (error)
+        return toast.error(translatedErrorMessage(error, "Nao foi possivel cadastrar o cliente."));
       toast.success("Cliente cadastrado");
     }
 
@@ -177,7 +266,8 @@ function ClientsPage() {
   async function remove(id: string) {
     if (!confirm("Excluir cliente?")) return;
     const { error } = await supabase.from("clients").delete().eq("id", id);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o cliente."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o cliente."));
     qc.invalidateQueries({ queryKey: ["clients"] });
   }
 
@@ -459,6 +549,51 @@ function ClientsPage() {
                   </div>
                 </div>
 
+                {hasContractInsuranceProfile(form) && (
+                  <div>
+                    <Label>Modalidade de seguro contratual</Label>
+                    <div className="mt-1.5 flex flex-wrap gap-3 rounded-md border bg-muted/5 p-3">
+                      {CONTRACT_INSURANCE_OPTIONS.map((option) => (
+                        <label key={option.value} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={currentContractInsurance(form).includes(option.value)}
+                            onChange={() => toggleContractInsurance(option.value)}
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {currentRoles(form).includes("guarantor") && (
+                  <div>
+                    <Label>Vincular fiador ao inquilino</Label>
+                    <Select
+                      value={form.guarantor_for_client_id || "none"}
+                      onValueChange={(value) =>
+                        set("guarantor_for_client_id", value === "none" ? null : value)
+                      }
+                    >
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue placeholder="Opcional" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Opcional</SelectItem>
+                        {tenantClients.map((client: any) => (
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Use este vínculo quando o fiador já estiver definido para um inquilino.
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <Label>Interesses para ações de marketing</Label>
                   <div className="mt-1.5 flex flex-wrap gap-3 rounded-md border p-3">
@@ -544,7 +679,8 @@ function ClientsPage() {
                       <div className="flex flex-wrap gap-1">
                         {currentInterests(client).map((interest) => (
                           <Badge key={interest} variant="secondary" className="text-[10px]">
-                            {INTEREST_OPTIONS.find(([value]) => value === interest)?.[1] ?? interest}
+                            {INTEREST_OPTIONS.find(([value]) => value === interest)?.[1] ??
+                              interest}
                           </Badge>
                         ))}
                       </div>

@@ -1,10 +1,13 @@
 // Placeholder substitution for document templates.
 // Syntax: {{group.field}} — e.g. {{property.code}}, {{client.full_name}}.
 
+import { formatContractInsurance } from "@/lib/contract-insurance";
+
 export const PLACEHOLDER_GROUPS = {
   Imóvel: [
     "property.code",
     "property.title",
+    "property.description",
     "property.type",
     "property.status",
     "property.address",
@@ -145,12 +148,7 @@ export const PLACEHOLDER_GROUPS = {
     "guarantor.nationality",
     "guarantor.profession",
   ],
-  Testemunhas: [
-    "witness1.name",
-    "witness1.cpf",
-    "witness2.name",
-    "witness2.cpf",
-  ],
+  Testemunhas: ["witness1.name", "witness1.cpf", "witness2.name", "witness2.cpf"],
   Institucional: [
     "company.person_type",
     "company.document_type",
@@ -170,6 +168,22 @@ export const PLACEHOLDER_GROUPS = {
     "company.email",
   ],
   Contratos: ["contract.rental_notes", "contract.sale_notes"],
+  Aluguel: [
+    "rental.code",
+    "rental.kind",
+    "rental.status",
+    "rental.monthly_rent",
+    "rental.gross_monthly_rent",
+    "rental.discount_type",
+    "rental.discount_value",
+    "rental.discount_amount",
+    "rental.deposit_amount",
+    "rental.start_date",
+    "rental.end_date",
+    "rental.due_day",
+    "rental.contract_insurance_modalities",
+    "rental.guarantor_name",
+  ],
   Datas: ["date.today", "date.today_long"],
   Valores: [
     "values.amount",
@@ -189,6 +203,7 @@ export const ALL_PLACEHOLDERS = Object.values(PLACEHOLDER_GROUPS).flat();
 export const PLACEHOLDER_LABELS: Record<string, string> = {
   "property.code": "Código do imóvel",
   "property.title": "Título do imóvel",
+  "property.description": "Descrição do imóvel",
   "property.type": "Tipo do imóvel",
   "property.status": "Status do imóvel",
   "property.address": "Endereço do imóvel",
@@ -338,6 +353,20 @@ export const PLACEHOLDER_LABELS: Record<string, string> = {
   "company.email": "E-mail institucional",
   "contract.rental_notes": "Cláusulas padrão para aluguel",
   "contract.sale_notes": "Cláusulas padrão para compra e venda",
+  "rental.code": "Código do contrato de aluguel",
+  "rental.kind": "Tipo do contrato de aluguel",
+  "rental.status": "Status do contrato de aluguel",
+  "rental.monthly_rent": "Aluguel mensal",
+  "rental.gross_monthly_rent": "Aluguel bruto",
+  "rental.discount_type": "Tipo de desconto do aluguel",
+  "rental.discount_value": "Valor informado do desconto do aluguel",
+  "rental.discount_amount": "Desconto calculado do aluguel",
+  "rental.deposit_amount": "Caução / depósito",
+  "rental.start_date": "Início do contrato de aluguel",
+  "rental.end_date": "Fim do contrato de aluguel",
+  "rental.due_day": "Dia de vencimento do aluguel",
+  "rental.contract_insurance_modalities": "Modalidade de seguro contratual",
+  "rental.guarantor_name": "Fiador vinculado ao aluguel",
   "date.today": "Data atual",
   "date.today_long": "Data atual por extenso",
   "values.amount": "Valor informado",
@@ -469,7 +498,6 @@ function personCtx(p: any, fmtDate: (v: any) => string) {
   };
 }
 
-
 export function buildPlaceholderContext(input: {
   property?: any;
   owner?: any;
@@ -478,6 +506,7 @@ export function buildPlaceholderContext(input: {
   seller?: any;
   broker?: any;
   guarantor?: any;
+  rentalContract?: any;
   witness1?: { name?: string; cpf?: string };
   witness2?: { name?: string; cpf?: string };
   settings?: any;
@@ -515,6 +544,7 @@ export function buildPlaceholderContext(input: {
     property: {
       code: input.property?.code ?? "",
       title: input.property?.title ?? "",
+      description: input.property?.description ?? "",
       type: input.property?.type ?? "",
       status: input.property?.status ?? "",
       address: input.property?.address ?? "",
@@ -578,6 +608,41 @@ export function buildPlaceholderContext(input: {
     contract: {
       rental_notes: input.settings?.rental_contract_notes ?? "",
       sale_notes: input.settings?.sale_contract_notes ?? "",
+    },
+    rental: {
+      code: input.rentalContract?.code ?? "",
+      kind:
+        input.rentalContract?.kind === "commercial"
+          ? "Comercial"
+          : input.rentalContract?.kind === "residential"
+            ? "Residencial"
+            : (input.rentalContract?.kind ?? ""),
+      status: input.rentalContract?.status ?? "",
+      monthly_rent: fmtMoney(input.rentalContract?.monthly_rent),
+      gross_monthly_rent: fmtMoney(input.rentalContract?.gross_monthly_rent),
+      discount_type:
+        input.rentalContract?.discount_type === "percent"
+          ? "Percentual"
+          : input.rentalContract?.discount_type === "amount"
+            ? "Valor fixo"
+            : input.rentalContract?.discount_type === "none"
+              ? "Sem desconto"
+              : "",
+      discount_value:
+        input.rentalContract?.discount_type === "percent"
+          ? input.rentalContract?.discount_value != null
+            ? `${input.rentalContract.discount_value}%`
+            : ""
+          : fmtMoney(input.rentalContract?.discount_value),
+      discount_amount: fmtMoney(input.rentalContract?.discount_amount),
+      deposit_amount: fmtMoney(input.rentalContract?.deposit_amount),
+      start_date: fmtDate(input.rentalContract?.start_date),
+      end_date: fmtDate(input.rentalContract?.end_date),
+      due_day: input.rentalContract?.due_day ?? "",
+      contract_insurance_modalities: formatContractInsurance(
+        input.rentalContract?.contract_insurance_modalities,
+      ),
+      guarantor_name: input.guarantor?.full_name ?? "",
     },
     date: {
       today: `${today.getDate()}/${today.getMonth() + 1}/${String(today.getFullYear()).slice(-2)}`,

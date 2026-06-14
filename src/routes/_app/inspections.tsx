@@ -207,6 +207,8 @@ async function upsertInspection(
   if (!isSchemaCacheError(result.error)) return { ...result, usedFallback: false };
 
   const compatiblePayload = { ...payload };
+  delete compatiblePayload.reminder_minutes;
+  delete compatiblePayload.calendar_event_url;
   delete compatiblePayload.review_notes;
   delete compatiblePayload.reviewed_by;
   delete compatiblePayload.reviewed_at;
