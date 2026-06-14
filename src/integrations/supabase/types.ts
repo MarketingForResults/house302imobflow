@@ -543,6 +543,7 @@ export type Database = {
           code: string
           created_at: string
           created_by: string | null
+          guarantor_id: string | null
           id: string
           kind: string
           notes: string | null
@@ -560,6 +561,10 @@ export type Database = {
           tenant_id: string | null
           title: string | null
           updated_at: string
+          witness1_cpf: string | null
+          witness1_name: string | null
+          witness2_cpf: string | null
+          witness2_name: string | null
         }
         Insert: {
           archived_at?: string | null
@@ -570,6 +575,7 @@ export type Database = {
           code?: string
           created_at?: string
           created_by?: string | null
+          guarantor_id?: string | null
           id?: string
           kind: string
           notes?: string | null
@@ -587,6 +593,10 @@ export type Database = {
           tenant_id?: string | null
           title?: string | null
           updated_at?: string
+          witness1_cpf?: string | null
+          witness1_name?: string | null
+          witness2_cpf?: string | null
+          witness2_name?: string | null
         }
         Update: {
           archived_at?: string | null
@@ -597,6 +607,7 @@ export type Database = {
           code?: string
           created_at?: string
           created_by?: string | null
+          guarantor_id?: string | null
           id?: string
           kind?: string
           notes?: string | null
@@ -614,6 +625,10 @@ export type Database = {
           tenant_id?: string | null
           title?: string | null
           updated_at?: string
+          witness1_cpf?: string | null
+          witness1_name?: string | null
+          witness2_cpf?: string | null
+          witness2_name?: string | null
         }
         Relationships: [
           {
@@ -633,6 +648,13 @@ export type Database = {
           {
             foreignKeyName: "documents_client_id_fkey"
             columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_guarantor_id_fkey"
+            columns: ["guarantor_id"]
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
@@ -1821,8 +1843,12 @@ export type Database = {
           created_by: string | null
           deposit_amount: number | null
           deposit_paid_at: string | null
+          discount_amount: number
+          discount_type: string
+          discount_value: number
           due_day: number
           end_date: string | null
+          gross_monthly_rent: number | null
           homologation_status: string
           id: string
           kind: Database["public"]["Enums"]["rental_kind"]
@@ -1845,8 +1871,12 @@ export type Database = {
           created_by?: string | null
           deposit_amount?: number | null
           deposit_paid_at?: string | null
+          discount_amount?: number
+          discount_type?: string
+          discount_value?: number
           due_day?: number
           end_date?: string | null
+          gross_monthly_rent?: number | null
           homologation_status?: string
           id?: string
           kind?: Database["public"]["Enums"]["rental_kind"]
@@ -1869,8 +1899,12 @@ export type Database = {
           created_by?: string | null
           deposit_amount?: number | null
           deposit_paid_at?: string | null
+          discount_amount?: number
+          discount_type?: string
+          discount_value?: number
           due_day?: number
           end_date?: string | null
+          gross_monthly_rent?: number | null
           homologation_status?: string
           id?: string
           kind?: Database["public"]["Enums"]["rental_kind"]
@@ -1929,7 +1963,11 @@ export type Database = {
           deposit_refund_receipt_file_path: string | null
           deposit_refund_uploaded_at: string | null
           deposit_refunded_at: string | null
+          discount_amount: number
+          discount_type: string
+          discount_value: number
           due_date: string
+          gross_amount_due: number | null
           id: string
           interest_amount: number
           late_fee_amount: number
@@ -1955,7 +1993,11 @@ export type Database = {
           deposit_refund_receipt_file_path?: string | null
           deposit_refund_uploaded_at?: string | null
           deposit_refunded_at?: string | null
+          discount_amount?: number
+          discount_type?: string
+          discount_value?: number
           due_date: string
+          gross_amount_due?: number | null
           id?: string
           interest_amount?: number
           late_fee_amount?: number
@@ -1981,7 +2023,11 @@ export type Database = {
           deposit_refund_receipt_file_path?: string | null
           deposit_refund_uploaded_at?: string | null
           deposit_refunded_at?: string | null
+          discount_amount?: number
+          discount_type?: string
+          discount_value?: number
           due_date?: string
+          gross_amount_due?: number | null
           id?: string
           interest_amount?: number
           late_fee_amount?: number
