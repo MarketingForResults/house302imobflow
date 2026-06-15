@@ -72,7 +72,7 @@ async function assertAdmin(userId: string, email?: string | null) {
   }
 
   const roles = (rolesRows ?? []).map((row: any) => String(row.role));
-  if (!roles.some((role) => role === "master" || role === "admin")) {
+  if (!roles.some((role: string) => role === "master" || role === "admin")) {
     throw new Error("Apenas administradores podem gerenciar usuarios");
   }
 }

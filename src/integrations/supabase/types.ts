@@ -471,7 +471,15 @@ export type Database = {
           updated_at?: string
           zip_code?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clients_guarantor_for_client_id_fkey"
+            columns: ["guarantor_for_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       document_kinds: {
         Row: {
@@ -1845,9 +1853,9 @@ export type Database = {
           archived_at: string | null
           broker_id: string | null
           code: string
+          contract_insurance_modalities: string[]
           created_at: string
           created_by: string | null
-          contract_insurance_modalities: string[]
           deposit_amount: number | null
           deposit_paid_at: string | null
           discount_amount: number
@@ -1855,8 +1863,8 @@ export type Database = {
           discount_value: number
           due_day: number
           end_date: string | null
-          guarantor_client_id: string | null
           gross_monthly_rent: number | null
+          guarantor_client_id: string | null
           homologation_status: string
           id: string
           kind: Database["public"]["Enums"]["rental_kind"]
@@ -1875,9 +1883,9 @@ export type Database = {
           archived_at?: string | null
           broker_id?: string | null
           code?: string
+          contract_insurance_modalities?: string[]
           created_at?: string
           created_by?: string | null
-          contract_insurance_modalities?: string[]
           deposit_amount?: number | null
           deposit_paid_at?: string | null
           discount_amount?: number
@@ -1885,8 +1893,8 @@ export type Database = {
           discount_value?: number
           due_day?: number
           end_date?: string | null
-          guarantor_client_id?: string | null
           gross_monthly_rent?: number | null
+          guarantor_client_id?: string | null
           homologation_status?: string
           id?: string
           kind?: Database["public"]["Enums"]["rental_kind"]
@@ -1905,9 +1913,9 @@ export type Database = {
           archived_at?: string | null
           broker_id?: string | null
           code?: string
+          contract_insurance_modalities?: string[]
           created_at?: string
           created_by?: string | null
-          contract_insurance_modalities?: string[]
           deposit_amount?: number | null
           deposit_paid_at?: string | null
           discount_amount?: number
@@ -1915,8 +1923,8 @@ export type Database = {
           discount_value?: number
           due_day?: number
           end_date?: string | null
-          guarantor_client_id?: string | null
           gross_monthly_rent?: number | null
+          guarantor_client_id?: string | null
           homologation_status?: string
           id?: string
           kind?: Database["public"]["Enums"]["rental_kind"]
@@ -2404,14 +2412,13 @@ export type Database = {
     }
     Enums: {
       app_role:
-        | "master"
-        | "it_support"
         | "admin"
         | "manager"
         | "broker"
         | "financial"
         | "owner"
         | "tenant"
+        | "master"
       document_kind:
         | "visit_form"
         | "sale_contract"
@@ -2560,7 +2567,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["master", "it_support", "admin", "manager", "broker", "financial", "owner", "tenant"],
+      app_role: [
+        "admin",
+        "manager",
+        "broker",
+        "financial",
+        "owner",
+        "tenant",
+        "master",
+      ],
       document_kind: [
         "visit_form",
         "sale_contract",
