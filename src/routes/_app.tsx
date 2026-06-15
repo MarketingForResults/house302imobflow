@@ -21,6 +21,7 @@ import {
   UsersRound,
   ShieldAlert,
   DatabaseBackup,
+  BookOpenText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canAccessPath, formatRoles, hasAnyRole, ROUTE_ROLES } from "@/lib/permissions";
@@ -48,6 +49,7 @@ const nav = [
   { to: "/integration", label: "Integração WP", icon: Plug },
   { to: "/security", label: "Seguranca", icon: ShieldAlert },
   { to: "/backups", label: "Backups", icon: DatabaseBackup },
+  { to: "/system-docs", label: "Documentacao", icon: BookOpenText },
   { to: "/users", label: "Usuários", icon: UsersRound },
 ] as const;
 

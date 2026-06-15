@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
+import { Route as AppSystemDocsRouteImport } from './routes/_app/system-docs'
 import { Route as AppSupportRouteImport } from './routes/_app/support'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppSecurityRouteImport } from './routes/_app/security'
@@ -68,6 +69,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppUsersRoute = AppUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSystemDocsRoute = AppSystemDocsRouteImport.update({
+  id: '/system-docs',
+  path: '/system-docs',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSupportRoute = AppSupportRouteImport.update({
@@ -183,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/security': typeof AppSecurityRoute
   '/settings': typeof AppSettingsRoute
   '/support': typeof AppSupportRoute
+  '/system-docs': typeof AppSystemDocsRoute
   '/users': typeof AppUsersRoute
   '/documents/new': typeof AppDocumentsNewRoute
   '/documents/templates': typeof AppDocumentsTemplatesRoute
@@ -210,6 +217,7 @@ export interface FileRoutesByTo {
   '/security': typeof AppSecurityRoute
   '/settings': typeof AppSettingsRoute
   '/support': typeof AppSupportRoute
+  '/system-docs': typeof AppSystemDocsRoute
   '/users': typeof AppUsersRoute
   '/documents/new': typeof AppDocumentsNewRoute
   '/documents/templates': typeof AppDocumentsTemplatesRoute
@@ -239,6 +247,7 @@ export interface FileRoutesById {
   '/_app/security': typeof AppSecurityRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/support': typeof AppSupportRoute
+  '/_app/system-docs': typeof AppSystemDocsRoute
   '/_app/users': typeof AppUsersRoute
   '/_app/documents/new': typeof AppDocumentsNewRoute
   '/_app/documents/templates': typeof AppDocumentsTemplatesRoute
@@ -268,6 +277,7 @@ export interface FileRouteTypes {
     | '/security'
     | '/settings'
     | '/support'
+    | '/system-docs'
     | '/users'
     | '/documents/new'
     | '/documents/templates'
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/security'
     | '/settings'
     | '/support'
+    | '/system-docs'
     | '/users'
     | '/documents/new'
     | '/documents/templates'
@@ -323,6 +334,7 @@ export interface FileRouteTypes {
     | '/_app/security'
     | '/_app/settings'
     | '/_app/support'
+    | '/_app/system-docs'
     | '/_app/users'
     | '/_app/documents/new'
     | '/_app/documents/templates'
@@ -392,6 +404,13 @@ declare module '@tanstack/react-router' {
       path: '/users'
       fullPath: '/users'
       preLoaderRoute: typeof AppUsersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/system-docs': {
+      id: '/_app/system-docs'
+      path: '/system-docs'
+      fullPath: '/system-docs'
+      preLoaderRoute: typeof AppSystemDocsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/support': {
@@ -542,6 +561,7 @@ interface AppRouteChildren {
   AppSecurityRoute: typeof AppSecurityRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSupportRoute: typeof AppSupportRoute
+  AppSystemDocsRoute: typeof AppSystemDocsRoute
   AppUsersRoute: typeof AppUsersRoute
   AppDocumentsNewRoute: typeof AppDocumentsNewRoute
   AppDocumentsTemplatesRoute: typeof AppDocumentsTemplatesRoute
@@ -565,6 +585,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSecurityRoute: AppSecurityRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSupportRoute: AppSupportRoute,
+  AppSystemDocsRoute: AppSystemDocsRoute,
   AppUsersRoute: AppUsersRoute,
   AppDocumentsNewRoute: AppDocumentsNewRoute,
   AppDocumentsTemplatesRoute: AppDocumentsTemplatesRoute,
@@ -589,3 +610,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

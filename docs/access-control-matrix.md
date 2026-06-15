@@ -9,6 +9,7 @@ Este documento delimita o comportamento esperado por perfil quando o acesso ao s
 - Pode aplicar descontos comerciais em reais ou percentual.
 - Revisa vistorias, documentos, propostas, contratos, pagamentos e cadastros externos.
 - Acessa relatorios, configuracoes, usuarios, logs e integracoes.
+- Acessa a documentacao tecnica interna do sistema em `/system-docs`.
 
 ## Gerente / operador interno
 
@@ -59,3 +60,4 @@ Este documento delimita o comportamento esperado por perfil quando o acesso ao s
 - Downloads de arquivos devem validar o mesmo vinculo da entidade dona do documento.
 - Convites devem manter alternativa manual com link copiavel e mensagem pronta para WhatsApp.
 - Logs futuros devem registrar usuario, perfil, inicio de sessao, duracao, IP aproximado, acao executada e entidade afetada.
+- Documentacao de arquitetura, RLS, migrations, backups e riscos tecnicos deve ficar restrita a `master`.

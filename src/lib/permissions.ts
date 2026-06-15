@@ -40,6 +40,7 @@ export const ROUTE_ROLES: Array<{ prefix: string; roles: AppRole[] }> = [
   { prefix: "/settings", roles: ADMIN_ROLES },
   { prefix: "/security", roles: SECURITY_ROLES },
   { prefix: "/backups", roles: ["master"] },
+  { prefix: "/system-docs", roles: ["master"] },
   { prefix: "/users", roles: ADMIN_ROLES },
   { prefix: "/support", roles: ["master", "it_support", "admin", "manager", "financial", "broker", "owner", "tenant"] },
 ];
