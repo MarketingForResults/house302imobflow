@@ -57,9 +57,11 @@ function SecurityPage() {
         .select("*")
         .eq("id", true)
         .maybeSingle();
+      if (error && isSupabaseStructureError(error)) return DEFAULT_SETTINGS;
       if (error) throw error;
       return data ?? DEFAULT_SETTINGS;
     },
+    retry: false,
   });
 
   const eventsQuery = useQuery({
@@ -71,9 +73,11 @@ function SecurityPage() {
         .select("*")
         .order("created_at", { ascending: false })
         .limit(200);
+      if (error && isSupabaseStructureError(error)) return [];
       if (error) throw error;
       return data ?? [];
     },
+    retry: false,
   });
 
   const blocksQuery = useQuery({
@@ -86,9 +90,11 @@ function SecurityPage() {
         .eq("active", true)
         .order("blocked_at", { ascending: false })
         .limit(100);
+      if (error && isSupabaseStructureError(error)) return [];
       if (error) throw error;
       return data ?? [];
     },
+    retry: false,
   });
 
   const factorsQuery = useQuery({
@@ -104,7 +110,7 @@ function SecurityPage() {
   const totpFactors = useMemo(() => factorsQuery.data?.totp ?? [], [factorsQuery.data]);
 
   async function recordAudit(event: Partial<any>) {
-    await (supabase as any).from("security_audit_events").insert({
+    const { error } = await (supabase as any).from("security_audit_events").insert({
       actor_user_id: user?.id ?? null,
       actor_email: user?.email ?? null,
       event_type: event.event_type ?? "security.action",
@@ -116,6 +122,8 @@ function SecurityPage() {
       metadata: event.metadata ?? {},
       status: event.status ?? "open",
     });
+    if (error && isSupabaseStructureError(error)) return;
+    if (error) throw error;
   }
 
   const updateSettings = useMutation({
@@ -123,6 +131,9 @@ function SecurityPage() {
       const { error } = await (supabase as any)
         .from("security_settings")
         .upsert({ ...settingsQuery.data, ...patch, id: true, updated_by: user?.id, updated_at: new Date().toISOString() });
+      if (error && isSupabaseStructureError(error)) {
+        throw new Error("A estrutura de seguranca ainda nao foi aplicada no Supabase. Aplique as migrations e tente novamente.");
+      }
       if (error) throw error;
       await recordAudit({
         event_type: "security.settings.updated",
@@ -238,12 +249,16 @@ function SecurityPage() {
       code: totpCode.trim(),
     });
     if (error) return toast.error(translatedErrorMessage(error, "Codigo 2FA invalido."));
-    await recordAudit({
-      event_type: "security.mfa.enrolled",
-      severity: "high",
-      metadata: { factorType: "totp" },
-      status: "resolved",
-    });
+    try {
+      await recordAudit({
+        event_type: "security.mfa.enrolled",
+        severity: "high",
+        metadata: { factorType: "totp" },
+        status: "resolved",
+      });
+    } catch (auditError) {
+      toast.warning(translatedErrorMessage(auditError, "2FA ativado, mas nao foi possivel registrar a auditoria."));
+    }
     setPendingFactor(null);
     setPendingChallengeId(null);
     setTotpCode("");
@@ -470,6 +485,20 @@ function SecurityPage() {
         </section>
       </div>
     </div>
+  );
+}
+
+function isSupabaseStructureError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const current = error as { code?: string | number | null; message?: string; details?: string; hint?: string };
+  const text = [current.message, current.details, current.hint].filter(Boolean).join(" ").toLowerCase();
+  return (
+    current.code === "PGRST204" ||
+    current.code === "PGRST205" ||
+    current.code === "42P01" ||
+    text.includes("schema cache") ||
+    text.includes("could not find") ||
+    text.includes("does not exist")
   );
 }
 
