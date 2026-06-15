@@ -40,15 +40,17 @@ async function getAdmin() {
 
 async function assertAdmin(userId: string) {
   const admin = await getAdmin();
-  const { data: isMaster, error: masterError } = await admin.rpc("has_role", {
-    _user_id: userId,
-    _role: "master",
-  });
-  const { data: isAdmin, error: adminError } = await admin.rpc("has_role", {
-    _user_id: userId,
-    _role: "admin",
-  });
-  if ((masterError || adminError) || (!isMaster && !isAdmin)) {
+  const { data: rolesRows, error } = await admin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error("Nao foi possivel validar a permissao administrativa");
+  }
+
+  const roles = (rolesRows ?? []).map((row: any) => String(row.role));
+  if (!roles.some((role) => role === "master" || role === "admin")) {
     throw new Error("Apenas administradores podem gerenciar usuarios");
   }
 }
