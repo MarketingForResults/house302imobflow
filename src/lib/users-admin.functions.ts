@@ -168,13 +168,24 @@ export const updateAppUserRole = createServerFn({ method: "POST" })
       .upsert(rolesToInsert, { onConflict: "user_id,role" });
     if (upsertError) throw new Error(upsertError.message);
 
-    const rolesToRemove = ROLE_ORDER.filter((role) => !rolesToKeep.includes(role));
-    const { error: deleteError } = await admin
+    const { data: currentRolesRows, error: currentRolesError } = await admin
       .from("user_roles")
-      .delete()
-      .eq("user_id", data.userId)
-      .in("role", rolesToRemove);
-    if (deleteError) throw new Error(deleteError.message);
+      .select("role")
+      .eq("user_id", data.userId);
+    if (currentRolesError) throw new Error(currentRolesError.message);
+
+    const rolesToRemove = (currentRolesRows ?? [])
+      .map((row: any) => String(row.role))
+      .filter((role: string) => !rolesToKeep.includes(role as any));
+
+    if (rolesToRemove.length > 0) {
+      const { error: deleteError } = await admin
+        .from("user_roles")
+        .delete()
+        .eq("user_id", data.userId)
+        .in("role", rolesToRemove);
+      if (deleteError) throw new Error(deleteError.message);
+    }
     return { ok: true };
   });
 
