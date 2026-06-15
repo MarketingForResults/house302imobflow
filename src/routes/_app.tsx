@@ -2,6 +2,7 @@ import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tansta
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { useUiPreferences } from "@/lib/ui-preferences";
 import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard,
@@ -58,6 +59,7 @@ const PORTAL_ROLES = ["owner", "tenant"] as const;
 
 function AppLayout() {
   const { user, loading, signOut, roles, mustChangePassword, refreshPasswordState } = useAuth();
+  const { theme } = useUiPreferences();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -73,6 +75,16 @@ function AppLayout() {
     "broker",
   ]);
   const portalOnly = !canUseBackoffice && hasAnyRole(roles, PORTAL_ROLES);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.style.colorScheme = theme;
+
+    return () => {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.style.colorScheme = "light";
+    };
+  }, [theme]);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login" });

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
 type ThemeMode = "light" | "dark";
 
@@ -26,19 +26,20 @@ export function UiPreferencesProvider({ children }: { children: ReactNode }) {
   }
 
   function toggleTheme() {
-    setThemeState((current) => (current === "dark" ? "light" : "dark"));
+    setThemeState((current) => {
+      const nextTheme = current === "dark" ? "light" : "dark";
+      window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+      return nextTheme;
+    });
   }
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    document.documentElement.style.colorScheme = theme;
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
-  }, [theme]);
 
   const value = useMemo(
     () => ({
       theme,
-      setTheme,
+      setTheme: (nextTheme: ThemeMode) => {
+        window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+        setTheme(nextTheme);
+      },
       toggleTheme,
     }),
     [theme],
