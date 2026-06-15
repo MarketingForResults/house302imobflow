@@ -37,6 +37,15 @@ const BACKUP_TABLES = [
   "security_audit_events",
 ] as const;
 
+type BackupResult = {
+  fileName: string;
+  recordCount: number;
+  tableCount: number;
+  skippedTables: string[];
+  metadataSaved: boolean;
+  metadataError?: string;
+};
+
 function BackupsPage() {
   const { user, roles } = useAuth();
   const qc = useQueryClient();
@@ -53,20 +62,27 @@ function BackupsPage() {
         .select("*")
         .order("created_at", { ascending: false })
         .limit(80);
+      if (error && isSupabaseStructureError(error)) return [];
       if (error) throw error;
       return data ?? [];
     },
+    retry: false,
   });
 
-  const createBackup = useMutation({
+  const createBackup = useMutation<BackupResult>({
     mutationFn: async () => {
       const generatedAt = new Date();
       const tables: Record<string, any[]> = {};
+      const skippedTables: string[] = [];
       let recordCount = 0;
 
       for (const table of BACKUP_TABLES) {
         const { data, error } = await (supabase as any).from(table).select("*");
-        if (error) throw new Error(`${table}: ${error.message}`);
+        if (error && isSupabaseStructureError(error)) {
+          skippedTables.push(table);
+          continue;
+        }
+        if (error) throw new Error(`${table}: ${translatedErrorMessage(error, "Falha ao exportar a tabela.")}`);
         tables[table] = data ?? [];
         recordCount += tables[table].length;
       }
@@ -75,8 +91,9 @@ function BackupsPage() {
         generated_at: generatedAt.toISOString(),
         generated_by: user?.email ?? user?.id ?? null,
         scope: "core",
-        table_count: BACKUP_TABLES.length,
+        table_count: Object.keys(tables).length,
         record_count: recordCount,
+        skipped_tables: skippedTables,
         tables,
       };
       const json = JSON.stringify(payload, null, 2);
@@ -89,16 +106,45 @@ function BackupsPage() {
         label: label.trim() || fileName,
         scope: "core",
         file_name: fileName,
-        table_count: BACKUP_TABLES.length,
+        table_count: Object.keys(tables).length,
         record_count: recordCount,
         byte_size: new Blob([json]).size,
         checksum,
         notes: notes.trim() || null,
       });
-      if (error) throw error;
+      if (error) {
+        return {
+          fileName,
+          recordCount,
+          tableCount: Object.keys(tables).length,
+          skippedTables,
+          metadataSaved: false,
+          metadataError: translatedErrorMessage(error, "Nao foi possivel registrar o historico do backup."),
+        };
+      }
+
+      return {
+        fileName,
+        recordCount,
+        tableCount: Object.keys(tables).length,
+        skippedTables,
+        metadataSaved: true,
+      };
     },
-    onSuccess: () => {
-      toast.success("Backup fisico gerado e registrado");
+    onSuccess: (result) => {
+      toast.success(
+        result.metadataSaved
+          ? "Backup fisico baixado e registrado no historico."
+          : "Backup fisico baixado neste computador.",
+      );
+      if (!result.metadataSaved) {
+        toast.warning(`Historico nao registrado: ${result.metadataError}`);
+      }
+      if (result.skippedTables.length > 0) {
+        toast.warning(
+          `Backup gerado sem ${result.skippedTables.length} tabela(s) ainda indisponivel(is): ${result.skippedTables.join(", ")}.`,
+        );
+      }
       qc.invalidateQueries({ queryKey: ["physical-backups"] });
     },
     onError: (error) => toast.error(translatedErrorMessage(error, "Nao foi possivel gerar o backup.")),
@@ -210,4 +256,18 @@ function downloadText(fileName: string, text: string) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+function isSupabaseStructureError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const current = error as { code?: string | number | null; message?: string; details?: string; hint?: string };
+  const text = [current.message, current.details, current.hint].filter(Boolean).join(" ").toLowerCase();
+  return (
+    current.code === "PGRST204" ||
+    current.code === "PGRST205" ||
+    current.code === "42P01" ||
+    text.includes("schema cache") ||
+    text.includes("could not find") ||
+    text.includes("does not exist")
+  );
 }
