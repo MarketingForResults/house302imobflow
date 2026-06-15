@@ -14,6 +14,25 @@ const RoleEnum = z.enum([
   "tenant",
 ]);
 
+const ROLE_ORDER = [
+  "master",
+  "it_support",
+  "admin",
+  "manager",
+  "financial",
+  "broker",
+  "owner",
+  "tenant",
+] as const;
+
+function normalizedRolesFor(role: z.infer<typeof RoleEnum>) {
+  return role === "master" ? ["master", "admin"] : [role];
+}
+
+function sortRoles(roles: string[]) {
+  return [...roles].sort((a, b) => ROLE_ORDER.indexOf(a as any) - ROLE_ORDER.indexOf(b as any));
+}
+
 const CreateSchema = z.object({
   email: z.string().email(),
   fullName: z.string().min(1).max(200),
@@ -77,7 +96,7 @@ export const listAppUsers = createServerFn({ method: "POST" })
     for (const row of rolesRows ?? []) {
       const arr = roleMap.get(row.user_id) ?? [];
       arr.push(row.role);
-      roleMap.set(row.user_id, arr);
+      roleMap.set(row.user_id, sortRoles(arr));
     }
     return {
       users: list.map((u: any) => ({
@@ -116,9 +135,14 @@ export const createAppUser = createServerFn({ method: "POST" })
         { onConflict: "id" },
       );
 
-    await admin
+    const rolesToInsert = normalizedRolesFor(data.role).map((role) => ({
+      user_id: newId,
+      role,
+    }));
+    const { error: roleError } = await admin
       .from("user_roles")
-      .upsert({ user_id: newId, role: data.role }, { onConflict: "user_id,role" });
+      .upsert(rolesToInsert, { onConflict: "user_id,role" });
+    if (roleError) throw new Error(roleError.message);
 
     return {
       ok: true,
@@ -134,8 +158,20 @@ export const updateAppUserRole = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
     const admin = await getAdmin();
-    await admin.from("user_roles").delete().eq("user_id", data.userId);
-    await admin.from("user_roles").insert({ user_id: data.userId, role: data.role });
+    const rolesToKeep = normalizedRolesFor(data.role);
+    const rolesToInsert = rolesToKeep.map((role) => ({ user_id: data.userId, role }));
+    const { error: upsertError } = await admin
+      .from("user_roles")
+      .upsert(rolesToInsert, { onConflict: "user_id,role" });
+    if (upsertError) throw new Error(upsertError.message);
+
+    const rolesToRemove = ROLE_ORDER.filter((role) => !rolesToKeep.includes(role));
+    const { error: deleteError } = await admin
+      .from("user_roles")
+      .delete()
+      .eq("user_id", data.userId)
+      .in("role", rolesToRemove);
+    if (deleteError) throw new Error(deleteError.message);
     return { ok: true };
   });
 
