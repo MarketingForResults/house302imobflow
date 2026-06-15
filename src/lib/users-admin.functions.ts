@@ -24,6 +24,7 @@ const ROLE_ORDER = [
   "owner",
   "tenant",
 ] as const;
+const OWNER_EMAILS = new Set(["house302imob@gmail.com"]);
 
 function normalizedRolesFor(role: z.infer<typeof RoleEnum>) {
   return role === "master" ? ["master", "admin"] : [role];
@@ -57,7 +58,9 @@ async function getAdmin() {
   return supabaseAdmin as any;
 }
 
-async function assertAdmin(userId: string) {
+async function assertAdmin(userId: string, email?: string | null) {
+  if (OWNER_EMAILS.has((email ?? "").toLowerCase())) return;
+
   const admin = await getAdmin();
   const { data: rolesRows, error } = await admin
     .from("user_roles")
@@ -77,7 +80,7 @@ async function assertAdmin(userId: string) {
 export const listAppUsers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
+    await assertAdmin(context.userId, context.claims?.email);
     const admin = await getAdmin();
     const { data: users, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
     if (error) throw new Error(error.message);
@@ -115,7 +118,7 @@ export const createAppUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CreateSchema.parse(input))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAdmin(context.userId, context.claims?.email);
     const admin = await getAdmin();
     const email = data.email.trim().toLowerCase();
 
@@ -156,7 +159,7 @@ export const updateAppUserRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => UpdateRoleSchema.parse(input))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAdmin(context.userId, context.claims?.email);
     const admin = await getAdmin();
     const rolesToKeep = normalizedRolesFor(data.role);
     const rolesToInsert = rolesToKeep.map((role) => ({ user_id: data.userId, role }));
@@ -179,7 +182,7 @@ export const resetAppUserPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ResetPasswordSchema.parse(input))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAdmin(context.userId, context.claims?.email);
     const admin = await getAdmin();
     const { error } = await admin.auth.admin.updateUserById(data.userId, {
       password: data.temporaryPassword,
@@ -196,7 +199,7 @@ export const deleteAppUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DeleteSchema.parse(input))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAdmin(context.userId, context.claims?.email);
     if (data.userId === context.userId) throw new Error("Voce nao pode remover sua propria conta");
     const admin = await getAdmin();
     const { error } = await admin.auth.admin.deleteUser(data.userId);
