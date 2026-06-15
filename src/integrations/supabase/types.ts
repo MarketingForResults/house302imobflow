@@ -374,13 +374,11 @@ export type Database = {
           client_roles: string[] | null
           cnh: string | null
           complement: string | null
-          contract_insurance_modalities: string[]
           cpf: string | null
           created_at: string
           email: string | null
           father_name: string | null
           full_name: string
-          guarantor_for_client_id: string | null
           id: string
           interest_type: Database["public"]["Enums"]["interest_type"] | null
           interest_types: string[]
@@ -410,13 +408,11 @@ export type Database = {
           client_roles?: string[] | null
           cnh?: string | null
           complement?: string | null
-          contract_insurance_modalities?: string[]
           cpf?: string | null
           created_at?: string
           email?: string | null
           father_name?: string | null
           full_name: string
-          guarantor_for_client_id?: string | null
           id?: string
           interest_type?: Database["public"]["Enums"]["interest_type"] | null
           interest_types?: string[]
@@ -446,13 +442,11 @@ export type Database = {
           client_roles?: string[] | null
           cnh?: string | null
           complement?: string | null
-          contract_insurance_modalities?: string[]
           cpf?: string | null
           created_at?: string
           email?: string | null
           father_name?: string | null
           full_name?: string
-          guarantor_for_client_id?: string | null
           id?: string
           interest_type?: Database["public"]["Enums"]["interest_type"] | null
           interest_types?: string[]
@@ -1847,7 +1841,6 @@ export type Database = {
           code: string
           created_at: string
           created_by: string | null
-          contract_insurance_modalities: string[]
           deposit_amount: number | null
           deposit_paid_at: string | null
           discount_amount: number
@@ -1855,7 +1848,6 @@ export type Database = {
           discount_value: number
           due_day: number
           end_date: string | null
-          guarantor_client_id: string | null
           gross_monthly_rent: number | null
           homologation_status: string
           id: string
@@ -1877,7 +1869,6 @@ export type Database = {
           code?: string
           created_at?: string
           created_by?: string | null
-          contract_insurance_modalities?: string[]
           deposit_amount?: number | null
           deposit_paid_at?: string | null
           discount_amount?: number
@@ -1885,7 +1876,6 @@ export type Database = {
           discount_value?: number
           due_day?: number
           end_date?: string | null
-          guarantor_client_id?: string | null
           gross_monthly_rent?: number | null
           homologation_status?: string
           id?: string
@@ -1907,7 +1897,6 @@ export type Database = {
           code?: string
           created_at?: string
           created_by?: string | null
-          contract_insurance_modalities?: string[]
           deposit_amount?: number | null
           deposit_paid_at?: string | null
           discount_amount?: number
@@ -1915,7 +1904,6 @@ export type Database = {
           discount_value?: number
           due_day?: number
           end_date?: string | null
-          guarantor_client_id?: string | null
           gross_monthly_rent?: number | null
           homologation_status?: string
           id?: string
@@ -1937,13 +1925,6 @@ export type Database = {
             columns: ["broker_id"]
             isOneToOne: false
             referencedRelation: "brokers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rental_contracts_guarantor_client_id_fkey"
-            columns: ["guarantor_client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
@@ -2404,8 +2385,6 @@ export type Database = {
     }
     Enums: {
       app_role:
-        | "master"
-        | "it_support"
         | "admin"
         | "manager"
         | "broker"
@@ -2560,7 +2539,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["master", "it_support", "admin", "manager", "broker", "financial", "owner", "tenant"],
+      app_role: ["admin", "manager", "broker", "financial", "owner", "tenant"],
       document_kind: [
         "visit_form",
         "sale_contract",
