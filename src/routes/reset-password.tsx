@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { translatedErrorMessage } from "@/lib/error-messages";
 
 export const Route = createFileRoute("/reset-password")({ component: ResetPasswordPage });
 
@@ -67,7 +68,7 @@ function ResetPasswordPage() {
     setSubmitting(true);
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
-      toast.error(error.message || "Nao foi possivel redefinir a senha.");
+      toast.error(translatedErrorMessage(error, "Nao foi possivel redefinir a senha."));
       setSubmitting(false);
       return;
     }

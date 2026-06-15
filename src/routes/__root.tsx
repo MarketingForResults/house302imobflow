@@ -12,6 +12,7 @@ import {
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/sonner";
+import { UiPreferencesProvider } from "@/lib/ui-preferences";
 
 function NotFoundComponent() {
   return (
@@ -131,10 +132,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Outlet />
-        <Toaster richColors position="bottom-right" />
-      </AuthProvider>
+      <UiPreferencesProvider>
+        <AuthProvider>
+          <Outlet />
+          <Toaster richColors position="bottom-right" />
+        </AuthProvider>
+      </UiPreferencesProvider>
     </QueryClientProvider>
   );
 }

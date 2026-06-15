@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { translatedErrorMessage } from "@/lib/error-messages";
 
 export function ForcePasswordChange({
   userId,
@@ -36,7 +37,7 @@ export function ForcePasswordChange({
       toast.success("Senha atualizada com sucesso");
       onDone();
     } catch (err: any) {
-      toast.error(err.message ?? "Nao foi possivel atualizar a senha");
+      toast.error(translatedErrorMessage(err, "Nao foi possivel atualizar a senha"));
     } finally {
       setSaving(false);
     }

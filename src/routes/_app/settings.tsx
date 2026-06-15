@@ -70,6 +70,27 @@ const INDEX_OPTIONS = [
   { code: "IVAR", label: "IVAR (FGV)" },
 ];
 
+const COUNTRY_OPTIONS = [
+  { value: "BR", label: "Brasil" },
+  { value: "PT", label: "Portugal" },
+  { value: "US", label: "Estados Unidos" },
+];
+
+const LANGUAGE_OPTIONS = [
+  { value: "pt-BR", label: "Portugues (Brasil)" },
+  { value: "pt-PT", label: "Portugues (Portugal)" },
+  { value: "en-US", label: "Ingles (Estados Unidos)" },
+];
+
+const TIMEZONE_OPTIONS = [
+  { value: "America/Sao_Paulo", label: "Brasilia - America/Sao_Paulo" },
+  { value: "America/Manaus", label: "Manaus - America/Manaus" },
+  { value: "America/Recife", label: "Recife - America/Recife" },
+  { value: "America/Cuiaba", label: "Cuiaba - America/Cuiaba" },
+  { value: "Europe/Lisbon", label: "Lisboa - Europe/Lisbon" },
+  { value: "UTC", label: "UTC" },
+];
+
 type SettingsState = Record<string, any>;
 
 interface FieldProps {
@@ -139,7 +160,7 @@ function Field({
 
 function SettingsPage() {
   const { roles } = useAuth();
-  const isAdmin = roles.includes("admin");
+  const isAdmin = roles.some((role) => role === "master" || role === "admin");
   const [s, setS] = useState<any>(null);
   const [termPreview, setTermPreview] = useState<{ start: string; months: string }>({
     start: new Date().toISOString().slice(0, 10),
@@ -195,6 +216,9 @@ function SettingsPage() {
         sale_default_payment_method: s.sale_default_payment_method ?? "a_vista",
         sale_deed_type: s.sale_deed_type ?? "escritura_publica",
         sale_default_down_payment_pct: Number(s.sale_default_down_payment_pct ?? 0),
+        locale_country: s.locale_country ?? "BR",
+        locale_language: s.locale_language ?? "pt-BR",
+        locale_timezone: s.locale_timezone ?? "America/Sao_Paulo",
         company_person_type: s.company_person_type === "fisica" ? "fisica" : "juridica",
         company_legal_name: s.company_legal_name ?? null,
         company_trade_name: s.company_trade_name ?? null,
@@ -281,7 +305,7 @@ function SettingsPage() {
       .update({ ...buildInstitutionalPatch(), updated_by: user?.id })
       .eq("id", true);
     setSavingInstitutional(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar o cadastro institucional."));
     setInstitutionalEditing(false);
     toast.success("Cadastro institucional salvo.");
     await loadSettings();
@@ -294,7 +318,7 @@ function SettingsPage() {
     setSavingInstitutional(true);
     const { error } = await (supabase as any).from("app_settings").update(patch).eq("id", true);
     setSavingInstitutional(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o cadastro institucional."));
     setInstitutionalEditing(false);
     toast.success("Cadastro institucional excluido.");
     await loadSettings();
@@ -319,7 +343,7 @@ function SettingsPage() {
       });
       toast.success("Endereco preenchido pelo CEP.");
     } catch (e: any) {
-      toast.error(e.message ?? "Nao foi possivel buscar o CEP");
+      toast.error(translatedErrorMessage(e, "Nao foi possivel buscar o CEP"));
     } finally {
       setCepSearching(false);
     }
@@ -384,6 +408,74 @@ function SettingsPage() {
       />
 
       <div className="space-y-6 p-4 md:p-8">
+        <section className="rounded-lg border bg-card p-6">
+          <h2 className="mb-1 text-sm font-semibold uppercase text-muted-foreground">
+            Localizacao e idioma
+          </h2>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Define o pais, idioma e fuso horario padrao para mensagens, datas e formatos do sistema.
+          </p>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <Label className="text-xs">Pais</Label>
+              <Select
+                value={s.locale_country ?? "BR"}
+                onValueChange={(value) => setSetting("locale_country", value)}
+                disabled={!isAdmin}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Idioma</Label>
+              <Select
+                value={s.locale_language ?? "pt-BR"}
+                onValueChange={(value) => setSetting("locale_language", value)}
+                disabled={!isAdmin}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LANGUAGE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Fuso horario</Label>
+              <Select
+                value={s.locale_timezone ?? "America/Sao_Paulo"}
+                onValueChange={(value) => setSetting("locale_timezone", value)}
+                disabled={!isAdmin}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIMEZONE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </section>
+
         <section className="rounded-lg border bg-card p-6">
           <h2 className="mb-1 text-sm font-semibold uppercase text-muted-foreground">
             Dados institucionais para documentos

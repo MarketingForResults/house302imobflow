@@ -33,6 +33,9 @@ export type Database = {
           company_zip_code: string | null
           contract_default_commission_pct: number | null
           id: boolean
+          locale_country: string
+          locale_language: string
+          locale_timezone: string
           rental_contract_notes: string | null
           rental_daily_interest_pct: number
           rental_default_contract_type: string
@@ -70,6 +73,9 @@ export type Database = {
           company_zip_code?: string | null
           contract_default_commission_pct?: number | null
           id?: boolean
+          locale_country?: string
+          locale_language?: string
+          locale_timezone?: string
           rental_contract_notes?: string | null
           rental_daily_interest_pct?: number
           rental_default_contract_type?: string
@@ -107,6 +113,9 @@ export type Database = {
           company_zip_code?: string | null
           contract_default_commission_pct?: number | null
           id?: boolean
+          locale_country?: string
+          locale_language?: string
+          locale_timezone?: string
           rental_contract_notes?: string | null
           rental_daily_interest_pct?: number
           rental_default_contract_type?: string

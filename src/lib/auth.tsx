@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { AppRole } from "@/lib/permissions";
+import { translatedErrorMessage } from "@/lib/error-messages";
 
 interface AuthState {
   user: User | null;
@@ -102,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshPasswordState,
     signIn: async (email, password) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error: error?.message ?? null };
+      return { error: error ? translatedErrorMessage(error, "Nao foi possivel entrar.") : null };
     },
     signUp: async (email, password, fullName) => {
       const { error } = await supabase.auth.signUp({
@@ -113,13 +114,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           data: { full_name: fullName },
         },
       });
-      return { error: error?.message ?? null };
+      return { error: error ? translatedErrorMessage(error, "Nao foi possivel criar a conta.") : null };
     },
     resetPassword: async (email) => {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-      return { error: error?.message ?? null };
+      return { error: error ? translatedErrorMessage(error, "Nao foi possivel enviar a recuperacao de senha.") : null };
     },
     signOut: async () => {
       await supabase.auth.signOut();

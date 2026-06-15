@@ -1,7 +1,8 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, LifeBuoy, LogOut, Settings as SettingsIcon, User, Menu } from "lucide-react";
+import { Bell, LifeBuoy, LogOut, Menu, Moon, Settings as SettingsIcon, Sun, User } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useUiPreferences } from "@/lib/ui-preferences";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
@@ -17,10 +18,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { formatRoles } from "@/lib/permissions";
 
 export function AppTopbar({ onOpenMobileMenu }: { onOpenMobileMenu?: () => void }) {
   const { user, roles, signOut } = useAuth();
+  const { theme, setTheme } = useUiPreferences();
   const navigate = useNavigate();
 
   const { data: alerts = [] } = useQuery({
@@ -71,6 +74,18 @@ export function AppTopbar({ onOpenMobileMenu }: { onOpenMobileMenu?: () => void 
             <Menu className="h-5 w-5" />
           </button>
         )}
+        <div
+          className="hidden h-9 items-center gap-2 rounded-md border px-2 text-muted-foreground sm:inline-flex"
+          title={theme === "dark" ? "Modo escuro ativo" : "Modo claro ativo"}
+        >
+          <Sun className="h-4 w-4" />
+          <Switch
+            checked={theme === "dark"}
+            onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+            aria-label="Alternar modo claro ou escuro"
+          />
+          <Moon className="h-4 w-4" />
+        </div>
         <Popover>
           <PopoverTrigger asChild>
             <button

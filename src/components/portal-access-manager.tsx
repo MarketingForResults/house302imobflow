@@ -109,7 +109,7 @@ export function PortalAccessManager({
       }
 
       if (result && result.emailSent === false && !result.actionLink) {
-        toast.warning(result.emailError ?? "O e-mail nao foi enviado; use o link manual");
+        toast.warning(translatedErrorMessage(result.emailError, "O e-mail nao foi enviado; use o link manual."));
       }
 
       qc.invalidateQueries({ queryKey });
