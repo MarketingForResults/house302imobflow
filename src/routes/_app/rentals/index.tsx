@@ -64,6 +64,7 @@ function RentalsPage() {
   const { roles } = useAuth();
   const isAdmin = roles.includes("admin");
   const [openContract, setOpenContract] = useState(false);
+  const [editingContract, setEditingContract] = useState<any | null>(null);
   const [form, setForm] = useState<any>({
     kind: "residential",
     due_day: 5,
@@ -110,7 +111,7 @@ function RentalsPage() {
         await supabase
           .from("rental_contracts")
           .select(
-            "*, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name, phone, email)",
+            "*, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name, phone, email), landlord:clients!rental_contracts_landlord_client_id_fkey(full_name)",
           )
           .order("created_at", { ascending: false })
       ).data ?? [],
@@ -141,6 +142,15 @@ function RentalsPage() {
           .order("full_name")
       ).data ?? [],
   });
+
+  const landlordClients = useMemo(
+    () => clients.filter((client: any) => client.client_roles?.includes("owner")),
+    [clients],
+  );
+  const tenantClients = useMemo(
+    () => clients.filter((client: any) => client.client_roles?.includes("tenant")),
+    [clients],
+  );
 
   const guarantorClients = useMemo(
     () => clients.filter((client: any) => client.client_roles?.includes("guarantor")),
@@ -537,6 +547,7 @@ function RentalsPage() {
       discount_type: rentDiscount.type,
       discount_value: rentDiscount.value,
       discount_amount: rentDiscount.amount,
+      landlord_client_id: form.landlord_client_id || null,
       guarantor_client_id: form.guarantor_client_id || null,
       contract_insurance_modalities: Array.isArray(form.contract_insurance_modalities)
         ? form.contract_insurance_modalities
@@ -1108,6 +1119,22 @@ function RentalsPage() {
     }
   }
 
+
+  async function updateContract(id: string, patch: {
+    landlord_client_id?: string | null;
+    tenant_client_id?: string | null;
+    guarantor_client_id?: string | null;
+  }) {
+    const { error } = await (supabase as any)
+      .from("rental_contracts")
+      .update(patch)
+      .eq("id", id);
+    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel atualizar o contrato."));
+    qc.invalidateQueries({ queryKey: ["rental_contracts"] });
+    toast.success("Contrato atualizado com sucesso");
+    setEditingContract(null);
+  }
+
   async function deleteContracts(ids: string[]) {
     if (ids.length === 0) return;
     if (
@@ -1487,6 +1514,46 @@ function RentalsPage() {
                     </Select>
                   </div>
                   <div className="min-w-0">
+                    <Label className="text-xs">Proprietário / Locador</Label>
+                    <Select
+                      value={form.landlord_client_id ?? "none"}
+                      onValueChange={(v) =>
+                        setForm({ ...form, landlord_client_id: v === "none" ? "" : v })
+                      }
+                    >
+                      <SelectTrigger className="w-full min-w-0 [&>span]:truncate">
+                        <SelectValue placeholder="Opcional" />
+                      </SelectTrigger>
+                      <SelectContent className="max-w-[calc(100vw-2rem)]">
+                        <SelectItem value="none">Opcional</SelectItem>
+                        {landlordClients.map((c: any) => (
+                          <SelectItem
+                            key={c.id}
+                            value={c.id}
+                            className="max-w-[calc(100vw-3rem)] truncate"
+                          >
+                            {c.full_name}
+                          </SelectItem>
+                        ))}
+                        {landlordClients.length === 0 &&
+                          clients.map((c: any) => (
+                            <SelectItem
+                              key={c.id}
+                              value={c.id}
+                              className="max-w-[calc(100vw-3rem)] truncate"
+                            >
+                              {c.full_name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    {landlordClients.length === 0 && (
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Cadastre ou marque um cliente com perfil Proprietário/Locador para filtrar aqui.
+                      </p>
+                    )}
+                  </div>
+                  <div className="min-w-0">
                     <Label className="text-xs">Inquilino</Label>
                     <Select
                       value={form.tenant_client_id ?? ""}
@@ -1496,7 +1563,7 @@ function RentalsPage() {
                         <SelectValue placeholder="Selecione…" />
                       </SelectTrigger>
                       <SelectContent className="max-w-[calc(100vw-2rem)]">
-                        {clients.map((c: any) => (
+                        {tenantClients.map((c: any) => (
                           <SelectItem
                             key={c.id}
                             value={c.id}
@@ -1505,8 +1572,23 @@ function RentalsPage() {
                             {c.full_name}
                           </SelectItem>
                         ))}
+                        {tenantClients.length === 0 &&
+                          clients.map((c: any) => (
+                            <SelectItem
+                              key={c.id}
+                              value={c.id}
+                              className="max-w-[calc(100vw-3rem)] truncate"
+                            >
+                              {c.full_name}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
+                    {tenantClients.length === 0 && (
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Cadastre ou marque um cliente com perfil Inquilino/Locatário para filtrar aqui.
+                      </p>
+                    )}
                   </div>
                   <div className="min-w-0">
                     <Label className="text-xs">Fiador</Label>
@@ -1859,7 +1941,7 @@ function RentalsPage() {
                       {c.properties?.code} — {c.properties?.title}
                     </span>
                     <span className="text-muted-foreground">
-                      • Inquilino: {c.tenant?.full_name ?? "—"}
+                      {c.landlord?.full_name ? `• Locador: ${c.landlord.full_name} ` : ""}• Inquilino: {c.tenant?.full_name ?? "—"}
                     </span>
                   </button>
                 </div>
@@ -1904,6 +1986,24 @@ function RentalsPage() {
                     <FileText className="mr-1 h-3 w-3" />
                     Extrato
                   </Button>
+                  {isAdmin && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        setEditingContract({
+                          id: c.id,
+                          code: c.code,
+                          landlord_client_id: c.landlord_client_id ?? "",
+                          tenant_client_id: c.tenant_client_id ?? "",
+                          guarantor_client_id: c.guarantor_client_id ?? "",
+                        })
+                      }
+                      title="Editar dados do contrato"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
@@ -2261,6 +2361,111 @@ function RentalsPage() {
           );
         })}
       </div>
+
+      {/* Edit contract dialog */}
+      <Dialog open={!!editingContract} onOpenChange={(o) => !o && setEditingContract(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar contrato {editingContract?.code}</DialogTitle>
+          </DialogHeader>
+          {editingContract && (
+            <div className="grid gap-3">
+              <div>
+                <Label className="text-xs">Proprietário / Locador</Label>
+                <Select
+                  value={editingContract.landlord_client_id || "none"}
+                  onValueChange={(v) =>
+                    setEditingContract({
+                      ...editingContract,
+                      landlord_client_id: v === "none" ? "" : v,
+                    })
+                  }
+                >
+                  <SelectTrigger className="w-full [&>span]:truncate">
+                    <SelectValue placeholder="Não informado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Não informado</SelectItem>
+                    {(landlordClients.length > 0 ? landlordClients : clients).map((c: any) => (
+                      <SelectItem key={c.id} value={c.id} className="truncate">
+                        {c.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Inquilino / Locatário</Label>
+                <Select
+                  value={editingContract.tenant_client_id || "none"}
+                  onValueChange={(v) =>
+                    setEditingContract({
+                      ...editingContract,
+                      tenant_client_id: v === "none" ? "" : v,
+                    })
+                  }
+                >
+                  <SelectTrigger className="w-full [&>span]:truncate">
+                    <SelectValue placeholder="Não informado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Não informado</SelectItem>
+                    {(tenantClients.length > 0 ? tenantClients : clients).map((c: any) => (
+                      <SelectItem key={c.id} value={c.id} className="truncate">
+                        {c.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Fiador</Label>
+                <Select
+                  value={editingContract.guarantor_client_id || "none"}
+                  onValueChange={(v) =>
+                    setEditingContract({
+                      ...editingContract,
+                      guarantor_client_id: v === "none" ? "" : v,
+                    })
+                  }
+                >
+                  <SelectTrigger className="w-full [&>span]:truncate">
+                    <SelectValue placeholder="Opcional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {(guarantorClients.length > 0 ? guarantorClients : clients).map((c: any) => (
+                      <SelectItem key={c.id} value={c.id} className="truncate">
+                        {c.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Apenas os vínculos de pessoas são editáveis aqui. Para alterar valores, datas ou
+                parcelas, use as opções na linha do contrato.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingContract(null)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() =>
+                updateContract(editingContract.id, {
+                  landlord_client_id: editingContract.landlord_client_id || null,
+                  tenant_client_id: editingContract.tenant_client_id || null,
+                  guarantor_client_id: editingContract.guarantor_client_id || null,
+                })
+              }
+            >
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit payment dialog */}
       <Dialog open={!!editingPayment} onOpenChange={(o) => !o && setEditingPayment(null)}>
