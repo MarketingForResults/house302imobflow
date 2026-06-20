@@ -47,7 +47,7 @@ const nav = [
   { to: "/rentals", label: "Aluguéis", icon: KeyRound },
   { to: "/sales", label: "Vendas", icon: BadgeDollarSign },
   { to: "/finance", label: "Financeiro", icon: Landmark },
-  { to: "/integration", label: "Integração WP", icon: Plug },
+  { to: "/integration", label: "Integrações", icon: Plug },
   { to: "/security", label: "Seguranca", icon: ShieldAlert },
   { to: "/backups", label: "Backups", icon: DatabaseBackup },
   { to: "/system-docs", label: "Documentacao", icon: BookOpenText },
