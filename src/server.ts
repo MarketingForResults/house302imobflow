@@ -1,5 +1,6 @@
 import "./lib/error-capture";
 
+import { updateAutentiqueSignatureFromWebhook } from "./lib/autentique/autentique.functions";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
@@ -23,6 +24,34 @@ function brandedErrorResponse(): Response {
     status: 500,
     headers: { "content-type": "text/html; charset=utf-8" },
   });
+}
+
+function jsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
+}
+
+async function handleAutentiqueWebhook(request: Request): Promise<Response> {
+  if (request.method !== "POST") {
+    return jsonResponse({ ok: false, error: "Metodo nao permitido." }, 405);
+  }
+
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return jsonResponse({ ok: false, error: "Payload JSON invalido." }, 400);
+  }
+
+  try {
+    const result = await updateAutentiqueSignatureFromWebhook(payload);
+    return jsonResponse(result);
+  } catch (error) {
+    console.error("[Autentique] webhook failed", error);
+    return jsonResponse({ ok: false, error: "Nao foi possivel processar o webhook." }, 400);
+  }
 }
 
 function isCatastrophicSsrErrorBody(body: string, responseStatus: number): boolean {
@@ -69,6 +98,11 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const url = new URL(request.url);
+      if (url.pathname === "/api/autentique/webhook") {
+        return await handleAutentiqueWebhook(request);
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
