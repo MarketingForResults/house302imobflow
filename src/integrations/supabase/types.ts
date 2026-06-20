@@ -520,6 +520,62 @@ export type Database = {
         }
         Relationships: []
       }
+      document_signatures: {
+        Row: {
+          audit_file_url: string | null
+          autentique_document_id: string
+          created_at: string
+          created_by: string | null
+          document_id: string
+          events: Json
+          id: string
+          original_file_url: string | null
+          sandbox: boolean
+          signed_file_url: string | null
+          signers: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          audit_file_url?: string | null
+          autentique_document_id: string
+          created_at?: string
+          created_by?: string | null
+          document_id: string
+          events?: Json
+          id?: string
+          original_file_url?: string | null
+          sandbox?: boolean
+          signed_file_url?: string | null
+          signers?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          audit_file_url?: string | null
+          autentique_document_id?: string
+          created_at?: string
+          created_by?: string | null
+          document_id?: string
+          events?: Json
+          id?: string
+          original_file_url?: string | null
+          sandbox?: boolean
+          signed_file_url?: string | null
+          signers?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_signatures_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_templates: {
         Row: {
           active: boolean
