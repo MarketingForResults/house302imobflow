@@ -108,6 +108,10 @@ function SecurityPage() {
   });
 
   const totpFactors = useMemo(() => factorsQuery.data?.totp ?? [], [factorsQuery.data]);
+  const hasVerifiedTotp = useMemo(
+    () => totpFactors.some((factor: any) => factor.status === "verified"),
+    [totpFactors],
+  );
 
   async function recordAudit(event: Partial<any>) {
     const { error } = await (supabase as any).from("security_audit_events").insert({
@@ -130,9 +134,17 @@ function SecurityPage() {
     mutationFn: async (patch: Record<string, unknown>) => {
       const { error } = await (supabase as any)
         .from("security_settings")
-        .upsert({ ...settingsQuery.data, ...patch, id: true, updated_by: user?.id, updated_at: new Date().toISOString() });
+        .upsert({
+          ...settingsQuery.data,
+          ...patch,
+          id: true,
+          updated_by: user?.id,
+          updated_at: new Date().toISOString(),
+        });
       if (error && isSupabaseStructureError(error)) {
-        throw new Error("A estrutura de seguranca ainda nao foi aplicada no Supabase. Aplique as migrations e tente novamente.");
+        throw new Error(
+          "A estrutura de seguranca ainda nao foi aplicada no Supabase. Aplique as migrations e tente novamente.",
+        );
       }
       if (error) throw error;
       await recordAudit({
@@ -148,11 +160,15 @@ function SecurityPage() {
       qc.invalidateQueries({ queryKey: ["security-settings"] });
       qc.invalidateQueries({ queryKey: ["security-audit-events"] });
     },
-    onError: (error) => toast.error(translatedErrorMessage(error, "Nao foi possivel salvar a seguranca.")),
+    onError: (error) =>
+      toast.error(translatedErrorMessage(error, "Nao foi possivel salvar a seguranca.")),
   });
 
   const eventAction = useMutation({
-    mutationFn: async (input: { event: any; action: "blocked" | "revoked" | "resolved" | "deleted" }) => {
+    mutationFn: async (input: {
+      event: any;
+      action: "blocked" | "revoked" | "resolved" | "deleted";
+    }) => {
       const now = new Date().toISOString();
       if (input.action === "blocked") {
         const { error } = await (supabase as any).from("security_user_blocks").insert({
@@ -199,7 +215,8 @@ function SecurityPage() {
       qc.invalidateQueries({ queryKey: ["security-audit-events"] });
       qc.invalidateQueries({ queryKey: ["security-user-blocks"] });
     },
-    onError: (error) => toast.error(translatedErrorMessage(error, "Nao foi possivel executar a acao.")),
+    onError: (error) =>
+      toast.error(translatedErrorMessage(error, "Nao foi possivel executar a acao.")),
   });
 
   const unblock = useMutation({
@@ -226,13 +243,50 @@ function SecurityPage() {
     onError: (error) => toast.error(translatedErrorMessage(error)),
   });
 
+  async function removePendingTotpFactors(factors: any[]) {
+    const pendingFactors = factors.filter((factor: any) => factor.status !== "verified");
+    for (const factor of pendingFactors) {
+      if (!factor.id) continue;
+      const { error } = await (supabase.auth as any).mfa.unenroll({ factorId: factor.id });
+      if (error) throw error;
+    }
+  }
+
   async function startTotpEnroll() {
+    setPendingFactor(null);
+    setPendingChallengeId(null);
+    setTotpCode("");
+
+    const { data: currentFactors, error: listError } = await (
+      supabase.auth as any
+    ).mfa.listFactors();
+    if (listError)
+      return toast.error(
+        translatedErrorMessage(listError, "Nao foi possivel consultar o 2FA atual."),
+      );
+
+    const currentTotpFactors = currentFactors?.totp ?? [];
+    if (currentTotpFactors.some((factor: any) => factor.status === "verified")) {
+      qc.invalidateQueries({ queryKey: ["mfa-factors"] });
+      return toast.info("2FA ja esta ativo para este usuario.");
+    }
+
+    try {
+      await removePendingTotpFactors(currentTotpFactors);
+    } catch (error) {
+      return toast.error(
+        translatedErrorMessage(error, "Nao foi possivel limpar o cadastro 2FA pendente."),
+      );
+    }
+
     const { data, error } = await (supabase.auth as any).mfa.enroll({
       factorType: "totp",
-      friendlyName: "ImobFlow",
+      friendlyName: `ImobFlow ${Date.now()}`,
     });
     if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel iniciar o 2FA."));
     const factorId = data?.id;
+    if (!factorId) return toast.error("O Supabase nao retornou o fator 2FA para verificacao.");
+
     const { data: challenge, error: challengeError } = await (supabase.auth as any).mfa.challenge({
       factorId,
     });
@@ -257,7 +311,12 @@ function SecurityPage() {
         status: "resolved",
       });
     } catch (auditError) {
-      toast.warning(translatedErrorMessage(auditError, "2FA ativado, mas nao foi possivel registrar a auditoria."));
+      toast.warning(
+        translatedErrorMessage(
+          auditError,
+          "2FA ativado, mas nao foi possivel registrar a auditoria.",
+        ),
+      );
     }
     setPendingFactor(null);
     setPendingChallengeId(null);
@@ -268,7 +327,11 @@ function SecurityPage() {
   }
 
   if (!canManageSecurity) {
-    return <div className="p-8 text-sm text-muted-foreground">Acesso restrito ao master e Suporte de TI.</div>;
+    return (
+      <div className="p-8 text-sm text-muted-foreground">
+        Acesso restrito ao master e Suporte de TI.
+      </div>
+    );
   }
 
   const settings = settingsQuery.data ?? DEFAULT_SETTINGS;
@@ -330,7 +393,9 @@ function SecurityPage() {
                 max={20}
                 value={settings.max_failed_attempts}
                 disabled={!isMaster}
-                onChange={(event) => updateSettings.mutate({ max_failed_attempts: Number(event.target.value) })}
+                onChange={(event) =>
+                  updateSettings.mutate({ max_failed_attempts: Number(event.target.value) })
+                }
               />
             </div>
             <div>
@@ -341,7 +406,9 @@ function SecurityPage() {
                 max={3650}
                 value={settings.audit_retention_days}
                 disabled={!isMaster}
-                onChange={(event) => updateSettings.mutate({ audit_retention_days: Number(event.target.value) })}
+                onChange={(event) =>
+                  updateSettings.mutate({ audit_retention_days: Number(event.target.value) })
+                }
               />
             </div>
           </div>
@@ -354,15 +421,22 @@ function SecurityPage() {
                   Cadastre um fator TOTP antes de exigir 2FA para toda a equipe.
                 </p>
               </div>
-              <Button size="sm" onClick={startTotpEnroll} disabled={!settings.allow_totp}>
+              <Button
+                size="sm"
+                onClick={startTotpEnroll}
+                disabled={!settings.allow_totp || hasVerifiedTotp}
+              >
                 <KeyRound className="mr-1.5 h-4 w-4" />
-                Ativar 2FA
+                {hasVerifiedTotp ? "2FA ativo" : "Ativar 2FA"}
               </Button>
             </div>
             {totpFactors.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {totpFactors.map((factor: any) => (
-                  <Badge key={factor.id} variant={factor.status === "verified" ? "default" : "secondary"}>
+                  <Badge
+                    key={factor.id}
+                    variant={factor.status === "verified" ? "default" : "secondary"}
+                  >
                     TOTP {factor.status === "verified" ? "verificado" : factor.status}
                   </Badge>
                 ))}
@@ -381,7 +455,11 @@ function SecurityPage() {
                   <p className="text-xs text-muted-foreground">
                     Escaneie o QR Code no aplicativo autenticador e confirme o codigo de 6 digitos.
                   </p>
-                  <Input value={totpCode} onChange={(event) => setTotpCode(event.target.value)} placeholder="Codigo 2FA" />
+                  <Input
+                    value={totpCode}
+                    onChange={(event) => setTotpCode(event.target.value)}
+                    placeholder="Codigo 2FA"
+                  />
                   <Button onClick={verifyTotp}>Confirmar 2FA</Button>
                 </div>
               </div>
@@ -401,9 +479,14 @@ function SecurityPage() {
           ) : (
             <div className="space-y-2">
               {blocks.map((block: any) => (
-                <div key={block.id} className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm">
+                <div
+                  key={block.id}
+                  className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm"
+                >
                   <div className="min-w-0">
-                    <div className="truncate font-medium">{block.email || block.user_id || "Usuario sem identificacao"}</div>
+                    <div className="truncate font-medium">
+                      {block.email || block.user_id || "Usuario sem identificacao"}
+                    </div>
                     <div className="text-xs text-muted-foreground">{block.reason}</div>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => unblock.mutate(block)}>
@@ -442,7 +525,9 @@ function SecurityPage() {
               <tbody>
                 {events.map((event: any) => (
                   <tr key={event.id} className="border-b align-top">
-                    <td className="py-3 pr-3 whitespace-nowrap">{new Date(event.created_at).toLocaleString("pt-BR")}</td>
+                    <td className="py-3 pr-3 whitespace-nowrap">
+                      {new Date(event.created_at).toLocaleString("pt-BR")}
+                    </td>
                     <td className="py-3 pr-3">
                       <div className="font-medium">{event.event_type}</div>
                       <div className="max-w-[360px] truncate text-xs text-muted-foreground">
@@ -451,21 +536,43 @@ function SecurityPage() {
                     </td>
                     <td className="py-3 pr-3">{event.actor_email || event.actor_user_id || "-"}</td>
                     <td className="py-3 pr-3">
-                      <Badge variant={event.severity === "critical" ? "destructive" : "secondary"}>{event.severity}</Badge>
+                      <Badge variant={event.severity === "critical" ? "destructive" : "secondary"}>
+                        {event.severity}
+                      </Badge>
                     </td>
                     <td className="py-3 pr-3">{event.status}</td>
                     <td className="py-3 pr-3">
                       <div className="flex justify-end gap-2">
-                        <Button size="icon" variant="outline" title="Resolver" onClick={() => eventAction.mutate({ event, action: "resolved" })}>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          title="Resolver"
+                          onClick={() => eventAction.mutate({ event, action: "resolved" })}
+                        >
                           <CheckCircle2 className="h-4 w-4" />
                         </Button>
-                        <Button size="icon" variant="outline" title="Revogar acessos do portal" onClick={() => eventAction.mutate({ event, action: "revoked" })}>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          title="Revogar acessos do portal"
+                          onClick={() => eventAction.mutate({ event, action: "revoked" })}
+                        >
                           <KeyRound className="h-4 w-4" />
                         </Button>
-                        <Button size="icon" variant="outline" title="Bloquear usuario" onClick={() => eventAction.mutate({ event, action: "blocked" })}>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          title="Bloquear usuario"
+                          onClick={() => eventAction.mutate({ event, action: "blocked" })}
+                        >
                           <Ban className="h-4 w-4" />
                         </Button>
-                        <Button size="icon" variant="destructive" title="Marcar como excluido" onClick={() => eventAction.mutate({ event, action: "deleted" })}>
+                        <Button
+                          size="icon"
+                          variant="destructive"
+                          title="Marcar como excluido"
+                          onClick={() => eventAction.mutate({ event, action: "deleted" })}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -490,8 +597,16 @@ function SecurityPage() {
 
 function isSupabaseStructureError(error: unknown) {
   if (!error || typeof error !== "object") return false;
-  const current = error as { code?: string | number | null; message?: string; details?: string; hint?: string };
-  const text = [current.message, current.details, current.hint].filter(Boolean).join(" ").toLowerCase();
+  const current = error as {
+    code?: string | number | null;
+    message?: string;
+    details?: string;
+    hint?: string;
+  };
+  const text = [current.message, current.details, current.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
   return (
     current.code === "PGRST204" ||
     current.code === "PGRST205" ||
