@@ -144,12 +144,219 @@ const STATUS_VARIANT: Record<IntegrationStatus, "default" | "secondary" | "outli
   planned: "outline",
 };
 
-function IntegrationIcon({ connector, className = "h-10 w-10" }: { connector: IntegrationConnector; className?: string }) {
+function BrandLogo({ connector }: { connector: IntegrationConnector }) {
+  switch (connector.id) {
+    case "supabase":
+      return (
+        <svg viewBox="0 0 48 48" className="h-7 w-7" aria-hidden="true">
+          <path
+            fill="#3ECF8E"
+            d="M27.2 4.6c-.8-1.4-3-.8-3 1v17.1H8.8c-1.6 0-2.6 1.8-1.7 3.1l13.7 20.1c.8 1.3 2.9.7 2.9-.9V27.9h15.5c1.6 0 2.6-1.8 1.7-3.1L27.2 4.6Z"
+          />
+          <path
+            fill="#1F8A5B"
+            d="M24.2 22.7V5.6c0-1.8 2.2-2.4 3-1l13.7 20.2c.9 1.3-.1 3.1-1.7 3.1H23.7l.5-5.2Z"
+          />
+        </svg>
+      );
+    case "wordpress":
+      return (
+        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
+          <circle cx="24" cy="24" r="22" fill="#21759B" />
+          <path
+            fill="#fff"
+            d="M8.7 24c0 6.1 3.6 11.4 8.8 13.8L10 17.3A15.2 15.2 0 0 0 8.7 24Zm25.6-.8c0-1.9-.7-3.3-1.3-4.4-.8-1.3-1.6-2.4-1.6-3.7 0-1.5 1.1-2.8 2.7-2.8h.2A15.2 15.2 0 0 0 11.4 15h1c1.6 0 4-.2 4-.2.8 0 .9 1.2.1 1.3 0 0-.8.1-1.7.1l5.5 16.3 3.3-9.9-2.3-6.4-1.6-.1c-.8 0-.7-1.3.1-1.3 0 0 2.5.2 4 .2 1.6 0 4-.2 4-.2.8 0 .9 1.2.1 1.3 0 0-.8.1-1.7.1l5.4 16.2 1.5-5c.7-2 1.2-3.5 1.2-4.2ZM24.3 25.3l-4.5 13.1a15.2 15.2 0 0 0 9.2-.2l-.1-.2-4.6-12.7Zm13.1-9.1c.1.5.1 1 .1 1.6 0 1.5-.3 3.2-1.1 5.3l-4.6 13.4A15.2 15.2 0 0 0 37.4 16.2Z"
+          />
+        </svg>
+      );
+    case "gmail":
+      return (
+        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
+          <path fill="#fff" d="M8 13h32v24H8z" />
+          <path fill="#EA4335" d="M8 13v24h6V22.8L24 30l10-7.2V37h6V13l-16 12L8 13Z" />
+          <path fill="#FBBC04" d="M8 13v6.7l16 11.8 4.8-3.5L8 13Z" />
+          <path fill="#34A853" d="M40 13v6.7L24 31.5 19.2 28 40 13Z" />
+          <path fill="#4285F4" d="M34 22.8V37h6V18.3l-6 4.5Z" />
+          <path fill="#C5221F" d="M8 18.3V37h6V22.8l-6-4.5Z" />
+        </svg>
+      );
+    case "google-calendar":
+      return (
+        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
+          <rect x="8" y="8" width="32" height="32" rx="6" fill="#fff" />
+          <path fill="#4285F4" d="M14 8h20a6 6 0 0 1 6 6v5H8v-5a6 6 0 0 1 6-6Z" />
+          <path fill="#34A853" d="M8 19h7v21h-1a6 6 0 0 1-6-6V19Z" />
+          <path fill="#FBBC04" d="M33 19h7v15a6 6 0 0 1-6 6h-1V19Z" />
+          <path fill="#EA4335" d="M15 34h18v6H15z" />
+          <text x="24" y="32" textAnchor="middle" fontSize="13" fontWeight="700" fill="#3c4043">
+            31
+          </text>
+        </svg>
+      );
+    case "stripe":
+      return (
+        <svg viewBox="0 0 64 48" className="h-8 w-10" aria-hidden="true">
+          <rect x="4" y="8" width="56" height="32" rx="9" fill="#635BFF" />
+          <text
+            x="32"
+            y="29"
+            textAnchor="middle"
+            fontSize="13"
+            fontWeight="800"
+            fill="#fff"
+            fontFamily="Arial, sans-serif"
+          >
+            stripe
+          </text>
+        </svg>
+      );
+    case "autentique":
+      return (
+        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
+          <rect x="7" y="7" width="34" height="34" rx="9" fill="#6D28D9" />
+          <path
+            d="M16 29c4-9 7-13 10-13 2.4 0 3.7 1.8 2.7 4.2L25.5 28c-.6 1.5.9 2.6 2.2 1.7l6.3-4.4"
+            fill="none"
+            stroke="#fff"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="m30 31 3.2 3.2L40 26.8"
+            fill="none"
+            stroke="#22C55E"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "whatsapp":
+      return (
+        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
+          <circle cx="24" cy="24" r="20" fill="#25D366" />
+          <path
+            fill="#fff"
+            d="M16.5 35.5 18 30a12.5 12.5 0 1 1 4.8 3.7l-6.3 1.8Zm6.7-4.8.5.1a9.2 9.2 0 1 0-2.8-1.7l.4.5-.8 2.8 2.7-.8Z"
+          />
+          <path
+            fill="#fff"
+            d="M29.1 26.2c-.4-.2-2.2-1.1-2.5-1.2-.3-.1-.6-.2-.8.2-.2.4-.9 1.2-1.1 1.4-.2.3-.4.3-.8.1-.4-.2-1.5-.6-2.9-1.8-1.1-1-1.8-2.1-2-2.5-.2-.4 0-.6.2-.8l.6-.7c.2-.2.2-.4.4-.6.1-.3.1-.5 0-.7-.1-.2-.8-2-1.1-2.7-.3-.7-.6-.6-.8-.6h-.7c-.3 0-.7.1-1 .5-.3.4-1.3 1.3-1.3 3.1s1.4 3.7 1.6 3.9c.2.3 2.7 4.2 6.5 5.8 3.2 1.4 3.9 1.1 4.6 1 .7-.1 2.2-.9 2.5-1.8.3-.9.3-1.6.2-1.8-.1-.2-.3-.3-.7-.5Z"
+          />
+        </svg>
+      );
+    case "google-drive":
+      return (
+        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
+          <path fill="#0F9D58" d="M18 7h12l12 21H30L18 7Z" />
+          <path fill="#4285F4" d="M6 28h12L30 7H18L6 28Z" />
+          <path fill="#F4B400" d="M18 28h24l-6 13H12l6-13Z" />
+          <path fill="#DB4437" d="m6 28 6 13 6-13H6Z" />
+        </svg>
+      );
+    case "asaas":
+      return (
+        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
+          <rect x="7" y="7" width="34" height="34" rx="10" fill="#00A8E0" />
+          <path
+            d="M15 29c2.6 3.2 6 4.8 10.2 4.8 4 0 7-2.1 7-5 0-7.2-16.2-3.8-16.2-10.1 0-2.8 2.8-4.9 7.1-4.9 3.4 0 6.1 1.1 8.2 3.3"
+            fill="none"
+            stroke="#fff"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+        </svg>
+      );
+    case "openai":
+      return (
+        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
+          <circle cx="24" cy="24" r="21" fill="#111827" />
+          <path
+            d="M24 12.5a8 8 0 0 1 7.2 4.5 8 8 0 0 1 4.8 11.8 8 8 0 0 1-9.2 6.8 8 8 0 0 1-12-5.2 8 8 0 0 1 2-12.6A8 8 0 0 1 24 12.5Z"
+            fill="none"
+            stroke="#fff"
+            strokeWidth="2.4"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case "n8n":
+      return (
+        <svg viewBox="0 0 56 48" className="h-8 w-10" aria-hidden="true">
+          <rect x="6" y="11" width="44" height="26" rx="13" fill="#EA4B71" />
+          <circle cx="17" cy="24" r="4" fill="#fff" />
+          <circle cx="28" cy="24" r="4" fill="#fff" />
+          <circle cx="39" cy="24" r="4" fill="#fff" />
+          <path d="M17 24h22" stroke="#fff" strokeWidth="3" />
+        </svg>
+      );
+    case "zapier-make":
+      return (
+        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
+          <circle cx="24" cy="24" r="20" fill="#FF4F00" />
+          <path
+            d="M24 12v24M12 24h24M15.5 15.5l17 17M32.5 15.5l-17 17"
+            stroke="#fff"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+        </svg>
+      );
+    case "maps":
+      return (
+        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
+          <path
+            fill="#34A853"
+            d="M24 4c7.2 0 13 5.8 13 13 0 9.8-13 27-13 27S11 26.8 11 17C11 9.8 16.8 4 24 4Z"
+          />
+          <path fill="#4285F4" d="M24 4v40s13-17.2 13-27c0-7.2-5.8-13-13-13Z" opacity=".85" />
+          <circle cx="24" cy="17" r="5" fill="#fff" />
+          <path fill="#FBBC04" d="M11 17c0 4.6 2.9 10.7 5.9 15.8L24 17 11 17Z" opacity=".75" />
+        </svg>
+      );
+    case "viacep":
+      return (
+        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
+          <rect x="7" y="9" width="34" height="30" rx="7" fill="#F59E0B" />
+          <path
+            d="M15 19h18M15 25h18M15 31h11"
+            stroke="#fff"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+        </svg>
+      );
+    case "receita":
+      return (
+        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
+          <rect x="8" y="7" width="32" height="34" rx="5" fill="#1D4ED8" />
+          <path
+            d="M16 17h16M16 24h16M16 31h10"
+            stroke="#fff"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+          <path d="M34 32 38 36" stroke="#22C55E" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      );
+    default:
+      return <span className="text-xs font-bold text-foreground">{connector.icon}</span>;
+  }
+}
+
+function IntegrationIcon({
+  connector,
+  className = "h-10 w-10",
+}: {
+  connector: IntegrationConnector;
+  className?: string;
+}) {
   return (
     <div
-      className={`${className} flex shrink-0 items-center justify-center rounded-xl ${connector.accent} text-xs font-bold text-white shadow-sm`}
+      className={`${className} flex shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm dark:bg-white`}
     >
-      {connector.icon}
+      <BrandLogo connector={connector} />
     </div>
   );
 }
@@ -649,8 +856,8 @@ function WordPressPanel({
           </div>
           <p className="text-sm text-muted-foreground">
             Baixe e instale o plugin{" "}
-            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">imobiflow-sync.php</code>.
-            Após ativar, vá em <strong>Configurações → ImobiFlow Sync</strong> e cole a mesma API Key.
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">imobiflow-sync.php</code>. Após
+            ativar, vá em <strong>Configurações → ImobiFlow Sync</strong> e cole a mesma API Key.
           </p>
           <Button variant="outline" onClick={onDownloadPlugin} className="mt-4">
             <Download className="mr-1.5 h-4 w-4" />
@@ -727,7 +934,9 @@ function WordPressPanel({
                 </div>
                 <div className="text-xs text-muted-foreground">{log.message}</div>
               </div>
-              <div className="text-xs text-muted-foreground">{formatDateTimeBR(log.created_at)}</div>
+              <div className="text-xs text-muted-foreground">
+                {formatDateTimeBR(log.created_at)}
+              </div>
             </div>
           ))}
         </div>
