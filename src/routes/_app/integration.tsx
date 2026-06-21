@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Integration adapters use external payloads and legacy sync tables. */
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Boxes,
@@ -9,11 +9,14 @@ import {
   Clock,
   Download,
   ExternalLink,
+  Info,
+  Plus,
+  Power,
+  PowerOff,
   Plug,
   RefreshCw,
   Search,
   Settings2,
-  ShieldCheck,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -32,8 +35,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDateTimeBR } from "@/lib/format-date";
 import { translatedErrorMessage } from "@/lib/error-messages";
+import {
+  disableIntegrationConnection,
+  listIntegrationWorkspaceState,
+  saveIntegrationConnection,
+  setIntegrationConnectorEnabled,
+} from "@/lib/integrations/integration-connections.functions";
 
 export const Route = createFileRoute("/_app/integration")({ component: IntegrationPage });
 
@@ -143,6 +167,64 @@ const STATUS_VARIANT: Record<IntegrationStatus, "default" | "secondary" | "outli
   available: "secondary",
   planned: "outline",
 };
+
+type ConnectionAuthType = "oauth" | "api_key" | "webhook" | "server_secret" | "manual";
+
+type ConnectionForm = {
+  name: string;
+  authType: ConnectionAuthType;
+  accountLabel: string;
+  externalAccountId: string;
+  secretRef: string;
+  webhookUrl: string;
+  callbackUrl: string;
+  scopes: string;
+  notes: string;
+};
+
+const AUTH_TYPE_LABEL: Record<ConnectionAuthType, string> = {
+  oauth: "OAuth / conta externa",
+  api_key: "API Key",
+  webhook: "Webhook",
+  server_secret: "Secret do servidor",
+  manual: "Manual / planejamento",
+};
+
+function defaultAuthTypeFor(connector: IntegrationConnector): ConnectionAuthType {
+  if (["gmail", "google-drive", "google-calendar", "maps"].includes(connector.id)) return "oauth";
+  if (["autentique", "openai"].includes(connector.id)) return "server_secret";
+  if (["wordpress", "asaas", "stripe", "whatsapp"].includes(connector.id)) return "api_key";
+  if (["n8n", "zapier-make"].includes(connector.id)) return "webhook";
+  return "manual";
+}
+
+function defaultConnectionForm(connector: IntegrationConnector): ConnectionForm {
+  return {
+    name: `${connector.name} principal`,
+    authType: defaultAuthTypeFor(connector),
+    accountLabel: "",
+    externalAccountId: "",
+    secretRef: connector.id === "autentique" ? "AUTENTIQUE_API_KEY" : "",
+    webhookUrl: "",
+    callbackUrl: connector.id === "autentique" ? "/api/autentique/webhook" : "",
+    scopes: "",
+    notes: "",
+  };
+}
+
+function connectionStatusLabel(status: string) {
+  if (status === "active") return "Ativa";
+  if (status === "disabled") return "Desativada";
+  if (status === "error") return "Erro";
+  if (status === "pending") return "Pendente";
+  return status;
+}
+
+function connectionStatusVariant(status: string): "default" | "secondary" | "outline" {
+  if (status === "active") return "default";
+  if (status === "disabled") return "outline";
+  return "secondary";
+}
 
 function BrandLogo({ connector }: { connector: IntegrationConnector }) {
   switch (connector.id) {
@@ -362,12 +444,22 @@ function IntegrationIcon({
 }
 
 function IntegrationPage() {
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<IntegrationCategory | "all" | "enabled">("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [wpUrl, setWpUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [connectionConnector, setConnectionConnector] = useState<IntegrationConnector | null>(null);
+  const [connectionForm, setConnectionForm] = useState<ConnectionForm | null>(null);
+  const [savingConnection, setSavingConnection] = useState(false);
+  const [togglingConnectorId, setTogglingConnectorId] = useState<string | null>(null);
+  const [disablingConnectionId, setDisablingConnectionId] = useState<string | null>(null);
   const sync = useServerFn(syncPropertyToWordPress);
+  const listWorkspaceState = useServerFn(listIntegrationWorkspaceState);
+  const saveConnection = useServerFn(saveIntegrationConnection);
+  const setConnectorEnabled = useServerFn(setIntegrationConnectorEnabled);
+  const disableConnection = useServerFn(disableIntegrationConnection);
   const stats = integrationStats();
 
   const selectedConnector = selectedId
@@ -389,6 +481,32 @@ function IntegrationPage() {
       return matchesCategory && matchesSearch;
     });
   }, [category, search]);
+
+  const workspaceStateQuery = useQuery({
+    queryKey: ["integration-workspace-state"],
+    queryFn: async () => (await (listWorkspaceState as any)()) as any,
+    retry: false,
+  });
+
+  const connectorSettings = workspaceStateQuery.data?.settings ?? [];
+  const integrationConnections = workspaceStateQuery.data?.connections ?? [];
+  const schemaReady = workspaceStateQuery.data?.schemaReady ?? true;
+
+  function settingFor(connectorId: string) {
+    return connectorSettings.find((setting: any) => setting.connector_id === connectorId) ?? null;
+  }
+
+  function connectionsFor(connectorId: string) {
+    return integrationConnections.filter(
+      (connection: any) => connection.connector_id === connectorId,
+    );
+  }
+
+  function isConnectorEnabled(connector: IntegrationConnector) {
+    const setting = settingFor(connector.id);
+    if (setting) return setting.enabled !== false && setting.status !== "disabled";
+    return connector.status === "enabled";
+  }
 
   useEffect(() => {
     setWpUrl(localStorage.getItem("imobiflow.wpUrl") ?? "");
@@ -444,6 +562,84 @@ function IntegrationPage() {
     anchor.download = "imobiflow-sync.php";
     anchor.click();
     URL.revokeObjectURL(anchor.href);
+  }
+
+  function openConnectionDialog(connector: IntegrationConnector) {
+    setConnectionConnector(connector);
+    setConnectionForm(defaultConnectionForm(connector));
+  }
+
+  async function submitConnection() {
+    if (!connectionConnector || !connectionForm) return;
+    setSavingConnection(true);
+    try {
+      await saveConnection({
+        data: {
+          connectorId: connectionConnector.id,
+          name: connectionForm.name,
+          authType: connectionForm.authType,
+          accountLabel: connectionForm.accountLabel || null,
+          externalAccountId: connectionForm.externalAccountId || null,
+          secretRef: connectionForm.secretRef || null,
+          webhookUrl: connectionForm.webhookUrl || null,
+          callbackUrl: connectionForm.callbackUrl || null,
+          notes: connectionForm.notes || null,
+          scopes: connectionForm.scopes
+            .split(",")
+            .map((scope) => scope.trim())
+            .filter(Boolean),
+        },
+      });
+      setConnectionConnector(null);
+      setConnectionForm(null);
+      qc.invalidateQueries({ queryKey: ["integration-workspace-state"] });
+      toast.success("Conexão cadastrada");
+    } catch (error) {
+      toast.error(translatedErrorMessage(error, "Nao foi possivel cadastrar a conexao."));
+    } finally {
+      setSavingConnection(false);
+    }
+  }
+
+  async function toggleConnector(connector: IntegrationConnector, enabled: boolean) {
+    const reason = enabled
+      ? null
+      : window.prompt("Motivo para desativar este conector:", "Desativado pelo workspace");
+    if (!enabled && reason === null) return;
+    setTogglingConnectorId(connector.id);
+    try {
+      await setConnectorEnabled({
+        data: {
+          connectorId: connector.id,
+          enabled,
+          reason,
+        },
+      });
+      qc.invalidateQueries({ queryKey: ["integration-workspace-state"] });
+      toast.success(enabled ? "Conector habilitado" : "Conector desativado");
+    } catch (error) {
+      toast.error(translatedErrorMessage(error, "Nao foi possivel atualizar o conector."));
+    } finally {
+      setTogglingConnectorId(null);
+    }
+  }
+
+  async function disableConnectionById(connectionId: string) {
+    const reason = window.prompt(
+      "Motivo para desativar esta conexão:",
+      "Conexão desativada pelo workspace",
+    );
+    if (reason === null) return;
+    setDisablingConnectionId(connectionId);
+    try {
+      await disableConnection({ data: { connectionId, reason } });
+      qc.invalidateQueries({ queryKey: ["integration-workspace-state"] });
+      toast.success("Conexão desativada");
+    } catch (error) {
+      toast.error(translatedErrorMessage(error, "Nao foi possivel desativar a conexao."));
+    } finally {
+      setDisablingConnectionId(null);
+    }
   }
 
   return (
@@ -544,6 +740,11 @@ function IntegrationPage() {
           {selectedConnector ? (
             <ConnectorDetails
               connector={selectedConnector}
+              enabled={isConnectorEnabled(selectedConnector)}
+              schemaReady={schemaReady}
+              connections={connectionsFor(selectedConnector.id)}
+              togglingConnector={togglingConnectorId === selectedConnector.id}
+              disablingConnectionId={disablingConnectionId}
               wpUrl={wpUrl}
               apiKey={apiKey}
               onWpUrlChange={setWpUrl}
@@ -553,6 +754,9 @@ function IntegrationPage() {
               properties={props}
               logs={logs}
               onSyncProperty={syncOne}
+              onAddConnection={() => openConnectionDialog(selectedConnector)}
+              onToggleConnector={(enabled) => toggleConnector(selectedConnector, enabled)}
+              onDisableConnection={disableConnectionById}
               onBack={() => setSelectedId(null)}
             />
           ) : (
@@ -613,12 +817,29 @@ function IntegrationPage() {
           )}
         </main>
       </div>
+
+      <ConnectionDialog
+        connector={connectionConnector}
+        form={connectionForm}
+        saving={savingConnection}
+        onChange={setConnectionForm}
+        onSubmit={submitConnection}
+        onClose={() => {
+          setConnectionConnector(null);
+          setConnectionForm(null);
+        }}
+      />
     </div>
   );
 }
 
 function ConnectorDetails({
   connector,
+  enabled,
+  schemaReady,
+  connections,
+  togglingConnector,
+  disablingConnectionId,
   wpUrl,
   apiKey,
   onWpUrlChange,
@@ -628,9 +849,17 @@ function ConnectorDetails({
   properties,
   logs,
   onSyncProperty,
+  onAddConnection,
+  onToggleConnector,
+  onDisableConnection,
   onBack,
 }: {
   connector: IntegrationConnector;
+  enabled: boolean;
+  schemaReady: boolean;
+  connections: any[];
+  togglingConnector: boolean;
+  disablingConnectionId: string | null;
   wpUrl: string;
   apiKey: string;
   onWpUrlChange: (value: string) => void;
@@ -640,8 +869,13 @@ function ConnectorDetails({
   properties: any[];
   logs: any[];
   onSyncProperty: (propertyId: string) => void;
+  onAddConnection: () => void;
+  onToggleConnector: (enabled: boolean) => void;
+  onDisableConnection: (connectionId: string) => void;
   onBack: () => void;
 }) {
+  const activeConnections = connections.filter((connection) => connection.status === "active");
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -659,22 +893,42 @@ function ConnectorDetails({
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-semibold">{connector.name}</h2>
-                <Badge variant={STATUS_VARIANT[connector.status]}>
-                  {STATUS_LABEL[connector.status]}
+                <Badge variant={enabled ? "default" : "outline"}>
+                  {connector.status === "planned"
+                    ? STATUS_LABEL[connector.status]
+                    : enabled
+                      ? "Habilitado"
+                      : "Desativado"}
                 </Badge>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">{connector.tagline}</p>
             </div>
           </div>
-          {connector.status === "enabled" ? (
-            <Button variant="outline" disabled>
-              <ShieldCheck className="mr-1.5 h-4 w-4" />
-              Habilitado no workspace
+          {enabled ? (
+            <Button
+              variant="outline"
+              disabled={togglingConnector}
+              onClick={() => onToggleConnector(false)}
+            >
+              <PowerOff className="mr-1.5 h-4 w-4" />
+              {togglingConnector ? "Desativando..." : "Desativar para o espaço de trabalho"}
             </Button>
           ) : (
-            <Button variant="outline" disabled>
-              <Clock className="mr-1.5 h-4 w-4" />
-              Preparado para roadmap
+            <Button
+              variant="outline"
+              disabled={togglingConnector || connector.status === "planned"}
+              onClick={() => onToggleConnector(true)}
+            >
+              {connector.status === "planned" ? (
+                <Clock className="mr-1.5 h-4 w-4" />
+              ) : (
+                <Power className="mr-1.5 h-4 w-4" />
+              )}
+              {connector.status === "planned"
+                ? "Preparado para roadmap"
+                : togglingConnector
+                  ? "Habilitando..."
+                  : "Habilitar no workspace"}
             </Button>
           )}
         </div>
@@ -686,6 +940,17 @@ function ConnectorDetails({
             <h3 className="text-lg font-semibold">Visão geral</h3>
             <p className="mt-1 text-sm text-muted-foreground">{connector.overview}</p>
           </div>
+
+          <ConnectionsPanel
+            connector={connector}
+            enabled={enabled}
+            schemaReady={schemaReady}
+            connections={connections}
+            activeCount={activeConnections.length}
+            disablingConnectionId={disablingConnectionId}
+            onAddConnection={onAddConnection}
+            onDisableConnection={onDisableConnection}
+          />
 
           <div>
             <h3 className="text-lg font-semibold">Recursos principais</h3>
@@ -771,6 +1036,272 @@ function ConnectorDetails({
         </aside>
       </section>
     </div>
+  );
+}
+
+function ConnectionsPanel({
+  connector,
+  enabled,
+  schemaReady,
+  connections,
+  activeCount,
+  disablingConnectionId,
+  onAddConnection,
+  onDisableConnection,
+}: {
+  connector: IntegrationConnector;
+  enabled: boolean;
+  schemaReady: boolean;
+  connections: any[];
+  activeCount: number;
+  disablingConnectionId: string | null;
+  onAddConnection: () => void;
+  onDisableConnection: (connectionId: string) => void;
+}) {
+  return (
+    <div className="rounded-xl border bg-card p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold">Conexões</h3>
+          <p className="text-sm text-muted-foreground">
+            Criar e configurar credenciais para {connector.name}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          disabled={!schemaReady || !enabled || connector.status === "planned"}
+          onClick={onAddConnection}
+        >
+          <Plus className="mr-1.5 h-4 w-4" />
+          Adicionar conexão
+        </Button>
+      </div>
+
+      {!schemaReady && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-100">
+          A migration de conexões ainda precisa ser aplicada para habilitar cadastro e desativação.
+        </div>
+      )}
+
+      {!enabled && connector.status !== "planned" && (
+        <div className="mb-4 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+          Este conector está desativado para o workspace. Habilite-o antes de criar novas conexões.
+        </div>
+      )}
+
+      {connections.length === 0 ? (
+        <div className="flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+          <Info className="mb-2 h-5 w-5" />
+          Nenhuma conexão encontrada
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {connections.map((connection) => {
+            const config = connection.config ?? {};
+            return (
+              <div key={connection.id} className="rounded-xl border p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{connection.name}</p>
+                      <Badge variant={connectionStatusVariant(connection.status)}>
+                        {connectionStatusLabel(connection.status)}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {AUTH_TYPE_LABEL[connection.auth_type as ConnectionAuthType] ??
+                        connection.auth_type}
+                      {connection.account_label ? ` · ${connection.account_label}` : ""}
+                    </p>
+                  </div>
+                  {connection.status === "active" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={disablingConnectionId === connection.id}
+                      onClick={() => onDisableConnection(connection.id)}
+                    >
+                      <PowerOff className="mr-1.5 h-3.5 w-3.5" />
+                      {disablingConnectionId === connection.id ? "Desativando..." : "Desativar"}
+                    </Button>
+                  )}
+                </div>
+                <div className="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
+                  {connection.secret_ref && (
+                    <div className="rounded bg-muted/50 p-2">
+                      Secret: <code>{connection.secret_ref}</code>
+                    </div>
+                  )}
+                  {config.webhook_url && (
+                    <div className="rounded bg-muted/50 p-2">
+                      Webhook: <code>{config.webhook_url}</code>
+                    </div>
+                  )}
+                  {config.callback_url && (
+                    <div className="rounded bg-muted/50 p-2">
+                      Callback: <code>{config.callback_url}</code>
+                    </div>
+                  )}
+                  {connection.disabled_reason && (
+                    <div className="rounded bg-muted/50 p-2">
+                      Motivo: {connection.disabled_reason}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {activeCount > 0 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {activeCount} conexão{activeCount > 1 ? "ões" : ""} ativa{activeCount > 1 ? "s" : ""}{" "}
+          neste conector.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ConnectionDialog({
+  connector,
+  form,
+  saving,
+  onChange,
+  onSubmit,
+  onClose,
+}: {
+  connector: IntegrationConnector | null;
+  form: ConnectionForm | null;
+  saving: boolean;
+  onChange: (form: ConnectionForm | null) => void;
+  onSubmit: () => void;
+  onClose: () => void;
+}) {
+  const open = !!connector && !!form;
+  const isOauth = form?.authType === "oauth";
+
+  function patch(patchValue: Partial<ConnectionForm>) {
+    if (!form) return;
+    onChange({ ...form, ...patchValue });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Adicionar conexão{connector ? ` · ${connector.name}` : ""}</DialogTitle>
+        </DialogHeader>
+
+        {form && connector && (
+          <div className="space-y-4">
+            {isOauth && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-100">
+                Esta estrutura está pronta para OAuth. Quando o provedor estiver configurado, o
+                fluxo abrirá uma janela de autorização como no Lovable. Por enquanto, salve a
+                conexão planejada com callback, escopos e conta.
+              </div>
+            )}
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <Label>Nome da conexão</Label>
+                <Input
+                  value={form.name}
+                  onChange={(event) => patch({ name: event.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Tipo de autenticação</Label>
+                <Select
+                  value={form.authType}
+                  onValueChange={(value) => patch({ authType: value as ConnectionAuthType })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(AUTH_TYPE_LABEL).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Conta / organização</Label>
+                <Input
+                  value={form.accountLabel}
+                  onChange={(event) => patch({ accountLabel: event.target.value })}
+                  placeholder="ex.: house302imob@gmail.com"
+                />
+              </div>
+              <div>
+                <Label>ID externo</Label>
+                <Input
+                  value={form.externalAccountId}
+                  onChange={(event) => patch({ externalAccountId: event.target.value })}
+                  placeholder="Opcional"
+                />
+              </div>
+              <div>
+                <Label>Secret no servidor</Label>
+                <Input
+                  value={form.secretRef}
+                  onChange={(event) => patch({ secretRef: event.target.value })}
+                  placeholder="ex.: AUTENTIQUE_API_KEY"
+                />
+              </div>
+              <div>
+                <Label>Escopos</Label>
+                <Input
+                  value={form.scopes}
+                  onChange={(event) => patch({ scopes: event.target.value })}
+                  placeholder="Separados por vírgula"
+                />
+              </div>
+              <div>
+                <Label>Webhook URL</Label>
+                <Input
+                  value={form.webhookUrl}
+                  onChange={(event) => patch({ webhookUrl: event.target.value })}
+                  placeholder="https://..."
+                />
+              </div>
+              <div>
+                <Label>Callback URL</Label>
+                <Input
+                  value={form.callbackUrl}
+                  onChange={(event) => patch({ callbackUrl: event.target.value })}
+                  placeholder="/api/provider/callback"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>Observações internas</Label>
+              <Textarea
+                value={form.notes}
+                onChange={(event) => patch({ notes: event.target.value })}
+                placeholder="Descreva ambiente, provedor, credenciais externas ou próximos passos."
+                rows={3}
+              />
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button onClick={onSubmit} disabled={saving || !form?.name.trim()}>
+            {saving ? "Salvando..." : "Salvar conexão"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
