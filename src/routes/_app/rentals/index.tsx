@@ -732,6 +732,13 @@ function RentalsPage() {
     };
   }
 
+  async function removeUploadedPaymentReceipts(attachments: PaymentReceiptAttachment[]) {
+    const paths = attachments.map((attachment) => attachment.file_path).filter(Boolean);
+    if (paths.length === 0) return;
+    const { error } = await supabase.storage.from("rental-payment-receipts").remove(paths);
+    if (error) console.warn("Nao foi possivel remover recibos apos falha no lancamento", error);
+  }
+
   function paymentReceiptAttachments(p: any): PaymentReceiptAttachment[] {
     const stored = Array.isArray(p.receipt_attachments) ? p.receipt_attachments : [];
     const attachments = stored
@@ -840,10 +847,12 @@ function RentalsPage() {
       deposit_refund_amount: amount,
       deposit_refund_notes: depositRefundForm.notes || null,
     };
+    let uploadedRefundReceipt: PaymentReceiptAttachment | null = null;
 
     try {
       if (depositRefundReceiptFile) {
         const receiptAttachment = await uploadPaymentReceipt(p.id, depositRefundReceiptFile);
+        uploadedRefundReceipt = receiptAttachment;
         patch.deposit_refund_receipt_file_path = receiptAttachment.file_path;
         patch.deposit_refund_receipt_file_name = depositRefundReceiptFile.name;
         patch.deposit_refund_uploaded_at = receiptAttachment.uploaded_at;
@@ -855,10 +864,12 @@ function RentalsPage() {
     }
 
     const { error } = await updateRentalPayment(p.id, patch);
-    if (error)
+    if (error) {
+      if (uploadedRefundReceipt) await removeUploadedPaymentReceipts([uploadedRefundReceipt]);
       return toast.error(
         translatedErrorMessage(error, "Nao foi possivel registrar a devolucao do caucao."),
       );
+    }
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     toast.success("Devolução do caução registrada");
     closeDepositRefund();
@@ -879,9 +890,10 @@ function RentalsPage() {
       interest_amount: calc.interest,
     };
     let legacyReceiptPatch: Record<string, any> | undefined;
+    let uploadedReceipts: PaymentReceiptAttachment[] = [];
     try {
       if (payReceiptFiles.length > 0) {
-        const uploadedReceipts = await Promise.all(
+        uploadedReceipts = await Promise.all(
           payReceiptFiles.map((file) => uploadPaymentReceipt(p.id, file)),
         );
         const receiptAttachments = [...paymentReceiptAttachments(p), ...uploadedReceipts];
@@ -907,8 +919,10 @@ function RentalsPage() {
       );
     }
     const { error, usedFallback } = await updateRentalPayment(p.id, patch, legacyReceiptPatch);
-    if (error)
+    if (error) {
+      await removeUploadedPaymentReceipts(uploadedReceipts);
       return toast.error(translatedErrorMessage(error, "Nao foi possivel registrar o pagamento."));
+    }
     qc.invalidateQueries({ queryKey: ["rental_payments"] });
     if (usedFallback) {
       toast.warning(
@@ -1118,7 +1132,6 @@ function RentalsPage() {
       toast.error(translatedErrorMessage(err, "Nao foi possivel registrar os pagamentos."));
     }
   }
-
 
   async function updateContract(id: string, patch: {
     landlord_client_id?: string | null;
