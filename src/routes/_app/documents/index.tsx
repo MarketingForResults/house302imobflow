@@ -559,7 +559,7 @@ function DocumentsList() {
       </Dialog>
 
       <Dialog open={!!signingDocument} onOpenChange={(open) => !open && setSigningDocument(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Enviar para assinatura digital</DialogTitle>
           </DialogHeader>
