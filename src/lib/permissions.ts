@@ -20,13 +20,16 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 };
 
 export const ADMIN_ROLES: AppRole[] = ["master", "admin"];
-export const SECURITY_ROLES: AppRole[] = ["master", "it_support"];
+export const SECURITY_ROLES: AppRole[] = ["master", "it_support", "admin"];
 
 const OPERATIONAL_ROLES: AppRole[] = ["master", "admin", "manager", "broker"];
 const FINANCIAL_ROLES: AppRole[] = ["master", "admin", "manager", "financial"];
 
 export const ROUTE_ROLES: Array<{ prefix: string; roles: AppRole[] }> = [
-  { prefix: "/dashboard", roles: ["master", "it_support", "admin", "manager", "financial", "broker"] },
+  {
+    prefix: "/dashboard",
+    roles: ["master", "it_support", "admin", "manager", "financial", "broker"],
+  },
   { prefix: "/properties", roles: OPERATIONAL_ROLES },
   { prefix: "/clients", roles: OPERATIONAL_ROLES },
   { prefix: "/brokers", roles: ["master", "admin", "manager"] },
@@ -42,7 +45,10 @@ export const ROUTE_ROLES: Array<{ prefix: string; roles: AppRole[] }> = [
   { prefix: "/backups", roles: ["master"] },
   { prefix: "/system-docs", roles: ["master"] },
   { prefix: "/users", roles: ADMIN_ROLES },
-  { prefix: "/support", roles: ["master", "it_support", "admin", "manager", "financial", "broker", "owner", "tenant"] },
+  {
+    prefix: "/support",
+    roles: ["master", "it_support", "admin", "manager", "financial", "broker", "owner", "tenant"],
+  },
 ];
 
 export function hasAnyRole(userRoles: string[], allowedRoles: readonly AppRole[]) {

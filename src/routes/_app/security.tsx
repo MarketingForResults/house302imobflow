@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -24,6 +25,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { hasAnyRole } from "@/lib/permissions";
 import { translatedErrorMessage } from "@/lib/error-messages";
+import {
+  getSecurityDashboardState,
+  recordSecurityAuditEvent,
+  resolveSecurityEventAction,
+  unblockSecurityUser,
+  updateSecuritySettings,
+} from "@/lib/security.functions";
 
 export const Route = createFileRoute("/_app/security")({ component: SecurityPage });
 
@@ -39,61 +47,24 @@ const DEFAULT_SETTINGS = {
 };
 
 function SecurityPage() {
-  const { user, roles } = useAuth();
+  const { roles } = useAuth();
   const qc = useQueryClient();
   const [manualReason, setManualReason] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [pendingFactor, setPendingFactor] = useState<any>(null);
   const [pendingChallengeId, setPendingChallengeId] = useState<string | null>(null);
-  const canManageSecurity = hasAnyRole(roles, ["master", "it_support"]);
-  const isMaster = hasAnyRole(roles, ["master"]);
+  const canManageSecurity = hasAnyRole(roles, ["master", "it_support", "admin"]);
+  const isMaster = hasAnyRole(roles, ["master", "admin"]);
+  const listSecurityState = useServerFn(getSecurityDashboardState);
+  const saveSecuritySettings = useServerFn(updateSecuritySettings);
+  const recordAuditEvent = useServerFn(recordSecurityAuditEvent);
+  const runSecurityEventAction = useServerFn(resolveSecurityEventAction);
+  const runUnblockSecurityUser = useServerFn(unblockSecurityUser);
 
-  const settingsQuery = useQuery({
-    queryKey: ["security-settings"],
+  const securityStateQuery = useQuery({
+    queryKey: ["security-dashboard-state"],
     enabled: canManageSecurity,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("security_settings")
-        .select("*")
-        .eq("id", true)
-        .maybeSingle();
-      if (error && isSupabaseStructureError(error)) return DEFAULT_SETTINGS;
-      if (error) throw error;
-      return data ?? DEFAULT_SETTINGS;
-    },
-    retry: false,
-  });
-
-  const eventsQuery = useQuery({
-    queryKey: ["security-audit-events"],
-    enabled: canManageSecurity,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("security_audit_events")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (error && isSupabaseStructureError(error)) return [];
-      if (error) throw error;
-      return data ?? [];
-    },
-    retry: false,
-  });
-
-  const blocksQuery = useQuery({
-    queryKey: ["security-user-blocks"],
-    enabled: canManageSecurity,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("security_user_blocks")
-        .select("*")
-        .eq("active", true)
-        .order("blocked_at", { ascending: false })
-        .limit(100);
-      if (error && isSupabaseStructureError(error)) return [];
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: async () => (await (listSecurityState as any)()) as any,
     retry: false,
   });
 
@@ -114,51 +85,25 @@ function SecurityPage() {
   );
 
   async function recordAudit(event: Partial<any>) {
-    const { error } = await (supabase as any).from("security_audit_events").insert({
-      actor_user_id: user?.id ?? null,
-      actor_email: user?.email ?? null,
-      event_type: event.event_type ?? "security.action",
-      severity: event.severity ?? "medium",
-      source: "app.security",
-      user_agent: navigator.userAgent,
-      target_table: event.target_table ?? null,
-      target_id: event.target_id ?? null,
-      metadata: event.metadata ?? {},
-      status: event.status ?? "open",
+    await (recordAuditEvent as any)({
+      data: {
+        event_type: event.event_type ?? "security.action",
+        severity: event.severity ?? "medium",
+        target_table: event.target_table ?? null,
+        target_id: event.target_id ?? null,
+        metadata: event.metadata ?? {},
+        status: event.status ?? "open",
+      },
     });
-    if (error && isSupabaseStructureError(error)) return;
-    if (error) throw error;
   }
 
   const updateSettings = useMutation({
     mutationFn: async (patch: Record<string, unknown>) => {
-      const { error } = await (supabase as any)
-        .from("security_settings")
-        .upsert({
-          ...settingsQuery.data,
-          ...patch,
-          id: true,
-          updated_by: user?.id,
-          updated_at: new Date().toISOString(),
-        });
-      if (error && isSupabaseStructureError(error)) {
-        throw new Error(
-          "A estrutura de seguranca ainda nao foi aplicada no Supabase. Aplique as migrations e tente novamente.",
-        );
-      }
-      if (error) throw error;
-      await recordAudit({
-        event_type: "security.settings.updated",
-        severity: "high",
-        target_table: "security_settings",
-        target_id: "singleton",
-        metadata: patch,
-      });
+      await (saveSecuritySettings as any)({ data: patch });
     },
     onSuccess: () => {
       toast.success("Configuracao de seguranca atualizada");
-      qc.invalidateQueries({ queryKey: ["security-settings"] });
-      qc.invalidateQueries({ queryKey: ["security-audit-events"] });
+      qc.invalidateQueries({ queryKey: ["security-dashboard-state"] });
     },
     onError: (error) =>
       toast.error(translatedErrorMessage(error, "Nao foi possivel salvar a seguranca.")),
@@ -169,51 +114,21 @@ function SecurityPage() {
       event: any;
       action: "blocked" | "revoked" | "resolved" | "deleted";
     }) => {
-      const now = new Date().toISOString();
-      if (input.action === "blocked") {
-        const { error } = await (supabase as any).from("security_user_blocks").insert({
-          user_id: input.event.actor_user_id,
-          email: input.event.actor_email,
-          reason: manualReason || `Bloqueio originado pelo evento ${input.event.event_type}`,
-          blocked_by: user?.id,
-        });
-        if (error) throw error;
-      }
-
-      if (input.action === "revoked" && input.event.actor_user_id) {
-        const { error } = await (supabase as any)
-          .from("portal_access_links")
-          .update({ revoked_at: now })
-          .eq("user_id", input.event.actor_user_id)
-          .is("revoked_at", null);
-        if (error) throw error;
-      }
-
-      const { error } = await (supabase as any)
-        .from("security_audit_events")
-        .update({
-          status: input.action,
-          resolved_at: now,
-          resolved_by: user?.id,
-          resolution_notes: manualReason || null,
-        })
-        .eq("id", input.event.id);
-      if (error) throw error;
-
-      await recordAudit({
-        event_type: `security.event.${input.action}`,
-        severity: input.action === "deleted" ? "critical" : "high",
-        target_table: "security_audit_events",
-        target_id: input.event.id,
-        metadata: { originalEventType: input.event.event_type },
-        status: "resolved",
+      await (runSecurityEventAction as any)({
+        data: {
+          eventId: input.event.id,
+          eventType: input.event.event_type,
+          actorUserId: input.event.actor_user_id ?? null,
+          actorEmail: input.event.actor_email ?? null,
+          action: input.action,
+          reason: manualReason || null,
+        },
       });
     },
     onSuccess: () => {
       setManualReason("");
       toast.success("Acao de seguranca registrada");
-      qc.invalidateQueries({ queryKey: ["security-audit-events"] });
-      qc.invalidateQueries({ queryKey: ["security-user-blocks"] });
+      qc.invalidateQueries({ queryKey: ["security-dashboard-state"] });
     },
     onError: (error) =>
       toast.error(translatedErrorMessage(error, "Nao foi possivel executar a acao.")),
@@ -221,24 +136,17 @@ function SecurityPage() {
 
   const unblock = useMutation({
     mutationFn: async (block: any) => {
-      const { error } = await (supabase as any)
-        .from("security_user_blocks")
-        .update({ active: false, revoked_at: new Date().toISOString(), revoked_by: user?.id })
-        .eq("id", block.id);
-      if (error) throw error;
-      await recordAudit({
-        event_type: "security.user.unblocked",
-        severity: "high",
-        target_table: "security_user_blocks",
-        target_id: block.id,
-        metadata: { email: block.email, userId: block.user_id },
-        status: "resolved",
+      await (runUnblockSecurityUser as any)({
+        data: {
+          blockId: block.id,
+          email: block.email ?? null,
+          userId: block.user_id ?? null,
+        },
       });
     },
     onSuccess: () => {
       toast.success("Bloqueio removido");
-      qc.invalidateQueries({ queryKey: ["security-user-blocks"] });
-      qc.invalidateQueries({ queryKey: ["security-audit-events"] });
+      qc.invalidateQueries({ queryKey: ["security-dashboard-state"] });
     },
     onError: (error) => toast.error(translatedErrorMessage(error)),
   });
@@ -323,20 +231,21 @@ function SecurityPage() {
     setTotpCode("");
     toast.success("2FA ativado para este usuario");
     qc.invalidateQueries({ queryKey: ["mfa-factors"] });
-    qc.invalidateQueries({ queryKey: ["security-audit-events"] });
+    qc.invalidateQueries({ queryKey: ["security-dashboard-state"] });
   }
 
   if (!canManageSecurity) {
     return (
       <div className="p-8 text-sm text-muted-foreground">
-        Acesso restrito ao master e Suporte de TI.
+        Acesso restrito a administradores e Suporte de TI.
       </div>
     );
   }
 
-  const settings = settingsQuery.data ?? DEFAULT_SETTINGS;
-  const events = eventsQuery.data ?? [];
-  const blocks = blocksQuery.data ?? [];
+  const settings = securityStateQuery.data?.settings ?? DEFAULT_SETTINGS;
+  const events = securityStateQuery.data?.events ?? [];
+  const blocks = securityStateQuery.data?.blocks ?? [];
+  const schemaReady = securityStateQuery.data?.schemaReady ?? true;
 
   return (
     <div>
@@ -347,8 +256,8 @@ function SecurityPage() {
           <Button
             variant="outline"
             onClick={() => {
-              qc.invalidateQueries({ queryKey: ["security-audit-events"] });
-              qc.invalidateQueries({ queryKey: ["security-user-blocks"] });
+              qc.invalidateQueries({ queryKey: ["security-dashboard-state"] });
+              qc.invalidateQueries({ queryKey: ["mfa-factors"] });
             }}
           >
             <RefreshCw className="mr-1.5 h-4 w-4" />
@@ -358,6 +267,13 @@ function SecurityPage() {
       />
 
       <div className="grid gap-6 p-4 md:p-8 xl:grid-cols-[0.9fr_1.1fr]">
+        {!schemaReady && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 xl:col-span-2">
+            A estrutura de segurança ainda não foi aplicada no Supabase. Rode as migrations e
+            atualize esta página para habilitar todos os controles.
+          </div>
+        )}
+
         <section className="space-y-4 rounded-lg border bg-card p-5">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" />
@@ -592,28 +508,6 @@ function SecurityPage() {
         </section>
       </div>
     </div>
-  );
-}
-
-function isSupabaseStructureError(error: unknown) {
-  if (!error || typeof error !== "object") return false;
-  const current = error as {
-    code?: string | number | null;
-    message?: string;
-    details?: string;
-    hint?: string;
-  };
-  const text = [current.message, current.details, current.hint]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return (
-    current.code === "PGRST204" ||
-    current.code === "PGRST205" ||
-    current.code === "42P01" ||
-    text.includes("schema cache") ||
-    text.includes("could not find") ||
-    text.includes("does not exist")
   );
 }
 
