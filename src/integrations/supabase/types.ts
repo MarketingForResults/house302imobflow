@@ -1532,6 +1532,153 @@ export type Database = {
         }
         Relationships: []
       }
+      integration_connections: {
+        Row: {
+          account_label: string | null
+          auth_type: string
+          config: Json
+          connector_id: string
+          created_at: string
+          created_by: string | null
+          disabled_at: string | null
+          disabled_by: string | null
+          disabled_reason: string | null
+          external_account_id: string | null
+          id: string
+          last_checked_at: string | null
+          last_error: string | null
+          name: string
+          scopes: string[]
+          secret_ref: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_label?: string | null
+          auth_type?: string
+          config?: Json
+          connector_id: string
+          created_at?: string
+          created_by?: string | null
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          external_account_id?: string | null
+          id?: string
+          last_checked_at?: string | null
+          last_error?: string | null
+          name: string
+          scopes?: string[]
+          secret_ref?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_label?: string | null
+          auth_type?: string
+          config?: Json
+          connector_id?: string
+          created_at?: string
+          created_by?: string | null
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          external_account_id?: string | null
+          id?: string
+          last_checked_at?: string | null
+          last_error?: string | null
+          name?: string
+          scopes?: string[]
+          secret_ref?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      integration_connector_settings: {
+        Row: {
+          connector_id: string
+          created_at: string
+          disabled_at: string | null
+          disabled_by: string | null
+          disabled_reason: string | null
+          enabled: boolean
+          metadata: Json
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          connector_id: string
+          created_at?: string
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          enabled?: boolean
+          metadata?: Json
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          connector_id?: string
+          created_at?: string
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
+          enabled?: boolean
+          metadata?: Json
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      physical_backups: {
+        Row: {
+          byte_size: number
+          checksum: string | null
+          created_at: string
+          created_by: string | null
+          file_name: string
+          id: string
+          label: string
+          notes: string | null
+          record_count: number
+          scope: string
+          table_count: number
+        }
+        Insert: {
+          byte_size?: number
+          checksum?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_name: string
+          id?: string
+          label: string
+          notes?: string | null
+          record_count?: number
+          scope?: string
+          table_count?: number
+        }
+        Update: {
+          byte_size?: number
+          checksum?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_name?: string
+          id?: string
+          label?: string
+          notes?: string | null
+          record_count?: number
+          scope?: string
+          table_count?: number
+        }
+        Relationships: []
+      }
       portal_access_links: {
         Row: {
           broker_id: string | null
@@ -2066,6 +2213,7 @@ export type Database = {
           notes: string | null
           paid_at: string | null
           payment_kind: string
+          receipt_attachments: Json
           receipt_file_name: string | null
           receipt_file_path: string | null
           receipt_uploaded_at: string | null
@@ -2096,6 +2244,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           payment_kind?: string
+          receipt_attachments?: Json
           receipt_file_name?: string | null
           receipt_file_path?: string | null
           receipt_uploaded_at?: string | null
@@ -2126,6 +2275,7 @@ export type Database = {
           notes?: string | null
           paid_at?: string | null
           payment_kind?: string
+          receipt_attachments?: Json
           receipt_file_name?: string | null
           receipt_file_path?: string | null
           receipt_uploaded_at?: string | null
@@ -2388,6 +2538,138 @@ export type Database = {
           },
         ]
       }
+      security_audit_events: {
+        Row: {
+          actor_email: string | null
+          actor_user_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          ip_address: string | null
+          metadata: Json
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          source: string
+          status: string
+          target_id: string | null
+          target_table: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          actor_email?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source?: string
+          status?: string
+          target_id?: string | null
+          target_table?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          actor_email?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source?: string
+          status?: string
+          target_id?: string | null
+          target_table?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      security_settings: {
+        Row: {
+          allow_sms: boolean
+          allow_totp: boolean
+          audit_retention_days: number
+          backup_retention_days: number
+          id: boolean
+          login_lockout_enabled: boolean
+          max_failed_attempts: number
+          require_mfa: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          allow_sms?: boolean
+          allow_totp?: boolean
+          audit_retention_days?: number
+          backup_retention_days?: number
+          id?: boolean
+          login_lockout_enabled?: boolean
+          max_failed_attempts?: number
+          require_mfa?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          allow_sms?: boolean
+          allow_totp?: boolean
+          audit_retention_days?: number
+          backup_retention_days?: number
+          id?: boolean
+          login_lockout_enabled?: boolean
+          max_failed_attempts?: number
+          require_mfa?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      security_user_blocks: {
+        Row: {
+          active: boolean
+          blocked_at: string
+          blocked_by: string | null
+          email: string | null
+          id: string
+          reason: string
+          revoked_at: string | null
+          revoked_by: string | null
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          blocked_at?: string
+          blocked_by?: string | null
+          email?: string | null
+          id?: string
+          reason: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          blocked_at?: string
+          blocked_by?: string | null
+          email?: string | null
+          id?: string
+          reason?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -2455,6 +2737,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_rental_contract: {
+        Args: { _contract_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_manage_rental_payment_receipts: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       generate_rental_payments: {
         Args: { _contract_id: string; _months?: number }
         Returns: number
@@ -2462,6 +2752,10 @@ export type Database = {
       generate_sale_installments: {
         Args: { _contract_id: string; _months?: number }
         Returns: number
+      }
+      has_any_role: {
+        Args: { _roles: string[]; _user_id: string }
+        Returns: boolean
       }
       has_role: {
         Args: {
@@ -2471,7 +2765,9 @@ export type Database = {
         Returns: boolean
       }
       is_finance_user: { Args: { _user_id: string }; Returns: boolean }
+      is_master_operator: { Args: { _user_id: string }; Returns: boolean }
       is_operational_user: { Args: { _user_id: string }; Returns: boolean }
+      is_security_operator: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       mark_late_rental_payments: { Args: never; Returns: number }
     }
@@ -2484,6 +2780,7 @@ export type Database = {
         | "owner"
         | "tenant"
         | "master"
+        | "it_support"
       document_kind:
         | "visit_form"
         | "sale_contract"
@@ -2640,6 +2937,7 @@ export const Constants = {
         "owner",
         "tenant",
         "master",
+        "it_support",
       ],
       document_kind: [
         "visit_form",
