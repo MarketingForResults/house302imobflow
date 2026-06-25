@@ -233,7 +233,7 @@ async function upsertInspection(
 
   while (isSchemaCacheError(currentResult.error)) {
     const column = missingSchemaColumn(currentResult.error, compatiblePayload);
-    if (!column) break;
+    if (!column || column === "technical_notes" || column === "review_notes") break;
     delete compatiblePayload[column];
     fallbackColumns.push(column);
     currentResult = await run(compatiblePayload);
@@ -330,7 +330,7 @@ function InspectionsPage() {
       review_notes: inspection.review_notes || null,
       status,
     };
-    const { data, error, usedFallback } = await upsertInspection(payload, { select: true });
+    const { data, error } = await upsertInspection(payload, { select: true });
     if (error)
       return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar a vistoria."));
     const workflow_status = workflowStatusForSave(payload.status);
@@ -354,11 +354,7 @@ function InspectionsPage() {
     } else {
       setEditing({ ...editing, workflow_status, broker_id: payload.assigned_broker_id });
     }
-    toast.success(
-      usedFallback
-        ? "Vistoria salva. Aplique as migrations para habilitar os campos auxiliares restantes."
-        : "Vistoria salva",
-    );
+    toast.success("Vistoria salva");
     refresh();
   }
 
@@ -394,7 +390,7 @@ function InspectionsPage() {
       review_notes: inspection.review_notes || null,
       status: "completed",
     };
-    const { error, usedFallback } = await upsertInspection(payload);
+    const { error } = await upsertInspection(payload);
     if (error)
       return toast.error(translatedErrorMessage(error, "Nao foi possivel concluir a vistoria."));
     const { error: propertyError } = await supabase
@@ -409,11 +405,7 @@ function InspectionsPage() {
         translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."),
       );
     }
-    toast.success(
-      usedFallback
-        ? "Vistoria concluida. Aplique as migrations para habilitar os campos auxiliares restantes."
-        : "Vistoria concluída e enviada para aprovação",
-    );
+    toast.success("Vistoria concluída e enviada para aprovação");
     setEditing(null);
     refresh();
   }
@@ -424,7 +416,7 @@ function InspectionsPage() {
     } = await supabase.auth.getUser();
     const status = approved ? "approved" : "rejected";
     const workflow_status = approved ? "ready_to_publish" : "rejected";
-    const { error, usedFallback } = await upsertInspection({
+    const { error } = await upsertInspection({
       property_id: editing.id,
       assigned_broker_id:
         inspection.assigned_broker_id === "none" ? null : inspection.assigned_broker_id,
@@ -448,13 +440,7 @@ function InspectionsPage() {
         translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."),
       );
     }
-    toast.success(
-      usedFallback
-        ? "Revisao salva. Aplique as migrations para habilitar os campos auxiliares restantes."
-        : approved
-          ? "Imóvel liberado para divulgação"
-          : "Vistoria reprovada",
-    );
+    toast.success(approved ? "Imóvel liberado para divulgação" : "Vistoria reprovada");
     setEditing(null);
     refresh();
   }
