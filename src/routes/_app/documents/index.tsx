@@ -65,12 +65,14 @@ const db = supabase as any;
 const STATUS_LABEL: Record<string, string> = {
   draft: "Rascunho",
   issued: "Emitido",
+  sent: "Enviado",
   created: "Criado",
   pending: "Pendente",
   viewed: "Visualizado",
   signed: "Assinado",
   rejected: "Recusado",
   pending_approval: "Aguardando aprovação",
+  cancelled: "Cancelado",
 };
 
 function emptySigner(deliveryMethod: DeliveryMethod = "email"): SignerForm {
@@ -178,8 +180,7 @@ function DocumentsList() {
 
     if (error) {
       const isUnknownStatus =
-        editing.status === "issued" &&
-        (error.code === "22P02" || /document_status|invalid input value/i.test(error.message ?? ""));
+        error.code === "22P02" || /document_status|invalid input value/i.test(error.message ?? "");
 
       if (isUnknownStatus) {
         const { error: fallbackError } = await supabase
@@ -190,7 +191,7 @@ function DocumentsList() {
         if (!fallbackError) {
           setEditing(null);
           qc.invalidateQueries({ queryKey: ["documents"] });
-          toast.warning("Documento salvo. Aplique as migrations para habilitar o status Emitido.");
+          toast.warning("Documento salvo. Aplique as migrations para habilitar este status.");
           return;
         }
       }
@@ -557,7 +558,13 @@ function DocumentsList() {
                   <SelectContent>
                     <SelectItem value="draft">Rascunho</SelectItem>
                     <SelectItem value="issued">Emitido</SelectItem>
+                    <SelectItem value="sent">Enviado</SelectItem>
+                    <SelectItem value="created">Criado</SelectItem>
+                    <SelectItem value="pending">Pendente</SelectItem>
+                    <SelectItem value="viewed">Visualizado</SelectItem>
                     <SelectItem value="signed">Assinado</SelectItem>
+                    <SelectItem value="rejected">Recusado</SelectItem>
+                    <SelectItem value="pending_approval">Aguardando aprovação</SelectItem>
                     <SelectItem value="cancelled">Cancelado</SelectItem>
                   </SelectContent>
                 </Select>
