@@ -9,6 +9,7 @@ import {
   ExternalLink,
   ImagePlus,
   Pencil,
+  Save,
   Trash2,
   XCircle,
 } from "lucide-react";
@@ -273,7 +274,28 @@ function InspectionsPage() {
     qc.invalidateQueries({ queryKey: ["properties-inspection-pipeline"] });
   }
 
+  function inspectionStatusForSave() {
+    if (["completed", "approved", "rejected"].includes(inspection.status)) {
+      return inspection.status;
+    }
+    if (editing?.workflow_status === "awaiting_inspection_review") return "completed";
+    if (editing?.workflow_status === "ready_to_publish") return "approved";
+    if (editing?.workflow_status === "rejected") return "rejected";
+    return inspection.scheduled_at ? "scheduled" : "pending";
+  }
+
+  function workflowStatusForSave(status: string) {
+    if (editing?.workflow_status === "awaiting_inspection_review") {
+      return "awaiting_inspection_review";
+    }
+    if (editing?.workflow_status === "ready_to_publish") return "ready_to_publish";
+    if (editing?.workflow_status === "rejected") return "rejected";
+    if (status === "completed") return "awaiting_inspection_review";
+    return status === "scheduled" ? "inspection_scheduled" : "inspection_pending";
+  }
+
   async function save() {
+    const status = inspectionStatusForSave();
     const payload = {
       property_id: editing.id,
       assigned_broker_id:
@@ -283,18 +305,12 @@ function InspectionsPage() {
       contact_notes: inspection.contact_notes || null,
       technical_notes: inspection.technical_notes || null,
       review_notes: inspection.review_notes || null,
-      status:
-        inspection.status === "completed"
-          ? "completed"
-          : inspection.scheduled_at
-            ? "scheduled"
-            : "pending",
+      status,
     };
     const { data, error, usedFallback } = await upsertInspection(payload, { select: true });
     if (error)
       return toast.error(translatedErrorMessage(error, "Nao foi possivel salvar a vistoria."));
-    const workflow_status =
-      payload.status === "scheduled" ? "inspection_scheduled" : "inspection_pending";
+    const workflow_status = workflowStatusForSave(payload.status);
     const { error: propertyError } = await supabase
       .from("properties")
       .update({ workflow_status, broker_id: payload.assigned_broker_id })
@@ -304,11 +320,21 @@ function InspectionsPage() {
         translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."),
       );
     }
-    if (data) setInspection({ ...data, scheduled_at: data.scheduled_at?.slice(0, 16) ?? "" });
+    if (data) {
+      setInspection({ ...data, scheduled_at: data.scheduled_at?.slice(0, 16) ?? "" });
+      setEditing({
+        ...editing,
+        workflow_status,
+        broker_id: payload.assigned_broker_id,
+        property_inspections: [data],
+      });
+    } else {
+      setEditing({ ...editing, workflow_status, broker_id: payload.assigned_broker_id });
+    }
     toast.success(
       usedFallback
         ? "Atendimento salvo. Aplique as migrations para gravar o parecer administrativo."
-        : "Vistoria atualizada",
+        : "Vistoria salva",
     );
     refresh();
   }
@@ -558,13 +584,10 @@ function InspectionsPage() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {!["awaiting_inspection_review", "ready_to_publish", "rejected"].includes(
-                      editing?.workflow_status,
-                    ) && (
-                      <Button size="sm" onClick={save}>
-                        Salvar atendimento
-                      </Button>
-                    )}
+                    <Button size="sm" onClick={save}>
+                      <Save className="mr-1.5 h-3.5 w-3.5" />
+                      Salvar edição
+                    </Button>
                     <Button size="sm" variant="outline" asChild>
                       <Link to="/properties/$id" params={{ id: editing.id }}>
                         <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
@@ -805,6 +828,10 @@ function InspectionsPage() {
               <Trash2 className="mr-1.5 h-4 w-4" />
               Excluir vistoria
             </Button>
+            <Button variant="outline" onClick={save}>
+              <Save className="mr-1.5 h-4 w-4" />
+              Salvar edição
+            </Button>
             {isAdmin && editing?.workflow_status === "awaiting_inspection_review" && (
               <Button variant="destructive" onClick={() => review(false)}>
                 <XCircle className="mr-1.5 h-4 w-4" />
@@ -815,13 +842,6 @@ function InspectionsPage() {
               <Button onClick={() => review(true)}>
                 <CheckCircle2 className="mr-1.5 h-4 w-4" />
                 Aprovar para divulgação
-              </Button>
-            )}
-            {!["awaiting_inspection_review", "ready_to_publish", "rejected"].includes(
-              editing?.workflow_status,
-            ) && (
-              <Button variant="outline" onClick={save}>
-                Salvar atendimento
               </Button>
             )}
             {!["awaiting_inspection_review", "ready_to_publish", "rejected"].includes(
