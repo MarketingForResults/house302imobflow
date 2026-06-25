@@ -282,14 +282,15 @@ function InspectionsPage() {
   });
 
   function open(property: any) {
+    const raw = property.property_inspections;
+    const existing = Array.isArray(raw) ? raw[0] : raw;
     setEditing(property);
     setInspection({
-      ...(property.property_inspections?.[0] ?? {}),
+      ...(existing ?? {}),
       property_id: property.id,
-      assigned_broker_id:
-        property.property_inspections?.[0]?.assigned_broker_id ?? property.broker_id ?? "none",
-      scheduled_at: property.property_inspections?.[0]?.scheduled_at?.slice(0, 16) ?? "",
-      reminder_minutes: property.property_inspections?.[0]?.reminder_minutes ?? 60,
+      assigned_broker_id: existing?.assigned_broker_id ?? property.broker_id ?? "none",
+      scheduled_at: existing?.scheduled_at?.slice(0, 16) ?? "",
+      reminder_minutes: existing?.reminder_minutes ?? 60,
     });
   }
 
