@@ -497,7 +497,9 @@ function InspectionsPage() {
     setUploading(true);
     let success = 0;
     for (const [index, file] of Array.from(files).entries()) {
-      const path = `${editing.id}/inspection-${Date.now()}-${index}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
+      const folderName = inspectionPhotoFolderName(editing);
+      const fileName = safeInspectionPhotoFolderSegment(file.name);
+      const path = `${folderName}/inspection-${Date.now()}-${index}-${fileName}`;
       const { error: uploadError } = await supabase.storage
         .from("property-images")
         .upload(path, file, { contentType: file.type || "application/octet-stream" });
@@ -534,7 +536,7 @@ function InspectionsPage() {
       .maybeSingle();
     setEditing(data ?? editing);
     setUploading(false);
-    if (success) toast.success(`${success} foto(s) adicionada(s) ao imóvel`);
+    if (success) toast.success(`${success} foto(s) adicionada(s) ao imóvel. Link da galeria atualizado.`);
     refresh();
   }
 
@@ -813,9 +815,28 @@ function InspectionsPage() {
               </section>
 
               <section className="rounded-md border p-4">
-                <h3 className="mb-3 text-sm font-semibold">
-                  Fotos do imóvel ({editing.property_images?.length ?? 0})
-                </h3>
+                <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold">
+                      Fotos do imóvel ({inspectionPhotoCount})
+                    </h3>
+                    <p className="text-xs text-muted-foreground">Pasta: {inspectionPhotoFolder}</p>
+                  </div>
+                  <Button size="sm" variant="outline" asChild disabled={!inspectionPhotoCount}>
+                    <a
+                      href={inspectionPhotoUrl || "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-disabled={!inspectionPhotoCount}
+                      onClick={(event) => {
+                        if (!inspectionPhotoCount) event.preventDefault();
+                      }}
+                    >
+                      <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                      Abrir link das fotos
+                    </a>
+                  </Button>
+                </div>
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                   {(editing.property_images ?? []).map((image: any) => (
                     <div

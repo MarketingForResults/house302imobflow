@@ -24,6 +24,7 @@ import {
 import { generateDocumentPdf } from "@/lib/pdf-utils";
 import { translatedErrorMessage } from "@/lib/error-messages";
 import { calculateDiscount, formatDiscountLabel } from "@/lib/discounts";
+import { inspectionPhotosUrl } from "@/lib/inspection-photos";
 import { toast } from "sonner";
 import { ArrowLeft, Download } from "lucide-react";
 
@@ -76,7 +77,7 @@ function NewDocumentPage() {
         await supabase
           .from("properties")
           .select(
-            "id, code, title, description, address, neighborhood, city, state, type, status, area_m2, bedrooms, bathrooms, suites, parking_spaces, price",
+            "id, code, title, description, address, neighborhood, city, state, type, status, area_m2, bedrooms, bathrooms, suites, parking_spaces, price, property_images(id, image_url, sort_order, is_cover, created_at), property_inspections(*)",
           )
           .order("code", { ascending: false })
       ).data ?? [],
@@ -152,6 +153,18 @@ function NewDocumentPage() {
     () => rentalContracts.find((contract: any) => contract.id === rentalContractId),
     [rentalContracts, rentalContractId],
   );
+  const inspection = useMemo(() => {
+    const inspections = property?.property_inspections ?? [];
+    return [...inspections].sort((a: any, b: any) => {
+      const dateA = a.reviewed_at || a.scheduled_at || a.created_at || "";
+      const dateB = b.reviewed_at || b.scheduled_at || b.created_at || "";
+      return String(dateB).localeCompare(String(dateA));
+    })[0];
+  }, [property]);
+  const inspectionBroker = useMemo(
+    () => brokers.find((b: any) => b.id === inspection?.assigned_broker_id),
+    [brokers, inspection?.assigned_broker_id],
+  );
 
   const ctx = useMemo(() => {
     const discount = calculateDiscount(amount, discountType, discountValue);
@@ -164,6 +177,10 @@ function NewDocumentPage() {
       guarantor,
       broker,
       rentalContract,
+      inspection,
+      inspectionImages: property?.property_images ?? [],
+      inspectionPhotosUrl: property ? inspectionPhotosUrl(property) : "",
+      inspectionBroker,
       witness1: { name: witness1Name, cpf: witness1Cpf },
       witness2: { name: witness2Name, cpf: witness2Cpf },
       settings,
@@ -186,6 +203,8 @@ function NewDocumentPage() {
     guarantor,
     broker,
     rentalContract,
+    inspection,
+    inspectionBroker,
     witness1Name,
     witness1Cpf,
     witness2Name,
