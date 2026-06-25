@@ -15,6 +15,7 @@ import { Route as PRouteImport } from './routes/p'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as InspectionPhotosPropertyIdRouteImport } from './routes/inspection-photos.$propertyId'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppSystemDocsRouteImport } from './routes/_app/system-docs'
 import { Route as AppSupportRouteImport } from './routes/_app/support'
@@ -66,6 +67,12 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InspectionPhotosPropertyIdRoute =
+  InspectionPhotosPropertyIdRouteImport.update({
+    id: '/inspection-photos/$propertyId',
+    path: '/inspection-photos/$propertyId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AppUsersRoute = AppUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -191,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/support': typeof AppSupportRoute
   '/system-docs': typeof AppSystemDocsRoute
   '/users': typeof AppUsersRoute
+  '/inspection-photos/$propertyId': typeof InspectionPhotosPropertyIdRoute
   '/documents/new': typeof AppDocumentsNewRoute
   '/documents/templates': typeof AppDocumentsTemplatesRoute
   '/properties/$id': typeof AppPropertiesIdRoute
@@ -219,6 +227,7 @@ export interface FileRoutesByTo {
   '/support': typeof AppSupportRoute
   '/system-docs': typeof AppSystemDocsRoute
   '/users': typeof AppUsersRoute
+  '/inspection-photos/$propertyId': typeof InspectionPhotosPropertyIdRoute
   '/documents/new': typeof AppDocumentsNewRoute
   '/documents/templates': typeof AppDocumentsTemplatesRoute
   '/properties/$id': typeof AppPropertiesIdRoute
@@ -249,6 +258,7 @@ export interface FileRoutesById {
   '/_app/support': typeof AppSupportRoute
   '/_app/system-docs': typeof AppSystemDocsRoute
   '/_app/users': typeof AppUsersRoute
+  '/inspection-photos/$propertyId': typeof InspectionPhotosPropertyIdRoute
   '/_app/documents/new': typeof AppDocumentsNewRoute
   '/_app/documents/templates': typeof AppDocumentsTemplatesRoute
   '/_app/properties/$id': typeof AppPropertiesIdRoute
@@ -279,6 +289,7 @@ export interface FileRouteTypes {
     | '/support'
     | '/system-docs'
     | '/users'
+    | '/inspection-photos/$propertyId'
     | '/documents/new'
     | '/documents/templates'
     | '/properties/$id'
@@ -307,6 +318,7 @@ export interface FileRouteTypes {
     | '/support'
     | '/system-docs'
     | '/users'
+    | '/inspection-photos/$propertyId'
     | '/documents/new'
     | '/documents/templates'
     | '/properties/$id'
@@ -336,6 +348,7 @@ export interface FileRouteTypes {
     | '/_app/support'
     | '/_app/system-docs'
     | '/_app/users'
+    | '/inspection-photos/$propertyId'
     | '/_app/documents/new'
     | '/_app/documents/templates'
     | '/_app/properties/$id'
@@ -353,6 +366,7 @@ export interface RootRouteChildren {
   PRoute: typeof PRoute
   PartnerRegistrationRoute: typeof PartnerRegistrationRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  InspectionPhotosPropertyIdRoute: typeof InspectionPhotosPropertyIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -397,6 +411,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inspection-photos/$propertyId': {
+      id: '/inspection-photos/$propertyId'
+      path: '/inspection-photos/$propertyId'
+      fullPath: '/inspection-photos/$propertyId'
+      preLoaderRoute: typeof InspectionPhotosPropertyIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/users': {
@@ -606,7 +627,18 @@ const rootRouteChildren: RootRouteChildren = {
   PRoute: PRoute,
   PartnerRegistrationRoute: PartnerRegistrationRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  InspectionPhotosPropertyIdRoute: InspectionPhotosPropertyIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

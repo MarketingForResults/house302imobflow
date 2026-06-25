@@ -2,6 +2,7 @@
 // Syntax: {{group.field}} — e.g. {{property.code}}, {{client.full_name}}.
 
 import { formatContractInsurance } from "@/lib/contract-insurance";
+import { inspectionPhotoFolderName, inspectionPhotosUrl } from "@/lib/inspection-photos";
 
 export const PLACEHOLDER_GROUPS = {
   Imóvel: [
@@ -184,6 +185,18 @@ export const PLACEHOLDER_GROUPS = {
     "rental.contract_insurance_modalities",
     "rental.guarantor_name",
   ],
+  Vistoria: [
+    "inspection.scheduled_at",
+    "inspection.status",
+    "inspection.assigned_broker_name",
+    "inspection.contact_notes",
+    "inspection.technical_notes",
+    "inspection.review_notes",
+    "inspection.photos_folder",
+    "inspection.photos_count",
+    "inspection.photos_url",
+    "inspection.photos_links",
+  ],
   Datas: ["date.today", "date.today_long"],
   Valores: [
     "values.amount",
@@ -216,6 +229,16 @@ export const PLACEHOLDER_LABELS: Record<string, string> = {
   "property.suites": "Quantidade de suítes",
   "property.parking_spaces": "Vagas de garagem",
   "property.price": "Preço do imóvel",
+  "inspection.scheduled_at": "Data e hora da vistoria",
+  "inspection.status": "Status da vistoria",
+  "inspection.assigned_broker_name": "Profissional da vistoria",
+  "inspection.contact_notes": "Registros de contato",
+  "inspection.technical_notes": "Parecer técnico da vistoria",
+  "inspection.review_notes": "Parecer administrativo final",
+  "inspection.photos_folder": "Pasta das fotos da vistoria",
+  "inspection.photos_count": "Quantidade de fotos da vistoria",
+  "inspection.photos_url": "Link das fotos da vistoria",
+  "inspection.photos_links": "Links individuais das fotos",
   "owner.full_name": "Nome completo do locador",
   "owner.cpf": "CPF do locador",
   "owner.email": "E-mail do locador",
@@ -507,6 +530,10 @@ export function buildPlaceholderContext(input: {
   broker?: any;
   guarantor?: any;
   rentalContract?: any;
+  inspection?: any;
+  inspectionImages?: any[];
+  inspectionPhotosUrl?: string;
+  inspectionBroker?: any;
   witness1?: { name?: string; cpf?: string };
   witness2?: { name?: string; cpf?: string };
   settings?: any;
@@ -531,6 +558,18 @@ export function buildPlaceholderContext(input: {
     const [year, month, day] = String(v).slice(0, 10).split("-");
     return day && month && year ? `${day}/${month}/${year}` : String(v);
   };
+  const fmtDateTime = (v: any) => {
+    if (!v) return "";
+    const date = new Date(v);
+    if (Number.isNaN(date.getTime())) return fmtDate(v);
+    return date.toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
   const today = new Date();
   const todayLong = today.toLocaleDateString("pt-BR", {
     day: "numeric",
@@ -539,6 +578,9 @@ export function buildPlaceholderContext(input: {
   });
 
   const companyIsIndividual = input.settings?.company_person_type === "fisica";
+  const inspectionImages = input.inspectionImages ?? input.property?.property_images ?? [];
+  const photoUrls = inspectionImages.map((image: any) => image?.image_url).filter(Boolean);
+  const photoGalleryUrl = input.inspectionPhotosUrl || inspectionPhotosUrl(input.property);
 
   return {
     property: {
@@ -608,6 +650,19 @@ export function buildPlaceholderContext(input: {
     contract: {
       rental_notes: input.settings?.rental_contract_notes ?? "",
       sale_notes: input.settings?.sale_contract_notes ?? "",
+    },
+    inspection: {
+      scheduled_at: fmtDateTime(input.inspection?.scheduled_at),
+      status: input.inspection?.status ?? "",
+      assigned_broker_name:
+        input.inspectionBroker?.full_name ?? input.inspection?.brokers?.full_name ?? "",
+      contact_notes: input.inspection?.contact_notes ?? "",
+      technical_notes: input.inspection?.technical_notes ?? "",
+      review_notes: input.inspection?.review_notes ?? "",
+      photos_folder: inspectionPhotoFolderName(input.property),
+      photos_count: photoUrls.length,
+      photos_url: photoGalleryUrl,
+      photos_links: photoUrls.join("\n"),
     },
     rental: {
       code: input.rentalContract?.code ?? "",
