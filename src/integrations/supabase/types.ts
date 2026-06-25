@@ -2790,7 +2790,7 @@ export type Database = {
         | "rental_residential"
         | "rental_commercial"
         | "custom"
-      document_status: "draft" | "signed" | "cancelled"
+      document_status: "draft" | "issued" | "signed" | "cancelled"
       interest_type: "buy" | "sell" | "rent" | "buy_rent"
       property_status:
         | "available"
@@ -2949,7 +2949,7 @@ export const Constants = {
         "rental_commercial",
         "custom",
       ],
-      document_status: ["draft", "signed", "cancelled"],
+      document_status: ["draft", "issued", "signed", "cancelled"],
       interest_type: ["buy", "sell", "rent", "buy_rent"],
       property_status: [
         "available",
