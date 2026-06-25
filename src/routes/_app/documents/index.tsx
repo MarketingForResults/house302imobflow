@@ -63,6 +63,8 @@ type SignerForm = {
 const db = supabase as any;
 
 const STATUS_LABEL: Record<string, string> = {
+  draft: "Rascunho",
+  issued: "Emitido",
   created: "Criado",
   pending: "Pendente",
   viewed: "Visualizado",
@@ -167,15 +169,35 @@ function DocumentsList() {
 
   async function saveEdit() {
     if (!editing) return;
-    const { error } = await supabase
-      .from("documents")
-      .update({
-        title: editing.title,
-        status: editing.status,
-        notes: editing.notes,
-      })
-      .eq("id", editing.id);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel atualizar o documento."));
+    const payload = {
+      title: editing.title,
+      status: editing.status,
+      notes: editing.notes,
+    };
+    const { error } = await supabase.from("documents").update(payload).eq("id", editing.id);
+
+    if (error) {
+      const isUnknownStatus =
+        editing.status === "issued" &&
+        (error.code === "22P02" || /document_status|invalid input value/i.test(error.message ?? ""));
+
+      if (isUnknownStatus) {
+        const { error: fallbackError } = await supabase
+          .from("documents")
+          .update({ title: editing.title, notes: editing.notes })
+          .eq("id", editing.id);
+
+        if (!fallbackError) {
+          setEditing(null);
+          qc.invalidateQueries({ queryKey: ["documents"] });
+          toast.warning("Documento salvo. Aplique as migrations para habilitar o status Emitido.");
+          return;
+        }
+      }
+
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel atualizar o documento."));
+    }
+
     setEditing(null);
     qc.invalidateQueries({ queryKey: ["documents"] });
     toast.success("Documento atualizado");
@@ -354,7 +376,7 @@ function DocumentsList() {
                         <td className="px-4 py-2 font-mono text-xs">{document.code}</td>
                         <td className="px-4 py-2">{kindLabel(document.kind)}</td>
                         <td className="px-4 py-2">{document.title ?? "—"}</td>
-                        <td className="px-4 py-2 text-xs">{document.status}</td>
+                        <td className="px-4 py-2 text-xs">{signatureStatusLabel(document.status)}</td>
                         <td className="px-4 py-2 text-xs">
                           {signature ? (
                             <Badge variant={signature.status === "signed" ? "default" : "secondary"}>
