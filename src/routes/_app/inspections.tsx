@@ -281,17 +281,55 @@ function InspectionsPage() {
         .data ?? [],
   });
 
-  function open(property: any) {
-    const raw = property.property_inspections;
-    const existing = Array.isArray(raw) ? raw[0] : raw;
-    setEditing(property);
-    setInspection({
+  function normalizeInspection(property: any, existing?: any) {
+    return {
       ...(existing ?? {}),
       property_id: property.id,
       assigned_broker_id: existing?.assigned_broker_id ?? property.broker_id ?? "none",
       scheduled_at: existing?.scheduled_at?.slice(0, 16) ?? "",
       reminder_minutes: existing?.reminder_minutes ?? 60,
-    });
+    };
+  }
+
+  function embeddedInspection(property: any) {
+    const raw = property.property_inspections;
+    return Array.isArray(raw) ? raw[0] : raw;
+  }
+
+  function updateCachedInspection(propertyId: string, inspectionRow: any, propertyPatch = {}) {
+    qc.setQueryData(["properties-inspection-pipeline"], (current: any) =>
+      Array.isArray(current)
+        ? current.map((property) =>
+            property.id === propertyId
+              ? { ...property, ...propertyPatch, property_inspections: [inspectionRow] }
+              : property,
+          )
+        : current,
+    );
+  }
+
+  async function open(property: any) {
+    const existing = embeddedInspection(property);
+    setEditing(property);
+    setInspection(normalizeInspection(property, existing));
+
+    const { data, error } = await supabase
+      .from("property_inspections")
+      .select("*")
+      .eq("property_id", property.id)
+      .maybeSingle();
+
+    if (error) {
+      toast.error(translatedErrorMessage(error, "Nao foi possivel carregar a vistoria salva."));
+      return;
+    }
+    if (data) {
+      setInspection(normalizeInspection(property, data));
+      setEditing((current: any) =>
+        current?.id === property.id ? { ...current, property_inspections: [data] } : current,
+      );
+      updateCachedInspection(property.id, data);
+    }
   }
 
   function refresh() {
@@ -345,18 +383,19 @@ function InspectionsPage() {
       );
     }
     if (data) {
-      setInspection({ ...data, scheduled_at: data.scheduled_at?.slice(0, 16) ?? "" });
+      setInspection(normalizeInspection(editing, data));
       setEditing({
         ...editing,
         workflow_status,
         broker_id: payload.assigned_broker_id,
         property_inspections: [data],
       });
+      updateCachedInspection(editing.id, data, { workflow_status, broker_id: payload.assigned_broker_id });
     } else {
       setEditing({ ...editing, workflow_status, broker_id: payload.assigned_broker_id });
     }
     toast.success("Vistoria salva");
-    refresh();
+    await qc.invalidateQueries({ queryKey: ["properties-inspection-pipeline"] });
   }
 
   async function deleteInspection() {
@@ -391,7 +430,7 @@ function InspectionsPage() {
       review_notes: inspection.review_notes || null,
       status: "completed",
     };
-    const { error } = await upsertInspection(payload);
+    const { data, error } = await upsertInspection(payload, { select: true });
     if (error)
       return toast.error(translatedErrorMessage(error, "Nao foi possivel concluir a vistoria."));
     const { error: propertyError } = await supabase
@@ -406,9 +445,15 @@ function InspectionsPage() {
         translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."),
       );
     }
+    if (data) {
+      updateCachedInspection(editing.id, data, {
+        workflow_status: "awaiting_inspection_review",
+        broker_id: payload.assigned_broker_id,
+      });
+    }
     toast.success("Vistoria concluída e enviada para aprovação");
     setEditing(null);
-    refresh();
+    await qc.invalidateQueries({ queryKey: ["properties-inspection-pipeline"] });
   }
 
   async function review(approved: boolean) {
@@ -417,7 +462,7 @@ function InspectionsPage() {
     } = await supabase.auth.getUser();
     const status = approved ? "approved" : "rejected";
     const workflow_status = approved ? "ready_to_publish" : "rejected";
-    const { error } = await upsertInspection({
+    const { data, error } = await upsertInspection({
       property_id: editing.id,
       assigned_broker_id:
         inspection.assigned_broker_id === "none" ? null : inspection.assigned_broker_id,
@@ -429,7 +474,7 @@ function InspectionsPage() {
       status,
       reviewed_by: user?.id,
       reviewed_at: new Date().toISOString(),
-    });
+    }, { select: true });
     if (error)
       return toast.error(translatedErrorMessage(error, "Nao foi possivel revisar a vistoria."));
     const { error: propertyError } = await supabase
@@ -441,9 +486,10 @@ function InspectionsPage() {
         translatedErrorMessage(propertyError, "Nao foi possivel atualizar a etapa do imovel."),
       );
     }
+    if (data) updateCachedInspection(editing.id, data, { workflow_status });
     toast.success(approved ? "Imóvel liberado para divulgação" : "Vistoria reprovada");
     setEditing(null);
-    refresh();
+    await qc.invalidateQueries({ queryKey: ["properties-inspection-pipeline"] });
   }
 
   async function uploadImages(files: FileList | null) {
