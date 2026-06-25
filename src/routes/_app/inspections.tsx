@@ -193,6 +193,26 @@ function isSchemaCacheError(error: unknown) {
   );
 }
 
+function schemaCacheText(error: unknown) {
+  if (!error || typeof error !== "object") return "";
+  const current = error as {
+    message?: string | null;
+    details?: string | null;
+    hint?: string | null;
+  };
+  return [current.message, current.details, current.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function missingSchemaColumn(error: unknown, payload: Record<string, unknown>) {
+  const text = schemaCacheText(error);
+  return Object.keys(payload).find(
+    (key) => text.includes(`'${key}'`) || text.includes(`"${key}"`) || text.includes(key),
+  );
+}
+
 async function upsertInspection(
   payload: Record<string, unknown>,
   options: { select?: boolean } = {},
@@ -208,20 +228,23 @@ async function upsertInspection(
   if (!isSchemaCacheError(result.error)) return { ...result, usedFallback: false };
 
   const compatiblePayload = { ...payload };
-  delete compatiblePayload.reminder_minutes;
-  delete compatiblePayload.calendar_event_url;
-  delete compatiblePayload.review_notes;
-  delete compatiblePayload.reviewed_by;
-  delete compatiblePayload.reviewed_at;
+  const fallbackColumns: string[] = [];
+  let currentResult = result;
 
-  if (Object.keys(compatiblePayload).length === Object.keys(payload).length) {
-    return { ...result, usedFallback: false };
+  while (isSchemaCacheError(currentResult.error)) {
+    const column = missingSchemaColumn(currentResult.error, compatiblePayload);
+    if (!column) break;
+    delete compatiblePayload[column];
+    fallbackColumns.push(column);
+    currentResult = await run(compatiblePayload);
   }
 
-  const fallbackResult = await run(compatiblePayload);
-  return { ...fallbackResult, usedFallback: !fallbackResult.error };
+  return {
+    ...currentResult,
+    usedFallback: fallbackColumns.length > 0 && !currentResult.error,
+    fallbackColumns,
+  };
 }
-
 function InspectionsPage() {
   const qc = useQueryClient();
   const { roles } = useAuth();
@@ -333,7 +356,7 @@ function InspectionsPage() {
     }
     toast.success(
       usedFallback
-        ? "Atendimento salvo. Aplique as migrations para gravar o parecer administrativo."
+        ? "Vistoria salva. Aplique as migrations para habilitar os campos auxiliares restantes."
         : "Vistoria salva",
     );
     refresh();
@@ -388,7 +411,7 @@ function InspectionsPage() {
     }
     toast.success(
       usedFallback
-        ? "Vistoria concluida. Aplique as migrations para gravar o parecer administrativo."
+        ? "Vistoria concluida. Aplique as migrations para habilitar os campos auxiliares restantes."
         : "Vistoria concluída e enviada para aprovação",
     );
     setEditing(null);
@@ -427,7 +450,7 @@ function InspectionsPage() {
     }
     toast.success(
       usedFallback
-        ? "Revisao salva. Aplique as migrations para gravar os dados do revisor."
+        ? "Revisao salva. Aplique as migrations para habilitar os campos auxiliares restantes."
         : approved
           ? "Imóvel liberado para divulgação"
           : "Vistoria reprovada",
