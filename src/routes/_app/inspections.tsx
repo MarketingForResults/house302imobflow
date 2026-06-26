@@ -14,6 +14,11 @@ import {
   XCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  inspectionPhotoFolderName,
+  safeInspectionPhotoFolderSegment,
+  inspectionPhotosUrl,
+} from "@/lib/inspection-photos";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -559,6 +564,8 @@ function InspectionsPage() {
         title="Vistorias"
         description="Execução técnica dos imóveis aprovados na etapa de cadastro"
       />
+
+
       <div className="p-4 md:p-8">
         <div className="overflow-x-auto rounded-lg border bg-card">
           <table className="w-full text-sm">
@@ -629,7 +636,11 @@ function InspectionsPage() {
           <DialogHeader>
             <DialogTitle>Vistoria técnica {editing?.code}</DialogTitle>
           </DialogHeader>
-          {editing && (
+          {editing && (() => {
+            const inspectionPhotoCount = editing.property_images?.length ?? 0;
+            const inspectionPhotoFolder = inspectionPhotoFolderName(editing);
+            const inspectionPhotoUrl = inspectionPhotosUrl(editing);
+            return (
             <div className="space-y-4">
               <section className="rounded-md border bg-muted/10 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -896,7 +907,8 @@ function InspectionsPage() {
                 )}
               </section>
             </div>
-          )}
+            );
+          })()}
           <DialogFooter className="mt-3 flex-wrap">
             <Button variant="outline" onClick={() => setEditing(null)}>
               Fechar
