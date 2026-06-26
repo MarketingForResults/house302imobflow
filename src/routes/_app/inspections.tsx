@@ -636,7 +636,11 @@ function InspectionsPage() {
           <DialogHeader>
             <DialogTitle>Vistoria técnica {editing?.code}</DialogTitle>
           </DialogHeader>
-          {editing && (
+          {editing && (() => {
+            const inspectionPhotoCount = editing.property_images?.length ?? 0;
+            const inspectionPhotoFolder = inspectionPhotoFolderName(editing);
+            const inspectionPhotoUrl = inspectionPhotosUrl(editing);
+            return (
             <div className="space-y-4">
               <section className="rounded-md border bg-muted/10 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
