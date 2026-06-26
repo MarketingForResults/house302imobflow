@@ -53,6 +53,10 @@ function SecurityPage() {
   const [totpCode, setTotpCode] = useState("");
   const [pendingFactor, setPendingFactor] = useState<any>(null);
   const [pendingChallengeId, setPendingChallengeId] = useState<string | null>(null);
+  const pendingQrCode = useMemo(
+    () => normalizeQrCode(pendingFactor?.totp?.qr_code),
+    [pendingFactor],
+  );
   const canManageSecurity = hasAnyRole(roles, ["master", "it_support", "admin"]);
   const isMaster = hasAnyRole(roles, ["master", "admin"]);
   const listSecurityState = useServerFn(getSecurityDashboardState);
@@ -198,9 +202,14 @@ function SecurityPage() {
     const { data: challenge, error: challengeError } = await (supabase.auth as any).mfa.challenge({
       factorId,
     });
-    if (challengeError) return toast.error(translatedErrorMessage(challengeError));
+    if (challengeError)
+      return toast.error(
+        translatedErrorMessage(challengeError, "Nao foi possivel gerar o desafio do 2FA."),
+      );
+    if (!challenge?.id)
+      return toast.error("O Supabase nao retornou o desafio para confirmar o 2FA.");
     setPendingFactor(data);
-    setPendingChallengeId(challenge?.id ?? null);
+    setPendingChallengeId(challenge.id);
   }
 
   async function verifyTotp() {
@@ -211,6 +220,7 @@ function SecurityPage() {
       code: totpCode.trim(),
     });
     if (error) return toast.error(translatedErrorMessage(error, "Codigo 2FA invalido."));
+    await supabase.auth.refreshSession();
     try {
       await recordAudit({
         event_type: "security.mfa.enrolled",
@@ -360,9 +370,9 @@ function SecurityPage() {
             )}
             {pendingFactor && (
               <div className="mt-4 grid gap-4 sm:grid-cols-[160px_1fr]">
-                {pendingFactor.totp?.qr_code && (
+                {pendingQrCode && (
                   <img
-                    src={pendingFactor.totp.qr_code}
+                    src={pendingQrCode}
                     alt="QR Code 2FA"
                     className="h-40 w-40 rounded border bg-white p-2"
                   />
@@ -371,6 +381,11 @@ function SecurityPage() {
                   <p className="text-xs text-muted-foreground">
                     Escaneie o QR Code no aplicativo autenticador e confirme o codigo de 6 digitos.
                   </p>
+                  {pendingFactor.totp?.secret && (
+                    <div className="rounded border bg-muted/40 px-3 py-2 text-xs">
+                      Chave manual: <span className="font-mono">{pendingFactor.totp.secret}</span>
+                    </div>
+                  )}
                   <Input
                     value={totpCode}
                     onChange={(event) => setTotpCode(event.target.value)}
@@ -509,6 +524,15 @@ function SecurityPage() {
       </div>
     </div>
   );
+}
+
+function normalizeQrCode(qrCode?: string | null) {
+  if (!qrCode) return null;
+  if (qrCode.startsWith("data:") || /^https?:\/\//i.test(qrCode)) return qrCode;
+  if (qrCode.trim().startsWith("<svg")) {
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrCode)}`;
+  }
+  return qrCode;
 }
 
 function SettingSwitch({

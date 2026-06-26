@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   createAutentiqueDocument,
   createSignatureLink,
+  checkAutentiqueConnection,
   getAutentiqueDocument,
   type AutentiqueSignerInput,
 } from "./autentique-client.server";
@@ -325,11 +326,43 @@ export const createAutentiqueSignatureLink = createServerFn({ method: "POST" })
     }
   });
 
+export const getAutentiqueConnectionStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertStaff(context.userId);
+
+    const hasToken = !!(process.env.AUTENTIQUE_API_KEY || process.env.AUTENTIQUE_TOKEN);
+    if (!hasToken) {
+      return {
+        ok: false,
+        configured: false,
+        message: "AUTENTIQUE_API_KEY nao configurada no servidor.",
+      };
+    }
+
+    try {
+      const account = await checkAutentiqueConnection();
+      return {
+        ok: true,
+        configured: true,
+        account,
+        message: account?.email ? `Conectado como ${account.email}` : "Token Autentique validado.",
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        configured: true,
+        message:
+          error instanceof Error ? error.message : "Nao foi possivel validar o token Autentique.",
+      };
+    }
+  });
+
 export async function updateAutentiqueSignatureFromWebhook(payload: any) {
   const event = payload?.event;
   const object = event?.data?.object;
   const autentiqueDocumentId =
-    object?.object === "document" ? object?.id : object?.document?.id ?? object?.document_id;
+    object?.object === "document" ? object?.id : (object?.document?.id ?? object?.document_id);
 
   if (!event?.id || !event?.type || !autentiqueDocumentId) {
     throw new Error("Payload de webhook da Autentique invalido.");

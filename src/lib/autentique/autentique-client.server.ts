@@ -46,9 +46,11 @@ export class AutentiqueError extends Error {
 }
 
 function getApiKey() {
-  const apiKey = process.env.AUTENTIQUE_API_KEY;
+  const apiKey = process.env.AUTENTIQUE_API_KEY || process.env.AUTENTIQUE_TOKEN;
   if (!apiKey) {
-    throw new AutentiqueError("AUTENTIQUE_API_KEY nao configurada no ambiente do servidor.");
+    throw new AutentiqueError(
+      "Token Autentique nao configurado. Defina AUTENTIQUE_API_KEY no ambiente do servidor.",
+    );
   }
   return apiKey;
 }
@@ -106,6 +108,22 @@ export async function graphqlRequest<T>(
   });
 
   return parseGraphqlResponse<T>(response);
+}
+
+export async function checkAutentiqueConnection() {
+  const data = await graphqlRequest<{ me?: { id?: string; name?: string; email?: string } }>(
+    `
+      query CheckAutentiqueConnection {
+        me {
+          id
+          name
+          email
+        }
+      }
+    `,
+  );
+
+  return data.me ?? null;
 }
 
 export async function createAutentiqueDocument(input: {

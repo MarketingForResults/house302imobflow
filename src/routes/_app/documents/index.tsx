@@ -5,6 +5,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { Fragment, useMemo, useState } from "react";
 import {
   Copy,
+  Download,
+  Eye,
   ExternalLink,
   FileSignature,
   FileText,
@@ -38,7 +40,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { DEFAULT_DOCUMENT_KINDS, DOCUMENT_KIND_LABEL, richTextToPlainText } from "@/lib/doc-placeholders";
+import {
+  DEFAULT_DOCUMENT_KINDS,
+  DOCUMENT_KIND_LABEL,
+  richTextToPlainText,
+} from "@/lib/doc-placeholders";
 import { generateDocumentPdf } from "@/lib/pdf-utils";
 import { formatDateBR } from "@/lib/format-date";
 import { translatedErrorMessage } from "@/lib/error-messages";
@@ -112,6 +118,16 @@ async function copyText(text?: string | null) {
   if (!text) return;
   await navigator.clipboard.writeText(text);
   toast.success("Link copiado");
+}
+
+async function buildDocumentPdf(document: any) {
+  return generateDocumentPdf({
+    code: document.code,
+    locator: document.code,
+    title: document.title || "Documento ImobiFlow",
+    bodyHtml: document.body_rendered ?? "",
+    bodyText: richTextToPlainText(document.body_rendered ?? ""),
+  });
 }
 
 function DocumentsList() {
@@ -207,9 +223,31 @@ function DocumentsList() {
   async function remove(id: string) {
     if (!confirm("Excluir este documento?")) return;
     const { error } = await supabase.from("documents").delete().eq("id", id);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o documento."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o documento."));
     qc.invalidateQueries({ queryKey: ["documents"] });
     toast.success("Documento excluído");
+  }
+
+  async function viewDocument(document: any) {
+    try {
+      const pdf = await buildDocumentPdf(document);
+      const blob = pdf.output("blob");
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      toast.error(translatedErrorMessage(error, "Nao foi possivel visualizar o documento."));
+    }
+  }
+
+  async function downloadDocument(document: any) {
+    try {
+      const pdf = await buildDocumentPdf(document);
+      pdf.save(buildPdfFileName(document));
+    } catch (error) {
+      toast.error(translatedErrorMessage(error, "Nao foi possivel baixar o documento."));
+    }
   }
 
   function openSignatureModal(document: any) {
@@ -377,10 +415,14 @@ function DocumentsList() {
                         <td className="px-4 py-2 font-mono text-xs">{document.code}</td>
                         <td className="px-4 py-2">{kindLabel(document.kind)}</td>
                         <td className="px-4 py-2">{document.title ?? "—"}</td>
-                        <td className="px-4 py-2 text-xs">{signatureStatusLabel(document.status)}</td>
+                        <td className="px-4 py-2 text-xs">
+                          {signatureStatusLabel(document.status)}
+                        </td>
                         <td className="px-4 py-2 text-xs">
                           {signature ? (
-                            <Badge variant={signature.status === "signed" ? "default" : "secondary"}>
+                            <Badge
+                              variant={signature.status === "signed" ? "default" : "secondary"}
+                            >
                               {signatureStatusLabel(signature.status)}
                               {signature.sandbox ? " · sandbox" : ""}
                             </Badge>
@@ -392,6 +434,22 @@ function DocumentsList() {
                           {formatDateBR(document.created_at)}
                         </td>
                         <td className="px-4 py-2 text-right whitespace-nowrap">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => viewDocument(document)}
+                            title="Visualizar documento"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => downloadDocument(document)}
+                            title="Baixar PDF"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -463,7 +521,9 @@ function DocumentsList() {
                                     onClick={() => refreshStatus(signature.id)}
                                   >
                                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                                    {refreshingId === signature.id ? "Atualizando…" : "Atualizar status"}
+                                    {refreshingId === signature.id
+                                      ? "Atualizando…"
+                                      : "Atualizar status"}
                                   </Button>
                                 </div>
                               </div>
@@ -473,14 +533,20 @@ function DocumentsList() {
                                     <div className="flex items-start justify-between gap-3">
                                       <div>
                                         <p className="font-medium">
-                                          {signer.name || signer.email || signer.phone || "Signatário"}
+                                          {signer.name ||
+                                            signer.email ||
+                                            signer.phone ||
+                                            "Signatário"}
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                          {[signer.email, signer.phone].filter(Boolean).join(" · ") ||
-                                            "Link manual"}
+                                          {[signer.email, signer.phone]
+                                            .filter(Boolean)
+                                            .join(" · ") || "Link manual"}
                                         </p>
                                       </div>
-                                      <Badge variant="secondary">{signatureStatusLabel(signer.status)}</Badge>
+                                      <Badge variant="secondary">
+                                        {signatureStatusLabel(signer.status)}
+                                      </Badge>
                                     </div>
                                     <div className="mt-3 flex flex-wrap gap-2">
                                       {signer.link ? (
@@ -612,7 +678,11 @@ function DocumentsList() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Signatários</Label>
-                <Button size="sm" variant="outline" onClick={() => setSigners([...signers, emptySigner()])}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSigners([...signers, emptySigner()])}
+                >
                   <Plus className="mr-1.5 h-3.5 w-3.5" />
                   Adicionar
                 </Button>

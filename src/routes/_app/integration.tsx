@@ -58,6 +58,7 @@ import {
   saveIntegrationConnection,
   setIntegrationConnectorEnabled,
 } from "@/lib/integrations/integration-connections.functions";
+import { getAutentiqueConnectionStatus } from "@/lib/autentique/autentique.functions";
 
 export const Route = createFileRoute("/_app/integration")({ component: IntegrationPage });
 
@@ -460,6 +461,7 @@ function IntegrationPage() {
   const saveConnection = useServerFn(saveIntegrationConnection);
   const setConnectorEnabled = useServerFn(setIntegrationConnectorEnabled);
   const disableConnection = useServerFn(disableIntegrationConnection);
+  const checkAutentiqueStatus = useServerFn(getAutentiqueConnectionStatus);
   const stats = integrationStats();
 
   const selectedConnector = selectedId
@@ -543,6 +545,13 @@ function IntegrationPage() {
       ).data ?? [],
     enabled: selectedConnector?.id === "wordpress",
     refetchInterval: selectedConnector?.id === "wordpress" ? 5000 : false,
+  });
+
+  const autentiqueStatusQuery = useQuery({
+    queryKey: ["autentique-connection-status"],
+    queryFn: async () => (await (checkAutentiqueStatus as any)()) as any,
+    enabled: selectedConnector?.id === "autentique",
+    retry: false,
   });
 
   async function syncOne(propertyId: string) {
@@ -754,6 +763,9 @@ function IntegrationPage() {
               properties={props}
               logs={logs}
               onSyncProperty={syncOne}
+              autentiqueStatus={autentiqueStatusQuery.data}
+              autentiqueStatusLoading={autentiqueStatusQuery.isLoading}
+              onRefreshAutentiqueStatus={() => autentiqueStatusQuery.refetch()}
               onAddConnection={() => openConnectionDialog(selectedConnector)}
               onToggleConnector={(enabled) => toggleConnector(selectedConnector, enabled)}
               onDisableConnection={disableConnectionById}
@@ -849,6 +861,9 @@ function ConnectorDetails({
   properties,
   logs,
   onSyncProperty,
+  autentiqueStatus,
+  autentiqueStatusLoading,
+  onRefreshAutentiqueStatus,
   onAddConnection,
   onToggleConnector,
   onDisableConnection,
@@ -869,6 +884,9 @@ function ConnectorDetails({
   properties: any[];
   logs: any[];
   onSyncProperty: (propertyId: string) => void;
+  autentiqueStatus?: any;
+  autentiqueStatusLoading: boolean;
+  onRefreshAutentiqueStatus: () => void;
   onAddConnection: () => void;
   onToggleConnector: (enabled: boolean) => void;
   onDisableConnection: (connectionId: string) => void;
@@ -964,7 +982,13 @@ function ConnectorDetails({
             </ul>
           </div>
 
-          {connector.id === "autentique" && <AutentiquePanel />}
+          {connector.id === "autentique" && (
+            <AutentiquePanel
+              status={autentiqueStatus}
+              loading={autentiqueStatusLoading}
+              onRefresh={onRefreshAutentiqueStatus}
+            />
+          )}
           {connector.id === "wordpress" && (
             <WordPressPanel
               wpUrl={wpUrl}
@@ -1305,14 +1329,39 @@ function ConnectionDialog({
   );
 }
 
-function AutentiquePanel() {
+function AutentiquePanel({
+  status,
+  loading,
+  onRefresh,
+}: {
+  status?: any;
+  loading: boolean;
+  onRefresh: () => void;
+}) {
   return (
     <div className="rounded-xl border bg-card p-5">
-      <h3 className="text-lg font-semibold">Ambiente Autentique</h3>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-lg font-semibold">Ambiente Autentique</h3>
+        <Button size="sm" variant="outline" onClick={onRefresh} disabled={loading}>
+          <RefreshCw className="mr-1.5 h-4 w-4" />
+          {loading ? "Testando..." : "Testar conexao"}
+        </Button>
+      </div>
       <p className="mt-1 text-sm text-muted-foreground">
         A integração já foi preparada no servidor. Use esta área como painel administrativo de
         configuração e auditoria futura.
       </p>
+      <div
+        className={`mt-4 rounded-lg border p-3 text-sm ${
+          status?.ok
+            ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+            : "border-amber-200 bg-amber-50 text-amber-950"
+        }`}
+      >
+        {loading
+          ? "Validando token Autentique..."
+          : (status?.message ?? "Clique em testar conexao para validar o token do servidor.")}
+      </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <div className="rounded-lg border p-3">
           <p className="text-sm font-medium">Secret obrigatória</p>
