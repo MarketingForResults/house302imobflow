@@ -907,7 +907,8 @@ function InspectionsPage() {
                 )}
               </section>
             </div>
-          )}
+            );
+          })()}
           <DialogFooter className="mt-3 flex-wrap">
             <Button variant="outline" onClick={() => setEditing(null)}>
               Fechar
