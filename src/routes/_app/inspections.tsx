@@ -564,6 +564,8 @@ function InspectionsPage() {
         title="Vistorias"
         description="Execução técnica dos imóveis aprovados na etapa de cadastro"
       />
+      {(() => null)()}
+
       <div className="p-4 md:p-8">
         <div className="overflow-x-auto rounded-lg border bg-card">
           <table className="w-full text-sm">
