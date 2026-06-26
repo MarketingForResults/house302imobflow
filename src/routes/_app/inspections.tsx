@@ -14,6 +14,11 @@ import {
   XCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  inspectionPhotoFolderName,
+  safeInspectionPhotoFolderSegment,
+  inspectionPhotosUrl,
+} from "@/lib/inspection-photos";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
