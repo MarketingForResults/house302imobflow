@@ -174,7 +174,8 @@ function NewDocumentPage() {
     [rentalContracts, rentalContractId],
   );
   const inspection = useMemo(() => {
-    const inspections = property?.property_inspections ?? [];
+    const raw = property?.property_inspections;
+    const inspections = Array.isArray(raw) ? raw : raw ? [raw] : [];
     return [...inspections].sort((a: any, b: any) => {
       const dateA = a.reviewed_at || a.scheduled_at || a.created_at || "";
       const dateB = b.reviewed_at || b.scheduled_at || b.created_at || "";
