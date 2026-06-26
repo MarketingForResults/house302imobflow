@@ -342,7 +342,8 @@ function renderPlainTextBody(
 ) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  const bodyLines = doc.splitTextToSize(bodyText || "", pageW - margin * 2);
+  const splitBody = doc.splitTextToSize(bodyText || "", pageW - margin * 2);
+  const bodyLines = Array.isArray(splitBody) ? splitBody : [String(splitBody ?? "")];
   let y = startY;
   const lineH = 5;
   for (const line of bodyLines) {

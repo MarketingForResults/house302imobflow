@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,8 +30,18 @@ import { ArrowLeft, Download } from "lucide-react";
 
 export const Route = createFileRoute("/_app/documents/new")({ component: NewDocumentPage });
 
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function clientRoles(client: any): string[] {
+  const roles = client?.client_roles;
+  if (Array.isArray(roles)) return roles.map(String);
+  if (typeof roles === "string") return roles.split(",").map((role) => role.trim());
+  return [];
+}
+
 function NewDocumentPage() {
-  const navigate = useNavigate();
   const [templateId, setTemplateId] = useState<string>("");
   const [ownerId, setOwnerId] = useState<string>("");
   const [tenantId, setTenantId] = useState<string>("");
@@ -51,13 +61,13 @@ function NewDocumentPage() {
   const [witness2Cpf, setWitness2Cpf] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const { data: templates = [] } = useQuery({
+  const { data: templatesData = [] } = useQuery({
     queryKey: ["templates-active"],
     queryFn: async () =>
       (await supabase.from("document_templates").select("*").eq("active", true).order("name"))
         .data ?? [],
   });
-  const { data: documentKinds = DEFAULT_DOCUMENT_KINDS } = useQuery({
+  const { data: documentKindsData = DEFAULT_DOCUMENT_KINDS } = useQuery({
     queryKey: ["document_kinds"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -70,7 +80,7 @@ function NewDocumentPage() {
       return data?.length ? data : DEFAULT_DOCUMENT_KINDS;
     },
   });
-  const { data: properties = [] } = useQuery({
+  const { data: propertiesData = [] } = useQuery({
     queryKey: ["properties-min"],
     queryFn: async () =>
       (
@@ -82,7 +92,7 @@ function NewDocumentPage() {
           .order("code", { ascending: false })
       ).data ?? [],
   });
-  const { data: rentalContracts = [] } = useQuery({
+  const { data: rentalContractsData = [] } = useQuery({
     queryKey: ["rental-contracts-doc"],
     queryFn: async () => {
       const fullQuery = await (supabase as any)
@@ -104,11 +114,11 @@ function NewDocumentPage() {
       );
     },
   });
-  const { data: clients = [] } = useQuery({
+  const { data: clientsData = [] } = useQuery({
     queryKey: ["clients-min"],
     queryFn: async () => (await supabase.from("clients").select("*").order("full_name")).data ?? [],
   });
-  const { data: brokers = [] } = useQuery({
+  const { data: brokersData = [] } = useQuery({
     queryKey: ["brokers-min"],
     queryFn: async () =>
       (await supabase.from("brokers").select("*").eq("active", true).order("full_name")).data ?? [],
@@ -118,6 +128,16 @@ function NewDocumentPage() {
     queryFn: async () =>
       (await supabase.from("app_settings").select("*").eq("id", true).maybeSingle()).data,
   });
+
+  const templates = useMemo(() => asArray<any>(templatesData), [templatesData]);
+  const documentKinds = useMemo(() => {
+    const kinds = asArray<any>(documentKindsData);
+    return kinds.length ? kinds : DEFAULT_DOCUMENT_KINDS;
+  }, [documentKindsData]);
+  const properties = useMemo(() => asArray<any>(propertiesData), [propertiesData]);
+  const rentalContracts = useMemo(() => asArray<any>(rentalContractsData), [rentalContractsData]);
+  const clients = useMemo(() => asArray<any>(clientsData), [clientsData]);
+  const brokers = useMemo(() => asArray<any>(brokersData), [brokersData]);
 
   const template = useMemo(
     () => templates.find((t: any) => t.id === templateId),
@@ -138,7 +158,7 @@ function NewDocumentPage() {
   const clientsByRole = useMemo(() => {
     const byRole = (role: string, selectedId: string) =>
       clients.filter(
-        (client: any) => client.client_roles?.includes(role) || client.id === selectedId,
+        (client: any) => clientRoles(client).includes(role) || client.id === selectedId,
       );
     return {
       owners: byRole("owner", ownerId),
@@ -310,90 +330,93 @@ function NewDocumentPage() {
   async function generate() {
     if (!template) return toast.error("Selecione um modelo");
     setSaving(true);
-    const title = `${kindLabel(template.kind)}${property ? ` — ${property.code}` : ""}`;
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const payload = {
-      template_id: template.id,
-      kind: template.kind,
-      title,
-      property_id: propertyId || null,
-      rental_contract_id: rentalContractId || null,
-      owner_id: ownerId || null,
-      tenant_id: tenantId || null,
-      buyer_id: buyerId || null,
-      seller_id: sellerId || null,
-      guarantor_id: guarantorId || null,
-      witness1_name: witness1Name.trim() || null,
-      witness1_cpf: witness1Cpf.trim() || null,
-      witness2_name: witness2Name.trim() || null,
-      witness2_cpf: witness2Cpf.trim() || null,
-      broker_id: brokerId || null,
-      payload_snapshot: {
-        ctx,
-        amount: discount.net,
-        grossAmount: discount.gross,
-        discountType: discount.type,
-        discountValue: discount.value,
-        discountAmount: discount.amount,
-        deadlineDays,
-        guarantorId,
-        rentalContractId,
-        parties: { ownerId, tenantId, buyerId, sellerId, brokerId },
-        witnesses: [
-          { name: witness1Name.trim(), cpf: witness1Cpf.trim() },
-          { name: witness2Name.trim(), cpf: witness2Cpf.trim() },
-        ].filter((witness) => witness.name || witness.cpf),
-      },
-      body_rendered: rendered,
-      created_by: user?.id,
-    };
-    const { data: inserted, error, usedFallback } = await insertDocumentWithFallback(payload);
+    try {
+      const title = `${kindLabel(template.kind)}${property ? ` — ${property.code}` : ""}`;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const payload = {
+        template_id: template.id,
+        kind: template.kind,
+        title,
+        property_id: propertyId || null,
+        rental_contract_id: rentalContractId || null,
+        owner_id: ownerId || null,
+        tenant_id: tenantId || null,
+        buyer_id: buyerId || null,
+        seller_id: sellerId || null,
+        guarantor_id: guarantorId || null,
+        witness1_name: witness1Name.trim() || null,
+        witness1_cpf: witness1Cpf.trim() || null,
+        witness2_name: witness2Name.trim() || null,
+        witness2_cpf: witness2Cpf.trim() || null,
+        broker_id: brokerId || null,
+        payload_snapshot: {
+          ctx,
+          amount: discount.net,
+          grossAmount: discount.gross,
+          discountType: discount.type,
+          discountValue: discount.value,
+          discountAmount: discount.amount,
+          deadlineDays,
+          guarantorId,
+          rentalContractId,
+          parties: { ownerId, tenantId, buyerId, sellerId, brokerId },
+          witnesses: [
+            { name: witness1Name.trim(), cpf: witness1Cpf.trim() },
+            { name: witness2Name.trim(), cpf: witness2Cpf.trim() },
+          ].filter((witness) => witness.name || witness.cpf),
+        },
+        body_rendered: rendered,
+        created_by: user?.id,
+      };
+      const { data: inserted, error, usedFallback } = await insertDocumentWithFallback(payload);
 
-    if (error || !inserted) {
+      if (error || !inserted) {
+        return toast.error(translatedErrorMessage(error, "Nao foi possivel gerar o documento."));
+      }
+
+      const pdf = await generateDocumentPdf({
+        code: inserted.code,
+        locator: property?.code ?? inserted.code,
+        title,
+        bodyHtml: rendered,
+        bodyText: richTextToPlainText(rendered),
+        parties: [
+          owner && { label: "LOCADOR", name: owner.full_name, doc: owner.cpf },
+          tenant && { label: "LOCATÁRIO", name: tenant.full_name, doc: tenant.cpf },
+          buyer && { label: "COMPRADOR", name: buyer.full_name, doc: buyer.cpf },
+          seller && { label: "VENDEDOR", name: seller.full_name, doc: seller.cpf },
+          guarantor && { label: "FIADOR", name: guarantor.full_name, doc: guarantor.cpf },
+          witness1Name.trim() && {
+            label: "TESTEMUNHA 1",
+            name: witness1Name.trim(),
+            doc: witness1Cpf.trim(),
+          },
+          witness2Name.trim() && {
+            label: "TESTEMUNHA 2",
+            name: witness2Name.trim(),
+            doc: witness2Cpf.trim(),
+          },
+          broker && {
+            label: "CORRETOR",
+            name: broker.full_name,
+            doc: broker.creci ? `CRECI ${broker.creci}` : broker.cpf,
+          },
+        ].filter(Boolean) as any,
+      });
+      pdf.save(buildPdfFileName(inserted.code));
+      if (usedFallback) {
+        toast.warning(
+          "Documento gerado, mas alguns vínculos ficaram apenas no histórico porque o Supabase ainda precisa aplicar as migrations.",
+        );
+      }
+      toast.success("Documento gerado");
+    } catch (error) {
+      toast.error(translatedErrorMessage(error, "Nao foi possivel gerar o documento."));
+    } finally {
       setSaving(false);
-      return toast.error(translatedErrorMessage(error, "Nao foi possivel gerar o documento."));
     }
-
-    const pdf = await generateDocumentPdf({
-      code: inserted.code,
-      locator: property?.code ?? inserted.code,
-      title,
-      bodyHtml: rendered,
-      bodyText: richTextToPlainText(rendered),
-      parties: [
-        owner && { label: "LOCADOR", name: owner.full_name, doc: owner.cpf },
-        tenant && { label: "LOCATÁRIO", name: tenant.full_name, doc: tenant.cpf },
-        buyer && { label: "COMPRADOR", name: buyer.full_name, doc: buyer.cpf },
-        seller && { label: "VENDEDOR", name: seller.full_name, doc: seller.cpf },
-        guarantor && { label: "FIADOR", name: guarantor.full_name, doc: guarantor.cpf },
-        witness1Name.trim() && {
-          label: "TESTEMUNHA 1",
-          name: witness1Name.trim(),
-          doc: witness1Cpf.trim(),
-        },
-        witness2Name.trim() && {
-          label: "TESTEMUNHA 2",
-          name: witness2Name.trim(),
-          doc: witness2Cpf.trim(),
-        },
-        broker && {
-          label: "CORRETOR",
-          name: broker.full_name,
-          doc: broker.creci ? `CRECI ${broker.creci}` : broker.cpf,
-        },
-      ].filter(Boolean) as any,
-    });
-    pdf.save(buildPdfFileName(inserted.code));
-    setSaving(false);
-    if (usedFallback) {
-      toast.warning(
-        "Documento gerado, mas alguns vínculos ficaram apenas no histórico porque o Supabase ainda precisa aplicar as migrations.",
-      );
-    }
-    toast.success("Documento gerado");
-    navigate({ to: "/documents" });
   }
 
   return (

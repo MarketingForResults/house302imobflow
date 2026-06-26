@@ -416,6 +416,15 @@ export function richTextToPlainText(body: string): string {
   return (container.textContent ?? "").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export function sanitizeRichTextHtml(body: string): string {
   if (!body || !/<[a-z][\s\S]*>/i.test(body)) return body;
 
@@ -728,11 +737,13 @@ export function buildPlaceholderContext(input: {
 }
 
 export function renderTemplate(body: string, ctx: Record<string, any>): string {
+  const shouldEscapeHtml = /<[a-z][\s\S]*>/i.test(body);
   return body.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, path: string) => {
     const parts = path.split(".");
     let v: any = ctx;
     for (const p of parts) v = v?.[p];
-    return v == null || v === "" ? `[${path}]` : String(v);
+    const value = v == null || v === "" ? `[${path}]` : String(v);
+    return shouldEscapeHtml ? escapeHtml(value) : value;
   });
 }
 
