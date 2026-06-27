@@ -16,8 +16,20 @@ const SaveConnectionSchema = z.object({
   accountLabel: z.string().trim().max(200).optional().nullable(),
   externalAccountId: z.string().trim().max(200).optional().nullable(),
   secretRef: z.string().trim().max(160).optional().nullable(),
-  webhookUrl: z.string().trim().url().optional().nullable(),
-  callbackUrl: z.string().trim().url().optional().nullable(),
+  webhookUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .nullable()
+    .transform((value) => (value ? value : null)),
+  callbackUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .nullable()
+    .transform((value) => (value ? value : null)),
   notes: z.string().trim().max(1000).optional().nullable(),
   scopes: z.array(z.string().trim().min(1).max(120)).default([]),
 });
