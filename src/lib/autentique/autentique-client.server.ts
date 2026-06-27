@@ -154,7 +154,6 @@ export async function createAutentiqueDocument(input: {
           public_id
           name
           email
-          phone
           created_at
           action { name }
           link { short_link }
@@ -209,7 +208,6 @@ export async function getAutentiqueDocument(id: string) {
             public_id
             name
             email
-            phone
             created_at
             action { name }
             link { short_link }
