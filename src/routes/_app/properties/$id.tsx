@@ -96,6 +96,17 @@ const PROPERTY_EDITABLE_FIELDS = [
   "description",
   "price",
   "area_m2",
+  "total_area_m2",
+  "width_m",
+  "length_m",
+  "lot_number",
+  "block_number",
+  "registry_office",
+  "registry_number",
+  "registry_book",
+  "registry_pages",
+  "registry_issue_date",
+  "registry_region",
   "bedrooms",
   "bathrooms",
   "suites",
@@ -142,6 +153,9 @@ const PROPERTY_EDITABLE_FIELDS = [
 const PROPERTY_NUMERIC_FIELDS = new Set([
   "price",
   "area_m2",
+  "total_area_m2",
+  "width_m",
+  "length_m",
   "bedrooms",
   "bathrooms",
   "suites",
@@ -406,9 +420,14 @@ function PropertyEdit() {
         return toast.error("Sessão expirada. Entre novamente para cadastrar o imóvel.");
       }
       payload.created_by = user.id;
-      const { data, error } = await db.from("properties").insert(payload).select("id").maybeSingle();
+      const { data, error } = await db
+        .from("properties")
+        .insert(payload)
+        .select("id")
+        .maybeSingle();
       setSaving(false);
-      if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel criar o imovel."));
+      if (error)
+        return toast.error(translatedErrorMessage(error, "Nao foi possivel criar o imovel."));
       if (!data?.id) return toast.error("Imovel criado, mas nao foi possivel abrir o cadastro.");
       setDirty(false);
       toast.success("Imóvel criado");
@@ -510,7 +529,9 @@ function PropertyEdit() {
           .from("property-images")
           .upload(path, blob, { contentType: blob.type || file.type });
         if (upErr) {
-          toast.error(`${file.name}: ${translatedErrorMessage(upErr, "Nao foi possivel enviar a imagem.")}`);
+          toast.error(
+            `${file.name}: ${translatedErrorMessage(upErr, "Nao foi possivel enviar a imagem.")}`,
+          );
           continue;
         }
         const {
@@ -525,12 +546,16 @@ function PropertyEdit() {
         });
         if (imageError) {
           await supabase.storage.from("property-images").remove([path]);
-          toast.error(`${file.name}: ${translatedErrorMessage(imageError, "Nao foi possivel registrar a imagem no imovel.")}`);
+          toast.error(
+            `${file.name}: ${translatedErrorMessage(imageError, "Nao foi possivel registrar a imagem no imovel.")}`,
+          );
           continue;
         }
         success++;
       } catch (e: any) {
-        toast.error(`${file.name}: ${translatedErrorMessage(e, "Nao foi possivel processar a imagem.")}`);
+        toast.error(
+          `${file.name}: ${translatedErrorMessage(e, "Nao foi possivel processar a imagem.")}`,
+        );
       }
       setUploadProgress({ current: i + 1, total: toUpload.length });
     }
@@ -553,7 +578,8 @@ function PropertyEdit() {
   async function remove() {
     if (!confirm("Excluir este imóvel?")) return;
     const { error } = await supabase.from("properties").delete().eq("id", id);
-    if (error) return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o imovel."));
+    if (error)
+      return toast.error(translatedErrorMessage(error, "Nao foi possivel excluir o imovel."));
     toast.success("Excluído");
     navigate({ to: "/properties" });
   }
@@ -901,6 +927,44 @@ function PropertyEdit() {
               />
             </Field>
           </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-5">
+            <Field label="Lote">
+              <Input
+                value={form.lot_number ?? ""}
+                onChange={(e) => set("lot_number", e.target.value)}
+              />
+            </Field>
+            <Field label="Quadra">
+              <Input
+                value={form.block_number ?? ""}
+                onChange={(e) => set("block_number", e.target.value)}
+              />
+            </Field>
+            <Field label="Área total (m²)">
+              <Input
+                type="number"
+                step="0.01"
+                value={form.total_area_m2 ?? ""}
+                onChange={(e) => set("total_area_m2", e.target.value)}
+              />
+            </Field>
+            <Field label="Largura (m)">
+              <Input
+                type="number"
+                step="0.01"
+                value={form.width_m ?? ""}
+                onChange={(e) => set("width_m", e.target.value)}
+              />
+            </Field>
+            <Field label="Comprimento (m)">
+              <Input
+                type="number"
+                step="0.01"
+                value={form.length_m ?? ""}
+                onChange={(e) => set("length_m", e.target.value)}
+              />
+            </Field>
+          </div>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <Toggle label="Mobiliado" v={form.furnished} onChange={(v) => set("furnished", v)} />
             <Toggle
@@ -919,6 +983,48 @@ function PropertyEdit() {
               v={form.exclusive}
               onChange={(v) => set("exclusive", v)}
             />
+          </div>
+        </Section>
+
+        <Section title="Registro do imóvel" className="lg:col-span-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <Field label="Cartório">
+              <Input
+                value={form.registry_office ?? ""}
+                onChange={(e) => set("registry_office", e.target.value)}
+              />
+            </Field>
+            <Field label="Número de matrícula">
+              <Input
+                value={form.registry_number ?? ""}
+                onChange={(e) => set("registry_number", e.target.value)}
+              />
+            </Field>
+            <Field label="Região do cartório de registro">
+              <Input
+                value={form.registry_region ?? ""}
+                onChange={(e) => set("registry_region", e.target.value)}
+              />
+            </Field>
+            <Field label="Livro">
+              <Input
+                value={form.registry_book ?? ""}
+                onChange={(e) => set("registry_book", e.target.value)}
+              />
+            </Field>
+            <Field label="Folhas">
+              <Input
+                value={form.registry_pages ?? ""}
+                onChange={(e) => set("registry_pages", e.target.value)}
+              />
+            </Field>
+            <Field label="Data de expedição">
+              <Input
+                type="date"
+                value={form.registry_issue_date ?? ""}
+                onChange={(e) => set("registry_issue_date", e.target.value)}
+              />
+            </Field>
           </div>
         </Section>
 

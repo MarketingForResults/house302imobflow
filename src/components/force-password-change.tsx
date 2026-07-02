@@ -8,6 +8,29 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { translatedErrorMessage } from "@/lib/error-messages";
 
+const STRONG_PASSWORD_MESSAGE =
+  "Use uma senha com pelo menos 10 caracteres, incluindo letra maiuscula, letra minuscula, numero e simbolo.";
+
+function passwordStrengthError(value: string) {
+  if (value.length < 10) return STRONG_PASSWORD_MESSAGE;
+  if (!/[a-z]/.test(value)) return STRONG_PASSWORD_MESSAGE;
+  if (!/[A-Z]/.test(value)) return STRONG_PASSWORD_MESSAGE;
+  if (!/\d/.test(value)) return STRONG_PASSWORD_MESSAGE;
+  if (!/[^A-Za-z0-9]/.test(value)) return STRONG_PASSWORD_MESSAGE;
+  return null;
+}
+
+function passwordUpdateErrorMessage(error: any) {
+  const text = [error?.code, error?.message, error?.details, error?.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  if (text.includes("weak_password") || text.includes("weak password")) {
+    return STRONG_PASSWORD_MESSAGE;
+  }
+  return translatedErrorMessage(error, "Nao foi possivel atualizar a senha");
+}
+
 export function ForcePasswordChange({
   userId,
   email,
@@ -23,7 +46,8 @@ export function ForcePasswordChange({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 8) return toast.error("A senha precisa ter no minimo 8 caracteres");
+    const strengthError = passwordStrengthError(password);
+    if (strengthError) return toast.error(strengthError);
     if (password !== confirm) return toast.error("As senhas nao conferem");
     setSaving(true);
     try {
@@ -37,7 +61,7 @@ export function ForcePasswordChange({
       toast.success("Senha atualizada com sucesso");
       onDone();
     } catch (err: any) {
-      toast.error(translatedErrorMessage(err, "Nao foi possivel atualizar a senha"));
+      toast.error(passwordUpdateErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -58,7 +82,7 @@ export function ForcePasswordChange({
         <form onSubmit={submit} className="space-y-3">
           <p className="text-sm text-muted-foreground">
             Sua conta <strong>{email}</strong> esta usando uma senha provisoria. Defina uma nova
-            senha pessoal para liberar o acesso ao sistema.
+            senha pessoal forte para liberar o acesso ao sistema.
           </p>
           <div className="grid gap-1.5">
             <Label>Nova senha</Label>
@@ -71,11 +95,7 @@ export function ForcePasswordChange({
           </div>
           <div className="grid gap-1.5">
             <Label>Confirmar nova senha</Label>
-            <Input
-              type="password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-            />
+            <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
           </div>
           <Button type="submit" className="w-full" disabled={saving}>
             {saving ? "Salvando..." : "Salvar nova senha"}

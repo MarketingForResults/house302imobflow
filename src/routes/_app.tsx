@@ -319,34 +319,215 @@ function PortalOnlyLayout({
   );
 }
 
+type PortalStageStatus = "complete" | "current" | "pending";
+
+const CONTRACT_STATUS_LABEL: Record<string, string> = {
+  active: "Vigente",
+  ended: "Concluido",
+  cancelled: "Cancelado",
+  suspended: "Suspenso",
+};
+
+const HOMOLOGATION_STATUS_LABEL: Record<string, string> = {
+  open: "Aberto para documentacao",
+  in_review: "Em homologacao",
+  archived: "Homologado e arquivado",
+};
+
+function isDocumentSigned(document: any) {
+  return Boolean(
+    document?.signed_at ||
+    document?.status === "signed" ||
+    document?.status === "issued" ||
+    document?.status === "sent",
+  );
+}
+
+function paymentLabel(status: string) {
+  const labels: Record<string, string> = {
+    pending: "Pendente",
+    paid: "Pago",
+    late: "Em atraso",
+    partial: "Parcial",
+    waived: "Dispensado",
+  };
+  return labels[status] ?? status;
+}
+
+function documentStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    draft: "Rascunho",
+    pending: "Pendente",
+    pending_approval: "Pendente de aprovacao",
+    issued: "Emitido",
+    sent: "Enviado",
+    signed: "Assinado",
+    viewed: "Visualizado",
+    rejected: "Rejeitado",
+    cancelled: "Cancelado",
+  };
+  return labels[status] ?? status;
+}
+
+function buildContractProgress(contract: any, payments: any[], documents: any[]) {
+  const hasDocuments = documents.length > 0;
+  const signedDocuments = documents.filter(isDocumentSigned).length;
+  const hasPayments = payments.length > 0;
+  const hasOpenPayments = payments.some((payment) => payment.status !== "paid");
+  const isArchived = contract.homologation_status === "archived";
+  const isCancelled = contract.status === "cancelled";
+  const isEnded = contract.status === "ended";
+
+  const stages: Array<{ title: string; description: string; status: PortalStageStatus }> = [
+    {
+      title: "Contrato cadastrado",
+      description: "Registro localizado no atendimento House302.",
+      status: "complete",
+    },
+    {
+      title: "Documentos do contrato",
+      description: hasDocuments
+        ? `${documents.length} documento(s) vinculado(s).`
+        : "Aguardando geracao ou vinculacao dos documentos.",
+      status: hasDocuments ? "complete" : "current",
+    },
+    {
+      title: "Assinaturas e conferencia",
+      description: hasDocuments
+        ? `${signedDocuments}/${documents.length} documento(s) assinado(s) ou enviado(s).`
+        : "Esta etapa comeca quando os documentos forem emitidos.",
+      status: hasDocuments
+        ? signedDocuments >= documents.length
+          ? "complete"
+          : "current"
+        : "pending",
+    },
+    {
+      title: "Pagamentos e mensalidades",
+      description: hasPayments
+        ? hasOpenPayments
+          ? "Existem lancamentos em acompanhamento."
+          : "Lancamentos gerados e pagos."
+        : "Aguardando geracao dos lancamentos financeiros.",
+      status: hasPayments ? (hasOpenPayments ? "current" : "complete") : "pending",
+    },
+    {
+      title: "Homologacao final",
+      description:
+        HOMOLOGATION_STATUS_LABEL[contract.homologation_status] ??
+        "Aguardando revisao administrativa.",
+      status: isArchived || isEnded ? "complete" : "pending",
+    },
+  ];
+
+  let currentPhase = HOMOLOGATION_STATUS_LABEL[contract.homologation_status] ?? "Em acompanhamento";
+  if (isCancelled) currentPhase = "Contrato cancelado";
+  else if (isEnded) currentPhase = "Contrato concluido";
+  else if (isArchived) currentPhase = "Homologado e arquivado";
+  else if (!hasDocuments) currentPhase = "Aguardando documentos";
+  else if (signedDocuments < documents.length) currentPhase = "Aguardando assinaturas";
+  else if (hasOpenPayments) currentPhase = "Pagamentos em acompanhamento";
+
+  return { currentPhase, stages };
+}
+
+function PortalStageList({
+  stages,
+}: {
+  stages: ReturnType<typeof buildContractProgress>["stages"];
+}) {
+  return (
+    <div className="mt-3 grid gap-2 md:grid-cols-5">
+      {stages.map((stage) => {
+        const complete = stage.status === "complete";
+        const current = stage.status === "current";
+        return (
+          <div
+            key={stage.title}
+            className={cn(
+              "rounded-md border p-2 text-xs",
+              complete && "border-emerald-200 bg-emerald-50 text-emerald-950",
+              current && "border-blue-200 bg-blue-50 text-blue-950",
+              stage.status === "pending" && "bg-muted/40 text-muted-foreground",
+            )}
+          >
+            <div className="mb-1 flex items-center gap-1.5 font-semibold">
+              <span
+                className={cn(
+                  "inline-flex h-2.5 w-2.5 rounded-full",
+                  complete && "bg-emerald-600",
+                  current && "bg-blue-600",
+                  stage.status === "pending" && "bg-muted-foreground/40",
+                )}
+              />
+              {stage.title}
+            </div>
+            <p className="leading-snug">{stage.description}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function PortalContractsArea() {
   const { user, roles } = useAuth();
   const { data, isLoading } = useQuery({
     queryKey: ["portal-contracts", user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
-      const { data: access } = await (supabase as any)
+      const { data: accessLinks = [], error: accessError } = await (supabase as any)
         .from("portal_access_links")
-        .select("client_id, broker_id")
+        .select("client_id, broker_id, role")
         .eq("user_id", user!.id)
-        .limit(1)
-        .maybeSingle();
-      const clientId = access?.client_id;
-      if (!clientId) return { contracts: [], paymentsByContract: {}, documentsByContract: {} };
+        .is("revoked_at", null);
+      if (accessError) throw accessError;
 
-      const { data: contracts = [] } = await (supabase as any)
+      const clientIds = Array.from(
+        new Set(accessLinks.map((link: any) => link.client_id).filter(Boolean)),
+      );
+      const ownerClientIds = Array.from(
+        new Set(
+          accessLinks
+            .filter((link: any) => link.role === "owner" && link.client_id)
+            .map((link: any) => link.client_id),
+        ),
+      );
+
+      if (clientIds.length === 0)
+        return { contracts: [], paymentsByContract: {}, documentsByContract: {} };
+
+      let ownerPropertyIds: string[] = [];
+      if (ownerClientIds.length > 0) {
+        const { data: ownerProperties = [], error: propertiesError } = await (supabase as any)
+          .from("properties")
+          .select("id")
+          .in("client_id", ownerClientIds);
+        if (propertiesError) throw propertiesError;
+        ownerPropertyIds = ownerProperties.map((property: any) => property.id).filter(Boolean);
+      }
+
+      const contractFilters = [
+        `tenant_client_id.in.(${clientIds.join(",")})`,
+        `landlord_client_id.in.(${clientIds.join(",")})`,
+        `guarantor_client_id.in.(${clientIds.join(",")})`,
+        ownerPropertyIds.length ? `property_id.in.(${ownerPropertyIds.join(",")})` : null,
+      ].filter(Boolean);
+
+      const { data: contracts = [], error: contractsError } = await (supabase as any)
         .from("rental_contracts")
         .select(
           "*, properties(code, title), tenant:clients!rental_contracts_tenant_client_id_fkey(full_name), landlord:clients!rental_contracts_landlord_client_id_fkey(full_name)",
         )
-        .or(`tenant_client_id.eq.${clientId},landlord_client_id.eq.${clientId}`)
+        .or(contractFilters.join(","))
         .order("created_at", { ascending: false });
+      if (contractsError) throw contractsError;
 
       const contractIds = contracts.map((contract: any) => contract.id);
       if (contractIds.length === 0)
         return { contracts, paymentsByContract: {}, documentsByContract: {} };
 
-      const [{ data: payments = [] }, { data: documents = [] }] = await Promise.all([
+      const [paymentsResult, documentsResult] = await Promise.all([
         (supabase as any)
           .from("rental_payments")
           .select("*")
@@ -358,6 +539,11 @@ function PortalContractsArea() {
           .in("rental_contract_id", contractIds)
           .order("created_at", { ascending: false }),
       ]);
+      if (paymentsResult.error) throw paymentsResult.error;
+      if (documentsResult.error) throw documentsResult.error;
+
+      const payments = paymentsResult.data ?? [];
+      const documents = documentsResult.data ?? [];
 
       return {
         contracts,
@@ -410,13 +596,16 @@ function PortalContractsArea() {
         <p className="mt-4 text-sm text-muted-foreground">Carregando contratos vinculados...</p>
       ) : !data?.contracts.length ? (
         <p className="mt-4 text-sm text-muted-foreground">
-          Nenhum contrato vinculado ao seu acesso ainda.
+          Nenhum contrato vinculado ao seu acesso ainda. Confira com a administracao se o contrato
+          ja foi cadastrado e se este e-mail foi liberado no cliente correto como locador, inquilino
+          ou fiador.
         </p>
       ) : (
         <div className="mt-4 space-y-4">
           {data.contracts.map((contract: any) => {
             const payments = data.paymentsByContract[contract.id] ?? [];
             const documents = data.documentsByContract[contract.id] ?? [];
+            const progress = buildContractProgress(contract, payments, documents);
             return (
               <article key={contract.id} className="rounded-md border p-3">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -430,8 +619,16 @@ function PortalContractsArea() {
                       {contract.tenant?.full_name ?? "-"}
                     </p>
                   </div>
-                  <span className="rounded-full border px-2 py-1 text-xs">{contract.status}</span>
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    <span className="rounded-full border px-2 py-1 text-xs">
+                      {progress.currentPhase}
+                    </span>
+                    <span className="rounded-full border px-2 py-1 text-xs text-muted-foreground">
+                      {CONTRACT_STATUS_LABEL[contract.status] ?? contract.status}
+                    </span>
+                  </div>
                 </div>
+                <PortalStageList stages={progress.stages} />
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <div>
                     <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
@@ -450,7 +647,7 @@ function PortalContractsArea() {
                               currency: "BRL",
                             })}
                           </span>
-                          <span>{payment.status}</span>
+                          <span>{paymentLabel(payment.status)}</span>
                         </div>
                       ))}
                       {payments.length === 0 && (
@@ -475,7 +672,7 @@ function PortalContractsArea() {
                               {document.title ?? document.code}
                             </div>
                             <div className="text-muted-foreground">
-                              {document.code} - {document.status}
+                              {document.code} - {documentStatusLabel(document.status)}
                             </div>
                           </div>
                           <button

@@ -11,6 +11,29 @@ import { translatedErrorMessage } from "@/lib/error-messages";
 
 export const Route = createFileRoute("/reset-password")({ component: ResetPasswordPage });
 
+const STRONG_PASSWORD_MESSAGE =
+  "Use uma senha com pelo menos 10 caracteres, incluindo letra maiuscula, letra minuscula, numero e simbolo.";
+
+function passwordStrengthError(value: string) {
+  if (value.length < 10) return STRONG_PASSWORD_MESSAGE;
+  if (!/[a-z]/.test(value)) return STRONG_PASSWORD_MESSAGE;
+  if (!/[A-Z]/.test(value)) return STRONG_PASSWORD_MESSAGE;
+  if (!/\d/.test(value)) return STRONG_PASSWORD_MESSAGE;
+  if (!/[^A-Za-z0-9]/.test(value)) return STRONG_PASSWORD_MESSAGE;
+  return null;
+}
+
+function passwordUpdateErrorMessage(error: any) {
+  const text = [error?.code, error?.message, error?.details, error?.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  if (text.includes("weak_password") || text.includes("weak password")) {
+    return STRONG_PASSWORD_MESSAGE;
+  }
+  return translatedErrorMessage(error, "Nao foi possivel redefinir a senha.");
+}
+
 function ResetPasswordPage() {
   const { user, loading, refreshPasswordState } = useAuth();
   const navigate = useNavigate();
@@ -56,8 +79,9 @@ function ResetPasswordPage() {
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (password.length < 8) {
-      toast.error("A senha precisa ter no minimo 8 caracteres.");
+    const strengthError = passwordStrengthError(password);
+    if (strengthError) {
+      toast.error(strengthError);
       return;
     }
     if (password !== confirmPassword) {
@@ -68,7 +92,7 @@ function ResetPasswordPage() {
     setSubmitting(true);
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
-      toast.error(translatedErrorMessage(error, "Nao foi possivel redefinir a senha."));
+      toast.error(passwordUpdateErrorMessage(error));
       setSubmitting(false);
       return;
     }
@@ -103,7 +127,9 @@ function ResetPasswordPage() {
             <h1 className="text-xl font-semibold">Redefinir senha</h1>
           </div>
 
-          {checking && <p className="text-sm text-muted-foreground">Validando link de recuperacao...</p>}
+          {checking && (
+            <p className="text-sm text-muted-foreground">Validando link de recuperacao...</p>
+          )}
 
           {invalidLink && (
             <div className="space-y-4">
