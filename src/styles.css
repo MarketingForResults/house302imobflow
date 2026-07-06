@@ -98,8 +98,10 @@
     border-color: var(--color-border);
   }
   html,
-  body {
+  body,
+  #root {
     font-family: var(--font-sans);
+    width: 100%;
     max-width: 100%;
     overflow-x: hidden;
   }

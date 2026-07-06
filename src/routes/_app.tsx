@@ -56,6 +56,7 @@ const nav = [
 
 const routeRoleMap = new Map(ROUTE_ROLES.map((route) => [route.prefix, route.roles]));
 const PORTAL_ROLES = ["owner", "tenant"] as const;
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "house302.sidebar.collapsed";
 
 function AppLayout() {
   const { user, loading, signOut, roles, mustChangePassword, refreshPasswordState } = useAuth();
@@ -63,7 +64,10 @@ function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
+  });
   const [loginAt] = useState(() => new Date());
   const [now, setNow] = useState(() => new Date());
   const canUseBackoffice = hasAnyRole(roles, [
@@ -99,6 +103,10 @@ function AppLayout() {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
@@ -400,9 +408,9 @@ const INSPECTION_STATUS_LABELS: Record<string, { label: string; description: str
 function isDocumentSigned(document: any) {
   return Boolean(
     document?.signed_at ||
-      document?.status === "signed" ||
-      document?.status === "issued" ||
-      document?.status === "sent",
+    document?.status === "signed" ||
+    document?.status === "issued" ||
+    document?.status === "sent",
   );
 }
 
@@ -652,7 +660,9 @@ function PortalDashboardArea({ email, roles }: { email?: string; roles: string[]
         propertyIds.length > 0
           ? (supabase as any)
               .from("property_inspections")
-              .select("id, property_id, status, scheduled_at, contact_notes, technical_notes, review_notes, created_at")
+              .select(
+                "id, property_id, status, scheduled_at, contact_notes, technical_notes, review_notes, created_at",
+              )
               .in("property_id", propertyIds)
               .order("created_at", { ascending: false })
           : Promise.resolve({ data: [] }),
@@ -708,7 +718,9 @@ function PortalDashboardArea({ email, roles }: { email?: string; roles: string[]
     : roles;
   const roleLabel = getPortalRoleLabel(activeRoles);
   const payments = Object.values(data?.paymentsByContract ?? {}).flat();
-  const openPayments = payments.filter((payment: any) => payment.status !== "paid" && payment.status !== "waived");
+  const openPayments = payments.filter(
+    (payment: any) => payment.status !== "paid" && payment.status !== "waived",
+  );
   const totalDocuments = mergeById([
     ...Object.values(data?.documentsByContract ?? {}).flat(),
     ...Object.values(data?.documentsByProperty ?? {}).flat(),
@@ -720,7 +732,9 @@ function PortalDashboardArea({ email, roles }: { email?: string; roles: string[]
       <section className="rounded-md border bg-card p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Portal House302</div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              Portal House302
+            </div>
             <h1 className="mt-1 text-2xl font-semibold">Dashboard do {roleLabel}</h1>
             <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
               Acompanhe seus processos vinculados, contratos, pagamentos, documentos e etapas de
@@ -774,10 +788,10 @@ function PortalDashboardArea({ email, roles }: { email?: string; roles: string[]
                     <article key={property.id} className="rounded-md border p-4">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                          <h3 className="font-semibold">{property.code} - {property.title ?? "Imovel"}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {formatAddress(property)}
-                          </p>
+                          <h3 className="font-semibold">
+                            {property.code} - {property.title ?? "Imovel"}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">{formatAddress(property)}</p>
                         </div>
                         <span className="shrink-0 rounded-full border px-2 py-1 text-xs">
                           {stage.label}
@@ -785,9 +799,15 @@ function PortalDashboardArea({ email, roles }: { email?: string; roles: string[]
                       </div>
                       <p className="mt-3 text-sm text-muted-foreground">{stage.description}</p>
                       <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
-                        <PortalMiniInfo label="Vistoria" value={formatInspectionStatus(inspections[0])} />
+                        <PortalMiniInfo
+                          label="Vistoria"
+                          value={formatInspectionStatus(inspections[0])}
+                        />
                         <PortalMiniInfo label="Contratos" value={String(contracts.length)} />
-                        <PortalMiniInfo label="Documentos" value={String(propertyDocuments.length)} />
+                        <PortalMiniInfo
+                          label="Documentos"
+                          value={String(propertyDocuments.length)}
+                        />
                       </div>
                     </article>
                   );
@@ -836,7 +856,9 @@ function PortalContractsSection({
 }) {
   return (
     <section className="rounded-md border bg-card p-5">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">Contratos e documentos</div>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+        Contratos e documentos
+      </div>
       <h2 className="text-lg font-semibold">Area do {roleLabel}</h2>
       {!data?.contracts.length && !data?.looseDocuments.length ? (
         <p className="mt-4 text-sm text-muted-foreground">
@@ -859,7 +881,8 @@ function PortalContractsSection({
                       {contract.properties?.code} - {contract.properties?.title}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Locador: {contract.landlord?.full_name ?? "-"} | Locatario: {contract.tenant?.full_name ?? "-"}
+                      Locador: {contract.landlord?.full_name ?? "-"} | Locatario:{" "}
+                      {contract.tenant?.full_name ?? "-"}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -934,7 +957,9 @@ function PortalDocumentsList({
 }) {
   return (
     <div>
-      <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Documentos gerados</h4>
+      <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+        Documentos gerados
+      </h4>
       <div className="max-h-48 overflow-auto rounded border">
         {documents.map((document: any) => (
           <div
@@ -994,7 +1019,8 @@ function resolveProcessStage(property: any, inspection?: any) {
   return (
     WORKFLOW_STAGE_LABELS[property?.workflow_status] ?? {
       label: property?.workflow_status || "Processo ativo",
-      description: "O processo esta ativo e sera atualizado conforme novas etapas forem concluidas.",
+      description:
+        "O processo esta ativo e sera atualizado conforme novas etapas forem concluidas.",
     }
   );
 }
@@ -1007,9 +1033,11 @@ function formatInspectionStatus(inspection?: any) {
 }
 
 function formatAddress(property: any) {
-  return [property.address, property.neighborhood, property.city, property.state]
-    .filter(Boolean)
-    .join(" - ") || "Endereco em conferencia";
+  return (
+    [property.address, property.neighborhood, property.city, property.state]
+      .filter(Boolean)
+      .join(" - ") || "Endereco em conferencia"
+  );
 }
 
 function formatDateBR(value?: string | null) {

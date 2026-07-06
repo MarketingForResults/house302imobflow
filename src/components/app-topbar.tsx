@@ -92,6 +92,7 @@ export function AppTopbar({
             type="button"
             onClick={onToggleSidebar}
             className="hidden h-9 w-9 items-center justify-center rounded-md border text-muted-foreground transition hover:bg-muted hover:text-foreground md:inline-flex"
+            aria-pressed={sidebarCollapsed}
             aria-label={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
             title={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
           >
