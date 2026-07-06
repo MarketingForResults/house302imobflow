@@ -1,6 +1,17 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, LifeBuoy, LogOut, Menu, Moon, Settings as SettingsIcon, Sun, User } from "lucide-react";
+import {
+  Bell,
+  LifeBuoy,
+  LogOut,
+  Menu,
+  Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings as SettingsIcon,
+  Sun,
+  User,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useUiPreferences } from "@/lib/ui-preferences";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,16 +23,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { formatRoles } from "@/lib/permissions";
 
-export function AppTopbar({ onOpenMobileMenu }: { onOpenMobileMenu?: () => void }) {
+export function AppTopbar({
+  onOpenMobileMenu,
+  onToggleSidebar,
+  sidebarCollapsed = false,
+}: {
+  onOpenMobileMenu?: () => void;
+  onToggleSidebar?: () => void;
+  sidebarCollapsed?: boolean;
+}) {
   const { user, roles, signOut } = useAuth();
   const { theme, setTheme } = useUiPreferences();
   const navigate = useNavigate();
@@ -29,9 +44,7 @@ export function AppTopbar({ onOpenMobileMenu }: { onOpenMobileMenu?: () => void 
   const { data: alerts = [] } = useQuery({
     queryKey: ["topbar-alerts"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("properties")
-        .select("workflow_status");
+      const { data } = await supabase.from("properties").select("workflow_status");
       const all = data ?? [];
       const items: { label: string; value: number; to: string }[] = [
         {
@@ -62,8 +75,8 @@ export function AppTopbar({ onOpenMobileMenu }: { onOpenMobileMenu?: () => void 
   const doSignOut = () => signOut().then(() => navigate({ to: "/" }));
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b bg-background px-3 md:px-6">
-      <div className="flex items-center gap-2">
+    <header className="sticky top-0 z-30 flex h-14 min-w-0 items-center justify-between gap-2 border-b bg-background px-3 md:px-6">
+      <div className="flex min-w-0 items-center gap-2">
         {onOpenMobileMenu && (
           <button
             type="button"
@@ -72,6 +85,21 @@ export function AppTopbar({ onOpenMobileMenu }: { onOpenMobileMenu?: () => void 
             aria-label="Abrir menu"
           >
             <Menu className="h-5 w-5" />
+          </button>
+        )}
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="hidden h-9 w-9 items-center justify-center rounded-md border text-muted-foreground transition hover:bg-muted hover:text-foreground md:inline-flex"
+            aria-label={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+            title={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
           </button>
         )}
         <div

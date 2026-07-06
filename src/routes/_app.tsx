@@ -223,17 +223,21 @@ function AppLayout() {
   );
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen w-full overflow-x-hidden bg-background">
       <aside
         className={cn(
-          "hidden flex-col border-r bg-sidebar transition-[width] duration-200 md:flex",
+          "hidden shrink-0 flex-col border-r bg-sidebar transition-[width] duration-200 md:flex",
           sidebarCollapsed ? "w-[4.5rem]" : "w-60",
         )}
       >
         <SidebarBody collapsed={sidebarCollapsed} />
       </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <AppTopbar onOpenMobileMenu={() => setMobileOpen(true)} />
+      <div className="flex w-0 min-w-0 flex-1 flex-col overflow-x-hidden">
+        <AppTopbar
+          onOpenMobileMenu={() => setMobileOpen(true)}
+          onToggleSidebar={() => setSidebarCollapsed((current) => !current)}
+          sidebarCollapsed={sidebarCollapsed}
+        />
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <span className="hidden" />
@@ -242,7 +246,7 @@ function AppLayout() {
             <SidebarBody mobile />
           </SheetContent>
         </Sheet>
-        <main className="flex-1 overflow-x-hidden">
+        <main className="min-w-0 flex-1 overflow-x-hidden">
           <Outlet />
         </main>
       </div>
