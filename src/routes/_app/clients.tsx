@@ -314,10 +314,9 @@ function ClientsPage() {
                   </div>
                   <div>
                     <Label>Telefone</Label>
-                    <Input
-                      autoComplete="tel"
-                      value={form.phone ?? ""}
-                      onChange={(e) => set("phone", maskPhone(e.target.value))}
+                    <PhoneInput
+                      value={form.phone}
+                      onChange={(value) => set("phone", value)}
                     />
                   </div>
                 </div>
