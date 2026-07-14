@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
+import { PhoneInput } from "@/components/phone-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,7 +29,7 @@ import {
   maskCep,
   maskCnpj,
   maskCpf,
-  maskPhone,
+  
 } from "@/lib/form-utils";
 
 export const Route = createFileRoute("/_app/settings")({ component: SettingsPage });
@@ -580,13 +581,14 @@ function SettingsPage() {
               label={isIndividual ? "CRECI do corretor" : "CRECI da imobiliária"}
               type="text"
             />
-            <Field
-              {...fieldProps}
-              k="company_phone"
-              label="Telefone"
-              type="text"
-              mask={maskPhone}
-            />
+            <div>
+              <Label className="text-xs">Telefone</Label>
+              <PhoneInput
+                value={s.company_phone}
+                onChange={(value) => setSetting("company_phone", value)}
+                disabled={!isAdmin || institutionalFieldsDisabled}
+              />
+            </div>
             <Field {...fieldProps} k="company_email" label="E-mail" type="email" />
             <div>
               <Label className="text-xs">CEP</Label>

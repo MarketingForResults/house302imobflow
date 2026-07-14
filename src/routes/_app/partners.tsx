@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { EntityDocuments } from "@/components/entity-documents";
 import { PageHeader } from "@/components/page-header";
+import { PhoneInput } from "@/components/phone-input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,7 +45,7 @@ import {
   maskCep,
   maskCnh,
   maskCpfCnpj,
-  maskPhone,
+  
   maskRg,
 } from "@/lib/form-utils";
 
@@ -332,10 +333,9 @@ function PartnersPage() {
                 />
               </Field>
               <Field label="Telefone / WhatsApp">
-                <Input
-                  autoComplete="tel"
-                  value={editing.phone ?? ""}
-                  onChange={(e) => set("phone", maskPhone(e.target.value))}
+                <PhoneInput
+                  value={editing.phone}
+                  onChange={(value) => set("phone", value)}
                 />
               </Field>
               <Field label="E-mail">
@@ -414,9 +414,9 @@ function PartnersPage() {
                     />
                   </Field>
                   <Field label="Telefone / WhatsApp do proprietario">
-                    <Input
-                      value={editing.property_owner_phone ?? ""}
-                      onChange={(e) => set("property_owner_phone", maskPhone(e.target.value))}
+                    <PhoneInput
+                      value={editing.property_owner_phone}
+                      onChange={(value) => set("property_owner_phone", value)}
                     />
                   </Field>
                   <div className="sm:col-span-2">

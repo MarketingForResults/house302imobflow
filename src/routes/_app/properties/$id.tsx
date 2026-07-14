@@ -18,7 +18,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
-import { maskCep, maskCpf, maskPhone } from "@/lib/form-utils";
+import { maskCep, maskCpf } from "@/lib/form-utils";
+import { PhoneInput } from "@/components/phone-input";
 import { toast } from "sonner";
 import { Trash2, Upload, Star, ArrowLeft } from "lucide-react";
 import { Link } from "@tanstack/react-router";
@@ -740,9 +741,9 @@ function PropertyEdit() {
               />
             </Field>
             <Field label="Telefone para contato">
-              <Input
-                value={form.owner_phone ?? ""}
-                onChange={(e) => set("owner_phone", maskPhone(e.target.value))}
+              <PhoneInput
+                value={form.owner_phone}
+                onChange={(value) => set("owner_phone", value)}
               />
             </Field>
             <Field label="E-mail para contato">

@@ -713,8 +713,8 @@ function PortalDashboardArea({ email, roles }: { email?: string; roles: string[]
     pdf.save((document.code || "documento") + ".pdf");
   }
 
-  const activeRoles = data?.accesses?.length
-    ? Array.from(new Set(data.accesses.map((access: any) => access.role)))
+  const activeRoles: string[] = data?.accesses?.length
+    ? Array.from(new Set(data.accesses.map((access: any) => String(access.role))))
     : roles;
   const roleLabel = getPortalRoleLabel(activeRoles);
   const payments = Object.values(data?.paymentsByContract ?? {}).flat();
