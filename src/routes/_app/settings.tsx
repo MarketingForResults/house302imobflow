@@ -28,7 +28,7 @@ import {
   maskCep,
   maskCnpj,
   maskCpf,
-  maskPhone,
+  
 } from "@/lib/form-utils";
 
 export const Route = createFileRoute("/_app/settings")({ component: SettingsPage });
@@ -580,13 +580,14 @@ function SettingsPage() {
               label={isIndividual ? "CRECI do corretor" : "CRECI da imobiliária"}
               type="text"
             />
-            <Field
-              {...fieldProps}
-              k="company_phone"
-              label="Telefone"
-              type="text"
-              mask={maskPhone}
-            />
+            <div>
+              <Label className="text-xs">Telefone</Label>
+              <PhoneInput
+                value={s.company_phone}
+                onChange={(value) => setSetting("company_phone", value)}
+                disabled={!isAdmin || institutionalFieldsDisabled}
+              />
+            </div>
             <Field {...fieldProps} k="company_email" label="E-mail" type="email" />
             <div>
               <Label className="text-xs">CEP</Label>
