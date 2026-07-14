@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Loader2, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { EntityDocuments } from "@/components/entity-documents";
+import { PhoneInput } from "@/components/phone-input";
 import { PortalAccessManager } from "@/components/portal-access-manager";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -36,7 +37,6 @@ import {
   maskCep,
   maskCnh,
   maskCpf,
-  maskPhone,
   maskRg,
 } from "@/lib/form-utils";
 import { CONTRACT_INSURANCE_OPTIONS } from "@/lib/contract-insurance";
