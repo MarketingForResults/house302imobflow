@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PhoneInput } from "@/components/phone-input";
 import type { Database } from "@/integrations/supabase/types";
 import {
   composeAddress,
@@ -15,7 +16,7 @@ import {
   maskCep,
   maskCnh,
   maskCpfCnpj,
-  maskPhone,
+  
   maskRg,
 } from "@/lib/form-utils";
 import { translatedErrorMessage } from "@/lib/error-messages";
@@ -324,11 +325,10 @@ export function PartnerRegistration() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="phone">Telefone / WhatsApp *</Label>
-                        <Input
+                        <PhoneInput
                           id="phone"
-                          autoComplete="tel"
                           value={form.phone}
-                          onChange={(e) => update("phone", maskPhone(e.target.value))}
+                          onChange={(value) => update("phone", value)}
                         />
                       </div>
                     </div>
@@ -400,12 +400,10 @@ export function PartnerRegistration() {
                         <Label htmlFor="property_owner_phone">
                           Telefone / WhatsApp do proprietario
                         </Label>
-                        <Input
+                        <PhoneInput
                           id="property_owner_phone"
                           value={form.property_owner_phone}
-                          onChange={(e) =>
-                            update("property_owner_phone", maskPhone(e.target.value))
-                          }
+                          onChange={(value) => update("property_owner_phone", value)}
                         />
                       </div>
                     </div>
